@@ -15,5 +15,5 @@ all: $(OUTPUT_FILES)
 $(OUTPUT_DIR)/%.log: $(INPUT_DIR)/%.zip
 	@mkdir -p $(dir $@)
 	@echo "Processing $< -> $@"
-	@unzip -p "$<" FS/data/misc/bluetooth/logs/btsnoop_hci.log | tshark -r - -T json | jq -c '.[]' > "$@"
+	@./parse_bugreport.sh $< > $@
 #	@python3 parse_log.py "$<" "$(dir $@)"

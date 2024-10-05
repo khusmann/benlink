@@ -21,3 +21,6 @@ And it will populate the logs directory with parsed logs from the input folder.
 
 tshark 3.x has a [bug](https://gitlab.com/wireshark/wireshark/-/issues/2234) and
 cannot read from stdin (you get "Error: illegal seek"). You need 4.x or later.
+
+It looks like the phone sends "7e:02:00:00:00:00:00:00:00:00:7e" for each sound
+clip received from the radio.
