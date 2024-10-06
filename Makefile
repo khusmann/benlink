@@ -1,6 +1,6 @@
 # Directories
 INPUT_DIR := input
-OUTPUT_DIR := output
+OUTPUT_DIR := logs
 
 # Find all .zip files in the input directory
 ZIP_FILES := $(shell find $(INPUT_DIR) -type f -name '*.zip')
@@ -16,4 +16,3 @@ $(OUTPUT_DIR)/%.log: $(INPUT_DIR)/%.zip
 	@mkdir -p $(dir $@)
 	@echo "Processing $< -> $@"
 	@./parse_bugreport.sh $< > $@
-#	@python3 parse_log.py "$<" "$(dir $@)"
