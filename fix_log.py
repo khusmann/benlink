@@ -1,38 +1,72 @@
 #!/bin/env python3
 
-import typing as t
 import csv
 import sys
 
 
-def to_text(cmd: str):
-    nums = [int(i, 16) for i in cmd.split(":")]
-    return "".join([chr(i) if i >= 32 and i <= 126 else "." for i in nums])
+def to_text(cmd: bytes):
+    return "".join([chr(i) if i >= 32 and i <= 126 else "." for i in cmd])
 
 
-reader = csv.reader(sys.stdin)
+reader = csv.DictReader(sys.stdin)
 
-header = next(reader)
-header.append("text")
+header = reader.fieldnames
 
-rows: t.List[t.List[str]] = []
+if (header is None):
+    print("No header found in input", file=sys.stderr)
+    sys.exit(1)
 
-for row in reader:
-    [id, dir, data] = row
+new_header = [*header, "msg_type", "cmd", "text"]
 
-    if data[:2] != "ff":
+writer = csv.DictWriter(sys.stdout, fieldnames=new_header)
+writer.writeheader()
+
+for msg in reader:
+    data = bytes.fromhex(msg["data"].replace(":", ""))
+
+    if not data[:3] == b"\xff\x01\x00":
         print(
-            f"Expected data in row starting with 'ff', got: {row}", file=sys.stderr
+            f"Expected data[:3] = 'ff:01:00', got: {msg}", file=sys.stderr
         )
+        continue
 
-    data = data[3:]
+    msg_len = data[3]
 
-    cmds = data.split(":ff:")
+    if not data[4:6] == b"\x00\x02":
+        print(
+            f"Expected data[4:6] = '00:02', got: {msg}", file=sys.stderr
+        )
+        continue
 
-    for cmd in cmds:
-        cmd = "ff:" + cmd
-        rows.append([id, dir, cmd, to_text(cmd)])
+    match data[6]:
+        case 0x00:
+            msg_type = "post"
+        case 0x80:
+            msg_type = "reply"
+        case _:
+            print(
+                f"Expected data[6] = '00' or '80', got: {msg}", file=sys.stderr
+            )
+            continue
 
-writer = csv.writer(sys.stdout)
-writer.writerow(header)
-writer.writerows(rows)
+    match data[7]:
+        case 0x09:
+            cmd = "aprs (0x09)"
+        case _:
+            cmd = "unknown (0x{:02x})".format(data[7])
+
+    text = data[8:]
+
+    if len(text) != msg_len:
+        print(
+            f"Expected msg_len = {msg_len}, got: {len(text)}", file=sys.stderr
+        )
+        print(f"msg: {text}", file=sys.stderr)
+        continue
+
+    writer.writerow({
+        **msg,
+        "msg_type": msg_type,
+        "cmd": cmd,
+        "text": to_text(text)
+    })
