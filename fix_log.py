@@ -26,6 +26,8 @@ def message_type_str(msg: HTMessage):
             return "channel_info_request"
         case ChannelInfoResponse():
             return "channel_info_response"
+        case SetDigitalMessageUpdates():
+            return "set_digital_message_updates"
         case UnknownMessage():
             return "unknown"
 
@@ -38,6 +40,8 @@ def message_type_id(msg: HTMessage):
             return (0x00, 0x0D)
         case ChannelInfoResponse():
             return (0x00, 0x0E)
+        case SetDigitalMessageUpdates():
+            return (0x00, 0x06)
         case UnknownMessage():
             return msg.message_type_id
 
@@ -58,6 +62,29 @@ class UnknownMessage(t.NamedTuple):
 
     def __str__(self) -> str:
         return f"UnknownMessage(message_type_id=[{','.join(hex(i) for i in self.message_type_id)}], data={self.data})"
+
+
+class SetDigitalMessageUpdates(t.NamedTuple):
+    enabled: bool
+
+    @staticmethod
+    def from_message_body(body: bytes) -> SetDigitalMessageUpdates:
+        if len(body) != 1:
+            raise BodyDecodeError(
+                "set_digital_message_updates",
+                f"Expected body length 1, got {len(body)}",
+                body
+            )
+        if body[0] not in (0x00, 0x01):
+            raise BodyDecodeError(
+                "set_messaging_reports",
+                f"Expected body[0] to be 0x00 or 0x01, got {body[0]}",
+                body
+            )
+        return SetDigitalMessageUpdates(enabled=body[0] == 0x01)
+
+    def to_message_body(self) -> bytes:
+        return bytes([0x01 if self.enabled else 0x00])
 
 
 class ChannelInfoRequest(t.NamedTuple):
@@ -162,7 +189,13 @@ class RadioReceivedAprsChunk(t.NamedTuple):
         return bytes([decode_status_id, chunk_info]) + self.chunk_data
 
 
-HTMessage = RadioReceivedAprsChunk | UnknownMessage | ChannelInfoRequest | ChannelInfoResponse
+HTMessage = t.Union[
+    RadioReceivedAprsChunk,
+    ChannelInfoRequest,
+    ChannelInfoResponse,
+    SetDigitalMessageUpdates,
+    UnknownMessage,
+]
 
 
 def encode_ht_message(msg: HTMessage) -> bytes:
@@ -248,7 +281,11 @@ def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
                 ChannelInfoResponse.from_message_body(body),
                 buffer
             )
-
+        case (0x00, 0x06):
+            return (
+                SetDigitalMessageUpdates.from_message_body(body),
+                buffer
+            )
         case _:
             return (
                 UnknownMessage.from_message_body(
