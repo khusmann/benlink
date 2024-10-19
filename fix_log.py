@@ -5,13 +5,6 @@ import sys
 import typing as t
 
 
-class RawKISSFrame(t.NamedTuple):
-    data: bytes
-
-    def type_str(self) -> str:
-        return "raw_kiss_frame"
-
-
 class HTMessageUnknown(t.NamedTuple):
     message_type_id: int
     data: bytes
@@ -104,26 +97,6 @@ def encode_ht_message(msg: HTMessage) -> bytes:
     return header + body
 
 
-def decode_kiss_message(buffer: bytes) -> t.Tuple[RawKISSFrame | None, bytes]:
-    if len(buffer) < 2:
-        return (None, buffer)
-
-    if buffer[0] != 0xc0:
-        raise ValueError(
-            f"Expected KISS frame start byte = 0xc0, got {buffer[0]}. Buffer: {buffer}"
-        )
-
-    endidx = buffer.find(0xc0, 1)
-
-    if endidx == -1:
-        return (None, buffer)
-
-    frame = buffer[:endidx+1]
-    buffer = buffer[endidx+1:]
-
-    return (RawKISSFrame(data=frame), buffer)
-
-
 def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
     if len(buffer) < 8:
         return (None, buffer)
@@ -201,31 +174,25 @@ class HTMessageStream:
     def __init__(self):
         self._buffer = b""
 
-    def feed(self, data: bytes) -> t.List[HTMessage | RawKISSFrame]:
+    def feed(self, data: bytes) -> t.List[HTMessage]:
         self._buffer += data
 
-        messages: t.List[HTMessage | RawKISSFrame] = []
+        messages: t.List[HTMessage] = []
 
         while len(self._buffer) >= 8:
-            match self._buffer[0]:
-                case 0xff:
-                    msg, self._buffer = decode_ht_message(self._buffer)
-                case 0xc0:
-                    msg, self._buffer = decode_kiss_message(self._buffer)
-                case _:
-                    print(
-                        f"Expected buffer[0] = 0xff or 0xc0, got {self._buffer}",
-                        file=sys.stderr
-                    )
-                    print(
-                        "Advancing buffer to next 0xff", file=sys.stderr
-                    )
-                    idx = self._buffer.find(b"\xff")
-                    if idx == -1:
-                        self._buffer = b""
-                    else:
-                        self._buffer = self._buffer[idx:]
-                    continue
+            if self._buffer[0] != 0xff:
+                print(
+                    f"Expected buffer[0] = 0xff, got {self._buffer}",
+                    file=sys.stderr
+                )
+                idx = self._buffer.find(b"\xff")
+                if idx == -1:
+                    self._buffer = b""
+                else:
+                    self._buffer = self._buffer[idx:]
+                continue
+
+            msg, self._buffer = decode_ht_message(self._buffer)
 
             if msg is None:
                 break
