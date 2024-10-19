@@ -5,41 +5,120 @@ import sys
 import typing as t
 
 
-class HTMessageUnknown(t.NamedTuple):
-    message_type_id: int
-    data: bytes
-    is_reply: bool
+class HeaderDecodeError(ValueError):
+    def __init__(self, message: str, header: bytes):
+        super().__init__(message)
+        self.header = header
 
-    def type_str(self) -> str:
-        return f"unknown ({self.message_type_id})"
+
+class BodyDecodeError(ValueError):
+    def __init__(self, message_type_str: str, message: str, body: bytes):
+        super().__init__(message)
+        self.type_str = message_type_str
+        self.body = body
+
+
+def message_type_str(msg: HTMessage):
+    match msg:
+        case RadioReceivedAprsChunk():
+            return "radio_received_aprs_chunk"
+        case ChannelInfoRequest():
+            return "channel_info_request"
+        case ChannelInfoResponse():
+            return "channel_info_response"
+        case UnknownMessage():
+            return "unknown"
+
+
+def message_type_id(msg: HTMessage):
+    match msg:
+        case RadioReceivedAprsChunk():
+            return (0x00, 0x09)
+        case ChannelInfoRequest():
+            return (0x00, 0x0D)
+        case ChannelInfoResponse():
+            return (0x00, 0x0E)
+        case UnknownMessage():
+            return msg.message_type_id
+
+
+class UnknownMessage(t.NamedTuple):
+    message_type_id: t.Tuple[int, int]
+    data: bytes
 
     @staticmethod
-    def from_message_body(body: bytes, message_type_id: int, is_reply: bool) -> HTMessageUnknown:
-        return HTMessageUnknown(
+    def from_message_body(body: bytes, message_type_id: t.Tuple[int, int]) -> UnknownMessage:
+        return UnknownMessage(
             message_type_id=message_type_id,
             data=body,
-            is_reply=is_reply,
         )
 
     def to_message_body(self) -> bytes:
         return self.data
 
+    def __str__(self) -> str:
+        return f"UnknownMessage(message_type_id=[{','.join(hex(i) for i in self.message_type_id)}], data={self.data})"
 
-class HTMessageAprsChunk(t.NamedTuple):
+
+class ChannelInfoRequest(t.NamedTuple):
+    channel_id: int
+
+    @staticmethod
+    def from_message_body(body: bytes) -> ChannelInfoRequest:
+        if len(body) != 1:
+            raise BodyDecodeError(
+                "channel_info_request",
+                f"Expected body length 1, got {len(body)}",
+                body
+            )
+        return ChannelInfoRequest(body[0])
+
+    def to_message_body(self) -> bytes:
+        return bytes([self.channel_id])
+
+
+class ChannelInfoResponse(t.NamedTuple):
+    action_id: int
+    channel_id: int
+    channel_data: bytes
+
+    @staticmethod
+    def from_message_body(body: bytes) -> ChannelInfoResponse:
+        if len(body) < 2:
+            raise BodyDecodeError(
+                "channel_info_response",
+                f"Expected least 1 byte, got {len(body)}",
+                body
+            )
+        (
+            action_id,
+            channel_id,
+            *channel_data
+        ) = body
+
+        return ChannelInfoResponse(
+            action_id=action_id,
+            channel_id=channel_id,
+            channel_data=bytes(channel_data),
+        )
+
+    def to_message_body(self) -> bytes:
+        return bytes([0x00, self.channel_id]) + self.channel_data
+
+
+class RadioReceivedAprsChunk(t.NamedTuple):
     chunk_data: bytes
     chunk_num: int
     is_final_chunk: bool
     decode_status: t.Literal["ok", "error"]
-    is_reply: bool
-
-    def type_str(self) -> str:
-        return "aprs_chunk"
 
     @staticmethod
-    def from_message_body(body: bytes, is_reply: bool) -> HTMessageAprsChunk:
+    def from_message_body(body: bytes) -> RadioReceivedAprsChunk:
         if len(body) < 2:
-            raise ValueError(
-                f"Expected aprs chunk least 2 bytes, got {len(body)}. Frame body: {body}"
+            raise BodyDecodeError(
+                "radio_received_aprs_chunk",
+                f"Expected least 2 bytes, got {len(body)}",
+                body
             )
 
         aprs_header = body[:2]
@@ -47,7 +126,7 @@ class HTMessageAprsChunk(t.NamedTuple):
 
         (
             decode_status_id,
-            part_info,
+            chunk_info,
         ) = aprs_header
 
         match decode_status_id:
@@ -56,28 +135,34 @@ class HTMessageAprsChunk(t.NamedTuple):
             case 0x02:
                 decode_status = "ok"
             case _:
-                raise ValueError(
-                    f"Unknown decode status: {decode_status_id}. Frame body: {body}"
+                raise BodyDecodeError(
+                    "radio_received_aprs_chunk",
+                    f"Unknown decode status: {decode_status_id}",
+                    body
                 )
 
-        is_final_part = part_info & 0x80 == 0x80
+        is_final_part = chunk_info & 0x80 == 0x80
 
-        chunk_num = part_info & 0x7f
+        chunk_num = chunk_info & 0x7f
 
-        return HTMessageAprsChunk(
+        return RadioReceivedAprsChunk(
             chunk_data=aprs_body,
             chunk_num=chunk_num,
             decode_status=decode_status,
             is_final_chunk=is_final_part,
-            is_reply=is_reply,
         )
 
     def to_message_body(self) -> bytes:
-        part_info = self.chunk_num | (0x80 if self.is_final_chunk else 0x00)
-        return bytes([0x02, part_info]) + self.chunk_data
+        chunk_info = self.chunk_num | (0x80 if self.is_final_chunk else 0x00)
+        match self.decode_status:
+            case "error":
+                decode_status_id = 0x01
+            case "ok":
+                decode_status_id = 0x02
+        return bytes([decode_status_id, chunk_info]) + self.chunk_data
 
 
-HTMessage = HTMessageAprsChunk | HTMessageUnknown
+HTMessage = RadioReceivedAprsChunk | UnknownMessage | ChannelInfoRequest | ChannelInfoResponse
 
 
 def encode_ht_message(msg: HTMessage) -> bytes:
@@ -90,8 +175,7 @@ def encode_ht_message(msg: HTMessage) -> bytes:
         len(body),  # message_length
         0x00,  # reserved_2
         0x02,  # constant_2
-        0x80 if msg.is_reply else 0x00,  # reply_flag
-        0x09,  # message_type
+        *message_type_id(msg),  # message_type_id
     ])
 
     return header + body
@@ -111,41 +195,36 @@ def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
         body_length,
         reserved_2,
         constant_2,
-        reply_flag,
-        message_type_id,
+        message_type_id_1,
+        message_type_id_2,
     ) = header
 
+    message_type_id = (message_type_id_1, message_type_id_2)
+
     if start_flag != 0xff:
-        raise ValueError(
-            f"Expected header byte[0](start_flag) = 0xff, got {start_flag}. Buffer: {buffer}"
+        raise HeaderDecodeError(
+            f"Expected byte[0](start_flag) = 0xff, got {start_flag}", buffer
         )
 
     if constant_1 != 0x01:
-        raise ValueError(
-            f"Expected header byte[1](constant_1) = 0x01, got {constant_1}. Buffer: {buffer}"
+        raise HeaderDecodeError(
+            f"Expected byte[1](constant_1) = 0x01, got {constant_1}", buffer
         )
 
     if reserved_1 != 0x00:
-        raise ValueError(
-            f"Expected header byte[2](reserved_1) = 0x00, got {reserved_1}. Buffer: {buffer}"
+        raise HeaderDecodeError(
+            f"Expected byte[2](reserved_1) = 0x00, got {reserved_1}", buffer
         )
 
     if reserved_2 != 0x00:
-        raise ValueError(
-            f"Expected header byte[4](reserved_2) = 0x00, got {reserved_2}. Buffer: {buffer}"
+        raise HeaderDecodeError(
+            f"Expected byte[4](reserved_2) = 0x00, got {reserved_2}", buffer
         )
 
     if constant_2 != 0x02:
-        raise ValueError(
-            f"Expected header byte[5](constant_2) = 0x02, got {constant_2}. Buffer: {buffer}"
+        raise HeaderDecodeError(
+            f"Expected byte[5](constant_2) = 0x02, got {constant_2}", buffer
         )
-
-    if not (reply_flag == 0x00 or reply_flag == 0x80):
-        raise ValueError(
-            f"Expected header byte[6](reply_flag) = 0x00 or 0x80, got {reply_flag}. Buffer: {buffer}"
-        )
-
-    is_reply = reply_flag == 0x80
 
     if body_length > len(buffer):
         return (None, buffer)
@@ -154,15 +233,26 @@ def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
     buffer = buffer[body_length:]
 
     match message_type_id:
-        case 0x09:
+        case (0x00, 0x09):
             return (
-                HTMessageAprsChunk.from_message_body(body, is_reply),
+                RadioReceivedAprsChunk.from_message_body(body),
                 buffer
             )
+        case (0x00, 0x0D):
+            return (
+                ChannelInfoRequest.from_message_body(body),
+                buffer
+            )
+        case (0x80, 0x0D):
+            return (
+                ChannelInfoResponse.from_message_body(body),
+                buffer
+            )
+
         case _:
             return (
-                HTMessageUnknown.from_message_body(
-                    body, message_type_id, is_reply
+                UnknownMessage.from_message_body(
+                    body, message_type_id
                 ),
                 buffer
             )
@@ -236,6 +326,6 @@ for frame in reader:
         writer.writerow({
             "id": frame["id"],
             "dir": frame["dir"],
-            "msg_type": message.type_str(),
+            "msg_type": message_type_str(message),
             "msg": str(message)
         })
