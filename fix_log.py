@@ -16,7 +16,9 @@ if (header is None):
     print("No header found in input", file=sys.stderr)
     sys.exit(1)
 
-new_header = [*header, "msg_type", "cmd", "text"]
+header = [h for h in header if h != "data"]
+
+new_header = [*header, "msg_type", "cmd", "text", "data"]
 
 writer = csv.DictWriter(sys.stdout, fieldnames=new_header)
 writer.writeheader()
