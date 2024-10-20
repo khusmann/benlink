@@ -38,6 +38,36 @@ class UnknownMessage:
 
 
 @dataclass(frozen=True)
+class GetSignalingSettingsRequest:
+    data: bytes
+
+    message_type_str: t.ClassVar[t.Final] = "get_signaling_settings_request"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x21)
+
+    @staticmethod
+    def from_message_body(body: bytes) -> GetSignalingSettingsRequest:
+        return GetSignalingSettingsRequest(data=body)
+
+    def to_message_body(self) -> bytes:
+        return self.data
+
+
+@dataclass(frozen=True)
+class GetSignalingSettingsResponse:
+    data: bytes
+
+    message_type_str: t.ClassVar[t.Final] = "get_signaling_settings_response"
+    message_type_id: t.ClassVar[t.Final] = (0x80, 0x21)
+
+    @staticmethod
+    def from_message_body(body: bytes) -> GetSignalingSettingsResponse:
+        return GetSignalingSettingsResponse(data=body)
+
+    def to_message_body(self) -> bytes:
+        return self.data
+
+
+@dataclass(frozen=True)
 class SetGPSPositionRequest:
     data: bytes
 
@@ -486,6 +516,8 @@ KnownHTMessage = t.Union[
     SetVolumeResponse,
     GetChannelGroupRequest,
     GetChannelGroupResponse,
+    GetSignalingSettingsRequest,
+    GetSignalingSettingsResponse,
 ]
 
 HTMessage = KnownHTMessage | UnknownMessage
