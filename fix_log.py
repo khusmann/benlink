@@ -40,6 +40,14 @@ def message_type_str(msg: HTMessage):
             return "get_radio_settings_response"
         case SetRadioSettingsResponse():
             return "set_radio_settings_response"
+        case GetActiveChannelRequest():
+            return "get_active_channel_request"
+        case GetActiveChannelResponse():
+            return "get_active_channel_response"
+        case SetGPSPositionRequest():
+            return "set_gps_position_request"
+        case SetGPSPositionResponse():
+            return "set_gps_position_response"
         case UnknownMessage():
             return "unknown"
 
@@ -66,6 +74,14 @@ def message_type_id(msg: HTMessage):
             return (0x00, 0x0A)
         case GetRadioSettingsResponse():
             return (0x80, 0x0A)
+        case GetActiveChannelRequest():
+            return (0x00, 0x16)
+        case GetActiveChannelResponse():
+            return (0x80, 0x16)
+        case SetGPSPositionRequest():
+            return (0x00, 0x20)
+        case SetGPSPositionResponse():
+            return (0x80, 0x20)
         case UnknownMessage():
             return msg.message_type_id
 
@@ -86,6 +102,87 @@ class UnknownMessage(t.NamedTuple):
 
     def __str__(self) -> str:
         return f"UnknownMessage(message_type_id=[{','.join(hex(i) for i in self.message_type_id)}], data={self.data})"
+
+
+class SetGPSPositionRequest(t.NamedTuple):
+    data: bytes
+
+    @staticmethod
+    def from_message_body(body: bytes) -> SetGPSPositionRequest:
+        return SetGPSPositionRequest(data=body)
+
+    def to_message_body(self) -> bytes:
+        return self.data
+
+
+class SetGPSPositionResponse(t.NamedTuple):
+
+    @staticmethod
+    def from_message_body(body: bytes) -> SetGPSPositionResponse:
+        if len(body) != 1:
+            raise BodyDecodeError(
+                "set_gps_position_response",
+                f"Expected body length 1, got {len(body)}",
+                body
+            )
+
+        if body[0] != 0x00:
+            raise BodyDecodeError(
+                "set_gps_position_response",
+                f"Expected body[0] = 0x00, got {body[0]}",
+                body
+            )
+
+        return SetGPSPositionResponse()
+
+    def to_message_body(self) -> bytes:
+        return bytes([0x00])
+
+
+class GetActiveChannelRequest(t.NamedTuple):
+    @staticmethod
+    def from_message_body(body: bytes) -> GetActiveChannelRequest:
+        if len(body) != 0:
+            raise BodyDecodeError(
+                "get_active_channel_request",
+                f"Expected body length 0, got {len(body)}",
+                body
+            )
+        return GetActiveChannelRequest()
+
+    def to_message_body(self) -> bytes:
+        return b""
+
+
+class GetActiveChannelResponse(t.NamedTuple):
+    channel_id: int
+
+    @staticmethod
+    def from_message_body(body: bytes) -> GetActiveChannelResponse:
+        if len(body) != 3:
+            raise BodyDecodeError(
+                "get_active_channel_response",
+                f"Expected body length 3, got {len(body)}",
+                body
+            )
+
+        (
+            reserved_1,
+            reserved_2,
+            channel_id,
+        ) = body
+
+        if (reserved_1, reserved_2) != (0x00, 0x00):
+            raise BodyDecodeError(
+                "get_active_channel_response",
+                f"Expected reserved bytes to be 0x00, got {reserved_1}, {reserved_2}",
+                body
+            )
+
+        return GetActiveChannelResponse(channel_id=channel_id)
+
+    def to_message_body(self) -> bytes:
+        return bytes([0x00, 0x00, self.channel_id])
 
 
 class GetRadioSettingsRequest(t.NamedTuple):
@@ -329,6 +426,10 @@ HTMessage = t.Union[
     SetRadioSettingsResponse,
     GetRadioSettingsRequest,
     GetRadioSettingsResponse,
+    GetActiveChannelRequest,
+    GetActiveChannelResponse,
+    SetGPSPositionRequest,
+    SetGPSPositionResponse,
     SetVolumeRequest,
     SetVolumeResponse,
     UnknownMessage,
@@ -451,6 +552,26 @@ def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
         case (0x80, 0x0A):
             return (
                 GetRadioSettingsResponse.from_message_body(body),
+                buffer
+            )
+        case (0x00, 0x16):
+            return (
+                GetActiveChannelRequest.from_message_body(body),
+                buffer
+            )
+        case (0x80, 0x16):
+            return (
+                GetActiveChannelResponse.from_message_body(body),
+                buffer
+            )
+        case (0x00, 0x20):
+            return (
+                SetGPSPositionRequest.from_message_body(body),
+                buffer
+            )
+        case (0x80, 0x20):
+            return (
+                SetGPSPositionResponse.from_message_body(body),
                 buffer
             )
         case _:
