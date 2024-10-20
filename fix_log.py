@@ -28,6 +28,10 @@ def message_type_str(msg: HTMessage):
             return "channel_info_response"
         case SetDigitalMessageUpdates():
             return "set_digital_message_updates"
+        case SetVolumeRequest():
+            return "set_volume_request"
+        case SetVolumeResponse():
+            return "set_volume_response"
         case UnknownMessage():
             return "unknown"
 
@@ -42,6 +46,10 @@ def message_type_id(msg: HTMessage):
             return (0x00, 0x0E)
         case SetDigitalMessageUpdates():
             return (0x00, 0x06)
+        case SetVolumeRequest():
+            return (0x00, 0x17)
+        case SetVolumeResponse():
+            return (0x80, 0x17)
         case UnknownMessage():
             return msg.message_type_id
 
@@ -62,6 +70,43 @@ class UnknownMessage(t.NamedTuple):
 
     def __str__(self) -> str:
         return f"UnknownMessage(message_type_id=[{','.join(hex(i) for i in self.message_type_id)}], data={self.data})"
+
+
+class SetVolumeRequest(t.NamedTuple):
+    volume: int
+
+    @staticmethod
+    def from_message_body(body: bytes) -> SetVolumeRequest:
+        if len(body) != 1:
+            raise BodyDecodeError(
+                "set_volume_request",
+                f"Expected body length 1, got {len(body)}",
+                body
+            )
+        return SetVolumeRequest(body[0])
+
+    def to_message_body(self) -> bytes:
+        return bytes([self.volume])
+
+
+class SetVolumeResponse(t.NamedTuple):
+    volume: int
+
+    @staticmethod
+    def from_message_body(body: bytes) -> SetVolumeResponse:
+        if len(body) < 1:
+            raise BodyDecodeError(
+                "set_volume_response",
+                f"Expected body length 1, got {len(body)}",
+                body
+            )
+
+        return SetVolumeResponse(
+            volume=body[0],
+        )
+
+    def to_message_body(self) -> bytes:
+        return bytes([self.volume])
 
 
 class SetDigitalMessageUpdates(t.NamedTuple):
@@ -194,6 +239,8 @@ HTMessage = t.Union[
     ChannelInfoRequest,
     ChannelInfoResponse,
     SetDigitalMessageUpdates,
+    SetVolumeRequest,
+    SetVolumeResponse,
     UnknownMessage,
 ]
 
@@ -284,6 +331,16 @@ def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
         case (0x00, 0x06):
             return (
                 SetDigitalMessageUpdates.from_message_body(body),
+                buffer
+            )
+        case (0x00, 0x17):
+            return (
+                SetVolumeRequest.from_message_body(body),
+                buffer
+            )
+        case (0x80, 0x17):
+            return (
+                SetVolumeResponse.from_message_body(body),
                 buffer
             )
         case _:
