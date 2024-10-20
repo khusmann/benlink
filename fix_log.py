@@ -32,6 +32,14 @@ def message_type_str(msg: HTMessage):
             return "set_volume_request"
         case SetVolumeResponse():
             return "set_volume_response"
+        case SetRadioSettingsRequest():
+            return "set_radio_settings_request"
+        case GetRadioSettingsRequest():
+            return "get_radio_settings_request"
+        case GetRadioSettingsResponse():
+            return "get_radio_settings_response"
+        case SetRadioSettingsResponse():
+            return "set_radio_settings_response"
         case UnknownMessage():
             return "unknown"
 
@@ -50,6 +58,14 @@ def message_type_id(msg: HTMessage):
             return (0x00, 0x17)
         case SetVolumeResponse():
             return (0x80, 0x17)
+        case SetRadioSettingsRequest():
+            return (0x00, 0x0B)
+        case SetRadioSettingsResponse():
+            return (0x80, 0x0B)
+        case GetRadioSettingsRequest():
+            return (0x00, 0x0A)
+        case GetRadioSettingsResponse():
+            return (0x80, 0x0A)
         case UnknownMessage():
             return msg.message_type_id
 
@@ -70,6 +86,76 @@ class UnknownMessage(t.NamedTuple):
 
     def __str__(self) -> str:
         return f"UnknownMessage(message_type_id=[{','.join(hex(i) for i in self.message_type_id)}], data={self.data})"
+
+
+class GetRadioSettingsRequest(t.NamedTuple):
+    @staticmethod
+    def from_message_body(body: bytes) -> GetRadioSettingsRequest:
+        if len(body) != 0:
+            raise BodyDecodeError(
+                "get_radio_settings_request",
+                f"Expected body length 0, got {len(body)}",
+                body
+            )
+        return GetRadioSettingsRequest()
+
+    def to_message_body(self) -> bytes:
+        return b""
+
+
+class GetRadioSettingsResponse(t.NamedTuple):
+    settings: bytes
+    squelch: int
+
+    @staticmethod
+    def from_message_body(body: bytes) -> GetRadioSettingsResponse:
+        if len(body) < 20:
+            raise BodyDecodeError(
+                "get_radio_settings_response",
+                f"Expected body length 20, got {len(body)}",
+                body
+            )
+        squelch = body[1]
+        return GetRadioSettingsResponse(settings=body, squelch=squelch)
+
+    def to_message_body(self) -> bytes:
+        return self.settings
+
+
+class SetRadioSettingsRequest(t.NamedTuple):
+    settings: bytes
+    squelch: int
+
+    @staticmethod
+    def from_message_body(body: bytes) -> SetRadioSettingsRequest:
+        if len(body) < 20:
+            raise BodyDecodeError(
+                "set_radio_settings_request",
+                f"Expected body length 20, got {len(body)}",
+                body
+            )
+        squelch = body[1]
+        return SetRadioSettingsRequest(settings=body, squelch=squelch)
+
+    def to_message_body(self) -> bytes:
+        return self.settings
+
+
+class SetRadioSettingsResponse(t.NamedTuple):
+    status_id: int
+
+    @staticmethod
+    def from_message_body(body: bytes) -> SetRadioSettingsResponse:
+        if len(body) != 1:
+            raise BodyDecodeError(
+                "set_radio_settings_response",
+                f"Expected body length 1, got {len(body)}",
+                body
+            )
+        return SetRadioSettingsResponse(body[0])
+
+    def to_message_body(self) -> bytes:
+        return bytes([self.status_id])
 
 
 class SetVolumeRequest(t.NamedTuple):
@@ -239,6 +325,10 @@ HTMessage = t.Union[
     ChannelInfoRequest,
     ChannelInfoResponse,
     SetDigitalMessageUpdates,
+    SetRadioSettingsRequest,
+    SetRadioSettingsResponse,
+    GetRadioSettingsRequest,
+    GetRadioSettingsResponse,
     SetVolumeRequest,
     SetVolumeResponse,
     UnknownMessage,
@@ -341,6 +431,26 @@ def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
         case (0x80, 0x17):
             return (
                 SetVolumeResponse.from_message_body(body),
+                buffer
+            )
+        case (0x00, 0x0B):
+            return (
+                SetRadioSettingsRequest.from_message_body(body),
+                buffer
+            )
+        case (0x80, 0x0B):
+            return (
+                SetRadioSettingsResponse.from_message_body(body),
+                buffer
+            )
+        case (0x00, 0x0A):
+            return (
+                GetRadioSettingsRequest.from_message_body(body),
+                buffer
+            )
+        case (0x80, 0x0A):
+            return (
+                GetRadioSettingsResponse.from_message_body(body),
                 buffer
             )
         case _:
