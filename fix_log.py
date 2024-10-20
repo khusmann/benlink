@@ -48,6 +48,10 @@ def message_type_str(msg: HTMessage):
             return "set_gps_position_request"
         case SetGPSPositionResponse():
             return "set_gps_position_response"
+        case GetChannelGroupRequest():
+            return "get_channel_group_request"
+        case GetChannelGroupResponse():
+            return "get_channel_group_response"
         case UnknownMessage():
             return "unknown"
 
@@ -82,6 +86,10 @@ def message_type_id(msg: HTMessage):
             return (0x00, 0x20)
         case SetGPSPositionResponse():
             return (0x80, 0x20)
+        case GetChannelGroupRequest():
+            return (0x00, 0x49)
+        case GetChannelGroupResponse():
+            return (0x80, 0x49)
         case UnknownMessage():
             return msg.message_type_id
 
@@ -113,6 +121,59 @@ class SetGPSPositionRequest(t.NamedTuple):
 
     def to_message_body(self) -> bytes:
         return self.data
+
+
+class GetChannelGroupRequest(t.NamedTuple):
+    group_id: int
+
+    @staticmethod
+    def from_message_body(body: bytes) -> GetChannelGroupRequest:
+        if len(body) != 1:
+            raise BodyDecodeError(
+                "get_channel_group_request",
+                f"Expected body length 1, got {len(body)}",
+                body
+            )
+        return GetChannelGroupRequest(body[0])
+
+    def to_message_body(self) -> bytes:
+        return bytes([self.group_id])
+
+
+class GetChannelGroupResponse(t.NamedTuple):
+    group_id: int
+    group_name: str
+
+    @staticmethod
+    def from_message_body(body: bytes) -> GetChannelGroupResponse:
+        if len(body) < 2:
+            raise BodyDecodeError(
+                "get_channel_group_response",
+                f"Expected body length 2, got {len(body)}",
+                body
+            )
+        (
+            reserved_1,
+            group_id,
+            *group_name_bytes
+        ) = body
+
+        if reserved_1 != 0x00:
+            raise BodyDecodeError(
+                "get_channel_group_response",
+                f"Expected reserved_1 = 0x00, got {reserved_1}",
+                body
+            )
+
+        group_name = bytes(group_name_bytes).decode("utf-8")
+
+        return GetChannelGroupResponse(
+            group_id=group_id,
+            group_name=group_name,
+        )
+
+    def to_message_body(self) -> bytes:
+        return bytes([0x00, self.group_id]) + self.group_name.encode("utf-8")
 
 
 class SetGPSPositionResponse(t.NamedTuple):
@@ -432,6 +493,8 @@ HTMessage = t.Union[
     SetGPSPositionResponse,
     SetVolumeRequest,
     SetVolumeResponse,
+    GetChannelGroupRequest,
+    GetChannelGroupResponse,
     UnknownMessage,
 ]
 
@@ -572,6 +635,16 @@ def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
         case (0x80, 0x20):
             return (
                 SetGPSPositionResponse.from_message_body(body),
+                buffer
+            )
+        case (0x00, 0x49):
+            return (
+                GetChannelGroupRequest.from_message_body(body),
+                buffer
+            )
+        case (0x80, 0x49):
+            return (
+                GetChannelGroupResponse.from_message_body(body),
                 buffer
             )
         case _:
