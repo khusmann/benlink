@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import sys
 import typing as t
+from dataclasses import dataclass
 
 
 class HeaderDecodeError(ValueError):
@@ -18,102 +19,30 @@ class BodyDecodeError(ValueError):
         self.body = body
 
 
-def message_type_str(msg: HTMessage):
-    match msg:
-        case RadioReceivedAprsChunk():
-            return "radio_received_aprs_chunk"
-        case ChannelInfoRequest():
-            return "channel_info_request"
-        case ChannelInfoResponse():
-            return "channel_info_response"
-        case SetDigitalMessageUpdates():
-            return "set_digital_message_updates"
-        case SetVolumeRequest():
-            return "set_volume_request"
-        case SetVolumeResponse():
-            return "set_volume_response"
-        case SetRadioSettingsRequest():
-            return "set_radio_settings_request"
-        case GetRadioSettingsRequest():
-            return "get_radio_settings_request"
-        case GetRadioSettingsResponse():
-            return "get_radio_settings_response"
-        case SetRadioSettingsResponse():
-            return "set_radio_settings_response"
-        case GetActiveChannelRequest():
-            return "get_active_channel_request"
-        case GetActiveChannelResponse():
-            return "get_active_channel_response"
-        case SetGPSPositionRequest():
-            return "set_gps_position_request"
-        case SetGPSPositionResponse():
-            return "set_gps_position_response"
-        case GetChannelGroupRequest():
-            return "get_channel_group_request"
-        case GetChannelGroupResponse():
-            return "get_channel_group_response"
-        case UnknownMessage():
-            return "unknown"
-
-
-def message_type_id(msg: HTMessage):
-    match msg:
-        case RadioReceivedAprsChunk():
-            return (0x00, 0x09)
-        case ChannelInfoRequest():
-            return (0x00, 0x0D)
-        case ChannelInfoResponse():
-            return (0x00, 0x0E)
-        case SetDigitalMessageUpdates():
-            return (0x00, 0x06)
-        case SetVolumeRequest():
-            return (0x00, 0x17)
-        case SetVolumeResponse():
-            return (0x80, 0x17)
-        case SetRadioSettingsRequest():
-            return (0x00, 0x0B)
-        case SetRadioSettingsResponse():
-            return (0x80, 0x0B)
-        case GetRadioSettingsRequest():
-            return (0x00, 0x0A)
-        case GetRadioSettingsResponse():
-            return (0x80, 0x0A)
-        case GetActiveChannelRequest():
-            return (0x00, 0x16)
-        case GetActiveChannelResponse():
-            return (0x80, 0x16)
-        case SetGPSPositionRequest():
-            return (0x00, 0x20)
-        case SetGPSPositionResponse():
-            return (0x80, 0x20)
-        case GetChannelGroupRequest():
-            return (0x00, 0x49)
-        case GetChannelGroupResponse():
-            return (0x80, 0x49)
-        case UnknownMessage():
-            return msg.message_type_id
-
-
-class UnknownMessage(t.NamedTuple):
-    message_type_id: t.Tuple[int, int]
+@dataclass(frozen=True)
+class UnknownMessage:
     data: bytes
+    message_type_id: t.Tuple[int, int]
+
+    message_type_str: t.ClassVar[t.Final] = "unknown"
 
     @staticmethod
     def from_message_body(body: bytes, message_type_id: t.Tuple[int, int]) -> UnknownMessage:
         return UnknownMessage(
-            message_type_id=message_type_id,
             data=body,
+            message_type_id=message_type_id,
         )
 
     def to_message_body(self) -> bytes:
         return self.data
 
-    def __str__(self) -> str:
-        return f"UnknownMessage(message_type_id=[{','.join(hex(i) for i in self.message_type_id)}], data={self.data})"
 
-
-class SetGPSPositionRequest(t.NamedTuple):
+@dataclass(frozen=True)
+class SetGPSPositionRequest:
     data: bytes
+
+    message_type_str: t.ClassVar[t.Final] = "set_gps_position_request"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x20)
 
     @staticmethod
     def from_message_body(body: bytes) -> SetGPSPositionRequest:
@@ -123,8 +52,40 @@ class SetGPSPositionRequest(t.NamedTuple):
         return self.data
 
 
-class GetChannelGroupRequest(t.NamedTuple):
+@dataclass(frozen=True)
+class SetGPSPositionResponse:
+
+    message_type_str: t.ClassVar[t.Final] = "set_gps_position_response"
+    message_type_id: t.ClassVar[t.Final] = (0x80, 0x20)
+
+    @staticmethod
+    def from_message_body(body: bytes) -> SetGPSPositionResponse:
+        if len(body) != 1:
+            raise BodyDecodeError(
+                "set_gps_position_response",
+                f"Expected body length 1, got {len(body)}",
+                body
+            )
+
+        if body[0] != 0x00:
+            raise BodyDecodeError(
+                "set_gps_position_response",
+                f"Expected body[0] = 0x00, got {body[0]}",
+                body
+            )
+
+        return SetGPSPositionResponse()
+
+    def to_message_body(self) -> bytes:
+        return bytes([0x00])
+
+
+@dataclass(frozen=True)
+class GetChannelGroupRequest:
     group_id: int
+
+    message_type_str: t.ClassVar[t.Final] = "get_channel_group_request"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x49)
 
     @staticmethod
     def from_message_body(body: bytes) -> GetChannelGroupRequest:
@@ -134,15 +95,19 @@ class GetChannelGroupRequest(t.NamedTuple):
                 f"Expected body length 1, got {len(body)}",
                 body
             )
-        return GetChannelGroupRequest(body[0])
+        return GetChannelGroupRequest(group_id=body[0])
 
     def to_message_body(self) -> bytes:
         return bytes([self.group_id])
 
 
-class GetChannelGroupResponse(t.NamedTuple):
+@dataclass(frozen=True)
+class GetChannelGroupResponse:
     group_id: int
     group_name: str
+
+    message_type_str: t.ClassVar[t.Final] = "get_channel_group_response"
+    message_type_id: t.ClassVar[t.Final] = (0x80, 0x49)
 
     @staticmethod
     def from_message_body(body: bytes) -> GetChannelGroupResponse:
@@ -176,31 +141,12 @@ class GetChannelGroupResponse(t.NamedTuple):
         return bytes([0x00, self.group_id]) + self.group_name.encode("utf-8")
 
 
-class SetGPSPositionResponse(t.NamedTuple):
+@dataclass(frozen=True)
+class GetActiveChannelRequest:
 
-    @staticmethod
-    def from_message_body(body: bytes) -> SetGPSPositionResponse:
-        if len(body) != 1:
-            raise BodyDecodeError(
-                "set_gps_position_response",
-                f"Expected body length 1, got {len(body)}",
-                body
-            )
+    message_type_str: t.ClassVar[t.Final] = "get_active_channel_request"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x16)
 
-        if body[0] != 0x00:
-            raise BodyDecodeError(
-                "set_gps_position_response",
-                f"Expected body[0] = 0x00, got {body[0]}",
-                body
-            )
-
-        return SetGPSPositionResponse()
-
-    def to_message_body(self) -> bytes:
-        return bytes([0x00])
-
-
-class GetActiveChannelRequest(t.NamedTuple):
     @staticmethod
     def from_message_body(body: bytes) -> GetActiveChannelRequest:
         if len(body) != 0:
@@ -215,8 +161,12 @@ class GetActiveChannelRequest(t.NamedTuple):
         return b""
 
 
-class GetActiveChannelResponse(t.NamedTuple):
+@dataclass(frozen=True)
+class GetActiveChannelResponse:
     channel_id: int
+
+    message_type_str: t.ClassVar[t.Final] = "get_active_channel_response"
+    message_type_id: t.ClassVar[t.Final] = (0x80, 0x16)
 
     @staticmethod
     def from_message_body(body: bytes) -> GetActiveChannelResponse:
@@ -246,7 +196,12 @@ class GetActiveChannelResponse(t.NamedTuple):
         return bytes([0x00, 0x00, self.channel_id])
 
 
-class GetRadioSettingsRequest(t.NamedTuple):
+@dataclass(frozen=True)
+class GetRadioSettingsRequest:
+
+    message_type_str: t.ClassVar[t.Final] = "get_radio_settings_request"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x0A)
+
     @staticmethod
     def from_message_body(body: bytes) -> GetRadioSettingsRequest:
         if len(body) != 0:
@@ -261,9 +216,13 @@ class GetRadioSettingsRequest(t.NamedTuple):
         return b""
 
 
-class GetRadioSettingsResponse(t.NamedTuple):
+@dataclass(frozen=True)
+class GetRadioSettingsResponse:
     settings: bytes
     squelch: int
+
+    message_type_str: t.ClassVar[t.Final] = "get_radio_settings_response"
+    message_type_id: t.ClassVar[t.Final] = (0x80, 0x0A)
 
     @staticmethod
     def from_message_body(body: bytes) -> GetRadioSettingsResponse:
@@ -280,9 +239,13 @@ class GetRadioSettingsResponse(t.NamedTuple):
         return self.settings
 
 
-class SetRadioSettingsRequest(t.NamedTuple):
+@dataclass(frozen=True)
+class SetRadioSettingsRequest:
     settings: bytes
     squelch: int
+
+    message_type_str: t.ClassVar[t.Final] = "set_radio_settings_request"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x0B)
 
     @staticmethod
     def from_message_body(body: bytes) -> SetRadioSettingsRequest:
@@ -299,8 +262,12 @@ class SetRadioSettingsRequest(t.NamedTuple):
         return self.settings
 
 
-class SetRadioSettingsResponse(t.NamedTuple):
+@dataclass(frozen=True)
+class SetRadioSettingsResponse:
     status_id: int
+
+    message_type_str: t.ClassVar[t.Final] = "set_radio_settings_response"
+    message_type_id: t.ClassVar[t.Final] = (0x80, 0x0B)
 
     @staticmethod
     def from_message_body(body: bytes) -> SetRadioSettingsResponse:
@@ -316,8 +283,12 @@ class SetRadioSettingsResponse(t.NamedTuple):
         return bytes([self.status_id])
 
 
-class SetVolumeRequest(t.NamedTuple):
+@dataclass(frozen=True)
+class SetVolumeRequest:
     volume: int
+
+    message_type_str: t.ClassVar[t.Final] = "set_volume_request"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x17)
 
     @staticmethod
     def from_message_body(body: bytes) -> SetVolumeRequest:
@@ -333,8 +304,12 @@ class SetVolumeRequest(t.NamedTuple):
         return bytes([self.volume])
 
 
-class SetVolumeResponse(t.NamedTuple):
+@dataclass(frozen=True)
+class SetVolumeResponse:
     volume: int
+
+    message_type_str: t.ClassVar[t.Final] = "set_volume_response"
+    message_type_id: t.ClassVar[t.Final] = (0x80, 0x17)
 
     @staticmethod
     def from_message_body(body: bytes) -> SetVolumeResponse:
@@ -353,8 +328,12 @@ class SetVolumeResponse(t.NamedTuple):
         return bytes([self.volume])
 
 
-class SetDigitalMessageUpdates(t.NamedTuple):
+@dataclass(frozen=True)
+class SetDigitalMessageUpdates:
     enabled: bool
+
+    message_type_str: t.ClassVar[t.Final] = "set_digital_message_updates"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x06)
 
     @staticmethod
     def from_message_body(body: bytes) -> SetDigitalMessageUpdates:
@@ -376,8 +355,12 @@ class SetDigitalMessageUpdates(t.NamedTuple):
         return bytes([0x01 if self.enabled else 0x00])
 
 
-class ChannelInfoRequest(t.NamedTuple):
+@dataclass(frozen=True)
+class ChannelInfoRequest:
     channel_id: int
+
+    message_type_str: t.ClassVar[t.Final] = "channel_info_request"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x0D)
 
     @staticmethod
     def from_message_body(body: bytes) -> ChannelInfoRequest:
@@ -387,16 +370,20 @@ class ChannelInfoRequest(t.NamedTuple):
                 f"Expected body length 1, got {len(body)}",
                 body
             )
-        return ChannelInfoRequest(body[0])
+        return ChannelInfoRequest(channel_id=body[0])
 
     def to_message_body(self) -> bytes:
         return bytes([self.channel_id])
 
 
-class ChannelInfoResponse(t.NamedTuple):
+@dataclass(frozen=True)
+class ChannelInfoResponse:
     action_id: int
     channel_id: int
     channel_data: bytes
+
+    message_type_str: t.ClassVar[t.Final] = "channel_info_response"
+    message_type_id: t.ClassVar[t.Final] = (0x80, 0x0D)
 
     @staticmethod
     def from_message_body(body: bytes) -> ChannelInfoResponse:
@@ -422,11 +409,15 @@ class ChannelInfoResponse(t.NamedTuple):
         return bytes([0x00, self.channel_id]) + self.channel_data
 
 
-class RadioReceivedAprsChunk(t.NamedTuple):
+@dataclass(frozen=True)
+class RadioReceivedAprsChunk:
     chunk_data: bytes
     chunk_num: int
     is_final_chunk: bool
     decode_status: t.Literal["ok", "error"]
+
+    message_type_str: t.ClassVar[t.Final] = "radio_received_aprs_chunk"
+    message_type_id: t.ClassVar[t.Final] = (0x00, 0x09)
 
     @staticmethod
     def from_message_body(body: bytes) -> RadioReceivedAprsChunk:
@@ -478,7 +469,7 @@ class RadioReceivedAprsChunk(t.NamedTuple):
         return bytes([decode_status_id, chunk_info]) + self.chunk_data
 
 
-HTMessage = t.Union[
+KnownHTMessage = t.Union[
     RadioReceivedAprsChunk,
     ChannelInfoRequest,
     ChannelInfoResponse,
@@ -495,8 +486,13 @@ HTMessage = t.Union[
     SetVolumeResponse,
     GetChannelGroupRequest,
     GetChannelGroupResponse,
-    UnknownMessage,
 ]
+
+HTMessage = KnownHTMessage | UnknownMessage
+
+ALL_HT_MESSAGE_TYPES: t.Tuple[t.Type[KnownHTMessage], ...] = tuple(
+    t.get_args(KnownHTMessage)
+)
 
 
 def encode_ht_message(msg: HTMessage) -> bytes:
@@ -509,7 +505,7 @@ def encode_ht_message(msg: HTMessage) -> bytes:
         len(body),  # message_length
         0x00,  # reserved_2
         0x02,  # constant_2
-        *message_type_id(msg),  # message_type_id
+        *msg.message_type_id,  # message_type_id
     ])
 
     return header + body
@@ -566,94 +562,11 @@ def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
     body = buffer[:body_length]
     buffer = buffer[body_length:]
 
-    match message_type_id:
-        case (0x00, 0x09):
-            return (
-                RadioReceivedAprsChunk.from_message_body(body),
-                buffer
-            )
-        case (0x00, 0x0D):
-            return (
-                ChannelInfoRequest.from_message_body(body),
-                buffer
-            )
-        case (0x80, 0x0D):
-            return (
-                ChannelInfoResponse.from_message_body(body),
-                buffer
-            )
-        case (0x00, 0x06):
-            return (
-                SetDigitalMessageUpdates.from_message_body(body),
-                buffer
-            )
-        case (0x00, 0x17):
-            return (
-                SetVolumeRequest.from_message_body(body),
-                buffer
-            )
-        case (0x80, 0x17):
-            return (
-                SetVolumeResponse.from_message_body(body),
-                buffer
-            )
-        case (0x00, 0x0B):
-            return (
-                SetRadioSettingsRequest.from_message_body(body),
-                buffer
-            )
-        case (0x80, 0x0B):
-            return (
-                SetRadioSettingsResponse.from_message_body(body),
-                buffer
-            )
-        case (0x00, 0x0A):
-            return (
-                GetRadioSettingsRequest.from_message_body(body),
-                buffer
-            )
-        case (0x80, 0x0A):
-            return (
-                GetRadioSettingsResponse.from_message_body(body),
-                buffer
-            )
-        case (0x00, 0x16):
-            return (
-                GetActiveChannelRequest.from_message_body(body),
-                buffer
-            )
-        case (0x80, 0x16):
-            return (
-                GetActiveChannelResponse.from_message_body(body),
-                buffer
-            )
-        case (0x00, 0x20):
-            return (
-                SetGPSPositionRequest.from_message_body(body),
-                buffer
-            )
-        case (0x80, 0x20):
-            return (
-                SetGPSPositionResponse.from_message_body(body),
-                buffer
-            )
-        case (0x00, 0x49):
-            return (
-                GetChannelGroupRequest.from_message_body(body),
-                buffer
-            )
-        case (0x80, 0x49):
-            return (
-                GetChannelGroupResponse.from_message_body(body),
-                buffer
-            )
-        case _:
-            return (
-                UnknownMessage.from_message_body(
-                    body, message_type_id
-                ),
-                buffer
-            )
+    for message_type in ALL_HT_MESSAGE_TYPES:
+        if message_type_id == message_type.message_type_id:
+            return (message_type.from_message_body(body), buffer)
+
+    return (UnknownMessage.from_message_body(body, message_type_id), buffer)
 
 
 class HTMessageStream:
@@ -696,7 +609,7 @@ def to_text(cmd: bytes):
 
 reader = csv.DictReader(sys.stdin)
 
-output_header = ["id", "dir", "msg_type", "msg"]
+output_header = ["id", "dir", "message_type_id", "message_type_str", "message"]
 
 writer = csv.DictWriter(sys.stdout, fieldnames=output_header)
 writer.writeheader()
@@ -724,6 +637,7 @@ for frame in reader:
         writer.writerow({
             "id": frame["id"],
             "dir": frame["dir"],
-            "msg_type": message_type_str(message),
-            "msg": str(message)
+            "message_type_id": ", ".join(hex(i) for i in message.message_type_id),
+            "message_type_str": message.message_type_str,
+            "message": str(message)
         })
