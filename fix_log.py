@@ -227,35 +227,35 @@ class GetActiveChannelResponse:
 
 
 @dataclass(frozen=True)
-class GetRadioSettingsRequest:
+class GetSettingsRequest:
 
-    message_type_str: t.ClassVar[t.Final] = "get_radio_settings_request"
+    message_type_str: t.ClassVar[t.Final] = "get_settings_request"
     message_type_id: t.ClassVar[t.Final] = (0x00, 0x0A)
 
     @staticmethod
-    def from_message_body(body: bytes) -> GetRadioSettingsRequest:
+    def from_message_body(body: bytes) -> GetSettingsRequest:
         if len(body) != 0:
             raise BodyDecodeError(
                 "get_radio_settings_request",
                 f"Expected body length 0, got {len(body)}",
                 body
             )
-        return GetRadioSettingsRequest()
+        return GetSettingsRequest()
 
     def to_message_body(self) -> bytes:
         return b""
 
 
 @dataclass(frozen=True)
-class GetRadioSettingsResponse:
+class GetSettingsResponse:
     settings: bytes
     squelch: int
 
-    message_type_str: t.ClassVar[t.Final] = "get_radio_settings_response"
+    message_type_str: t.ClassVar[t.Final] = "get_settings_response"
     message_type_id: t.ClassVar[t.Final] = (0x80, 0x0A)
 
     @staticmethod
-    def from_message_body(body: bytes) -> GetRadioSettingsResponse:
+    def from_message_body(body: bytes) -> GetSettingsResponse:
         if len(body) < 20:
             raise BodyDecodeError(
                 "get_radio_settings_response",
@@ -263,22 +263,22 @@ class GetRadioSettingsResponse:
                 body
             )
         squelch = body[1]
-        return GetRadioSettingsResponse(settings=body, squelch=squelch)
+        return GetSettingsResponse(settings=body, squelch=squelch)
 
     def to_message_body(self) -> bytes:
         return self.settings
 
 
 @dataclass(frozen=True)
-class SetRadioSettingsRequest:
+class SetSettingsRequest:
     settings: bytes
     squelch: int
 
-    message_type_str: t.ClassVar[t.Final] = "set_radio_settings_request"
+    message_type_str: t.ClassVar[t.Final] = "set_settings_request"
     message_type_id: t.ClassVar[t.Final] = (0x00, 0x0B)
 
     @staticmethod
-    def from_message_body(body: bytes) -> SetRadioSettingsRequest:
+    def from_message_body(body: bytes) -> SetSettingsRequest:
         if len(body) < 20:
             raise BodyDecodeError(
                 "set_radio_settings_request",
@@ -286,28 +286,28 @@ class SetRadioSettingsRequest:
                 body
             )
         squelch = body[1]
-        return SetRadioSettingsRequest(settings=body, squelch=squelch)
+        return SetSettingsRequest(settings=body, squelch=squelch)
 
     def to_message_body(self) -> bytes:
         return self.settings
 
 
 @dataclass(frozen=True)
-class SetRadioSettingsResponse:
+class SetSettingsResponse:
     status_id: int
 
-    message_type_str: t.ClassVar[t.Final] = "set_radio_settings_response"
+    message_type_str: t.ClassVar[t.Final] = "set_settings_response"
     message_type_id: t.ClassVar[t.Final] = (0x80, 0x0B)
 
     @staticmethod
-    def from_message_body(body: bytes) -> SetRadioSettingsResponse:
+    def from_message_body(body: bytes) -> SetSettingsResponse:
         if len(body) != 1:
             raise BodyDecodeError(
                 "set_radio_settings_response",
                 f"Expected body length 1, got {len(body)}",
                 body
             )
-        return SetRadioSettingsResponse(body[0])
+        return SetSettingsResponse(body[0])
 
     def to_message_body(self) -> bytes:
         return bytes([self.status_id])
@@ -504,10 +504,10 @@ KnownHTMessage = t.Union[
     ChannelInfoRequest,
     ChannelInfoResponse,
     SetDigitalMessageUpdates,
-    SetRadioSettingsRequest,
-    SetRadioSettingsResponse,
-    GetRadioSettingsRequest,
-    GetRadioSettingsResponse,
+    SetSettingsRequest,
+    SetSettingsResponse,
+    GetSettingsRequest,
+    GetSettingsResponse,
     GetActiveChannelRequest,
     GetActiveChannelResponse,
     SetGPSPositionRequest,
