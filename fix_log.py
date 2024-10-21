@@ -194,6 +194,8 @@ class GetActiveChannelRequest:
 @dataclass(frozen=True)
 class GetActiveChannelResponse:
     channel_id: int
+    unknown_1: int
+    unknown_2: int
 
     message_type_str: t.ClassVar[t.Final] = "get_active_channel_response"
     message_type_id: t.ClassVar[t.Final] = (0x80, 0x16)
@@ -208,19 +210,16 @@ class GetActiveChannelResponse:
             )
 
         (
-            reserved_1,
-            reserved_2,
+            unknown_1,
+            unknown_2,
             channel_id,
         ) = body
 
-        if (reserved_1, reserved_2) != (0x00, 0x00):
-            raise BodyDecodeError(
-                "get_active_channel_response",
-                f"Expected reserved bytes to be 0x00, got {reserved_1}, {reserved_2}",
-                body
-            )
-
-        return GetActiveChannelResponse(channel_id=channel_id)
+        return GetActiveChannelResponse(
+            channel_id=channel_id,
+            unknown_1=unknown_1,
+            unknown_2=unknown_2,
+        )
 
     def to_message_body(self) -> bytes:
         return bytes([0x00, 0x00, self.channel_id])
