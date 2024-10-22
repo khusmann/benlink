@@ -443,7 +443,7 @@ class RadioReceivedAprsChunk:
     chunk_data: bytes
     chunk_num: int
     is_final_chunk: bool
-    decode_status: t.Literal["ok", "error"]
+    decode_status: t.Literal["ok", "error", "something", "somethingelse"]
 
     message_type_str: t.ClassVar[t.Final] = "radio_received_aprs_chunk"
     message_type_id: t.ClassVar[t.Final] = (0x00, 0x09)
@@ -470,6 +470,10 @@ class RadioReceivedAprsChunk:
                 decode_status = "error"
             case 0x02:
                 decode_status = "ok"
+            case 0x05:
+                decode_status = "somethingelse"
+            case 0x06:
+                decode_status = "something"
             case _:
                 raise BodyDecodeError(
                     "radio_received_aprs_chunk",
@@ -495,6 +499,10 @@ class RadioReceivedAprsChunk:
                 decode_status_id = 0x01
             case "ok":
                 decode_status_id = 0x02
+            case "somethingelse":
+                decode_status_id = 0x05
+            case "something":
+                decode_status_id = 0x06
         return bytes([decode_status_id, chunk_info]) + self.chunk_data
 
 
@@ -582,9 +590,9 @@ def decode_ht_message(buffer: bytes) -> t.Tuple[HTMessage | None, bytes]:
             f"Expected byte[4](reserved_2) = 0x00, got {reserved_2}", buffer
         )
 
-    if constant_2 != 0x02:
+    if constant_2 != 0x02 and constant_2 != 0x0a:
         raise HeaderDecodeError(
-            f"Expected byte[5](constant_2) = 0x02, got {constant_2}", buffer
+            f"Expected byte[5](constant_2) = 0x02 or 0x0a, got {constant_2}", buffer
         )
 
     if body_length > len(buffer):
