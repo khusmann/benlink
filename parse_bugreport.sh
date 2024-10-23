@@ -2,7 +2,7 @@
 REPORT_FILE=$1
 
 cat ${REPORT_FILE%.zip}.txt | sed 's/^/# /'
-
+echo
 unzip -p $REPORT_FILE FS/data/misc/bluetooth/logs/btsnoop_hci.log |
 tshark -r - -T json |
 jq -r '
