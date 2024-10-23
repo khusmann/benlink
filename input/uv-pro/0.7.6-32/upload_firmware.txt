@@ -1,0 +1,5 @@
+# Upload firmware
+
+Upload firmware
+Change some channel settings
+Send "hello world"

@@ -1,0 +1,4 @@
+# Channel group
+
+Upload channel group named "hello" (to group 1)
+Upload channel group named "hello2" (to group 2)

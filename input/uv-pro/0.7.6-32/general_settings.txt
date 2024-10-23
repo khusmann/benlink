@@ -1,0 +1,58 @@
+# General Settings
+
+WX Mode monitor
+WX Mode alert
+WX Mode off
+
+WX2 channel
+WX7 channel
+WX1 channel
+
+Tx time limit 90 seconds
+Tx time limit 60 seconds
+
+PTT follow on
+PTT follow off
+
+Tail elimination off
+Tail elimination on
+
+Digital mute on
+Digital mute off
+
+Signaling preamble on
+Signaling preamble off
+
+Audio relay on
+Audio relay off
+
+Mic gain low
+Mic gain high
+Mic gain medium
+
+
+Wireless mic gain high
+Wireless mic gain low
+
+headphone mode call mode
+headphone mode voice mode
+
+keep headset connected on
+keep headset connected off
+
+Lock channel data on
+Lock channel data off
+
+Tone off
+Tone on
+
+Power saving mode on
+Power saving mode off
+
+Enter pairing mode at power on on
+Enter pairing mode at power on off
+
+patrol system id 65535
+patrol system id 0
+
+Send picture PD-50

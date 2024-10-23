@@ -1,0 +1,48 @@
+# Channels
+
+Set Path to WIDE2-1
+
+Send message "testing 123"
+Send message "test"
+
+## Edit channel 8 (BugFreq1)
+
+Set Freq to 146.45 
+Set Freq to 146.43
+
+Set Mute to true
+Set Mute false
+
+Set Disable Tx true
+Set Disable Tx false
+
+Set Power Low
+Set Power high
+
+Set Rx Freq to 147
+Set Rx Freq to 146.43
+
+Set Rx CTCSS/DCS to 67Hz
+Set Rx CTCSS/DCS to 69.3Hz
+Set Rx CTCSS/DCS to DCS-023N/047I
+Set Rx CTCSS/DCS to DCS-025N/244I
+Set Rx CTCSS/DCS to 69.01 (custom)
+Set Rx CTCSS/DCS to off
+
+Set Tx CTCSS/DCS to 67Hz
+Set Tx CTCSS/DCS to off
+
+Set bandwidth to 12.5Khz
+Set bandwidth to 25Khz
+
+Turn off pre/de-emphasis
+Turn on pre/de-emphasis
+
+Turn on allow Scan
+Turn off allow scan
+
+Turn on talk around
+Turn off talk around
+
+Set name to "Bug"
+Set name to "BugFreq1"
