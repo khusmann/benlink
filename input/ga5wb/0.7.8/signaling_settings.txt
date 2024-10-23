@@ -1,0 +1,66 @@
+# Signaling settings
+
+## User information
+
+Change ID to KC3SLD-7
+Change ID to KC3SLD
+
+## ID Signaling
+
+Turn off "Identification information"
+Turn on "Identification information"
+
+Turn off "location"
+Turn on "location"
+
+Turn off "allow position check"
+Turn on "allow position check"
+
+## Data mode
+
+Disable data mode
+Enable data mode
+
+Change data mode channel to "30"
+Change data mode to current channel
+
+Turn on "automatically share location" (1 minute)
+Turn on "automatically share location" (10 minute)
+Turn off "automatically share location"
+
+Turn on "send power voltage"
+Turn off "send power voltage"
+
+Set message to "Hello aprs"
+Set message to ""
+
+Set format to APRS
+Set format to BSS
+set format to APRS
+
+Set path to WIDE1-1,WIDE2-1
+Set path to WIDE2-1
+Set path to ""
+
+Set icon to /-
+Set icon to /<
+
+Set ssid to 1
+Set ssid to 7
+
+Set callsign to KC3SLD
+
+//(No passcode settings)
+//Set passcode to 1234
+//Set passcode to <correct>
+
+Set format to APRS
+
+Set txmit pwr to low
+
+Set Path to WIDE2-1
+
+Send APRS message: "testing 123"
+Send ARPS message: "hello world"
+
+Send picture PD-50
