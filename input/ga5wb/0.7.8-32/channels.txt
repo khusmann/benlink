@@ -1,6 +1,6 @@
 # Channels
 
-## Edit channel 30
+## Edit channel 29
 
 Set name to TestCh @ 146.45
 
@@ -17,6 +17,7 @@ Set Power high
 
 Set Rx Freq to 147
 Set Rx Freq to 146.43
+Set Rx Freq to 147
 
 Set Rx CTCSS/DCS to 67Hz
 Set Rx CTCSS/DCS to 69.3Hz

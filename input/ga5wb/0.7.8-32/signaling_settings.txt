@@ -1,5 +1,7 @@
 # Signaling settings
 
+Set Freq to 146.44
+
 ## User information
 
 Change ID to KC3SLD-7
@@ -48,6 +50,7 @@ Set icon to /<
 Set ssid to 1
 Set ssid to 7
 
+Set callsign to KK7VLP
 Set callsign to KC3SLD
 
 //(No passcode settings)
@@ -55,8 +58,6 @@ Set callsign to KC3SLD
 //Set passcode to <correct>
 
 Set format to APRS
-
-Set txmit pwr to low
 
 Set Path to WIDE2-1
 

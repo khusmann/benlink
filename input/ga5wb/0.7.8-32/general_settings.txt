@@ -58,3 +58,33 @@ Enter pairing mode at power on off
 
 patrol system id 65535
 patrol system id 0
+
+# Device Settings
+
+Device speaker Off
+Device speaker On
+Device speaker Auto
+Device speaker Off
+
+Volume up to 15
+Volume down to 0
+
+Squelch to up to 10
+Squelch to 5
+Squelch down to 1
+Squelch down to 2
+
+Tx pwr to low
+Tx pwr to med
+Tx pwr to high
+Tx pwr to low
+
+Dual CH
+Scan
+Single CH
+
+FM radio on
+FM radio off
+
+Talk around on
+Talk around off
