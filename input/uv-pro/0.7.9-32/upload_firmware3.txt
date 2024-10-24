@@ -1,0 +1,3 @@
+# Upload firmware
+
+Firmware already uploaded. Go into app and say install firmware.

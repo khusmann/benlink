@@ -1,0 +1,3 @@
+# Upload firmware
+
+Attempt to upgrade firmware to 0.7.10, but it upgrades to 0.7.9-32 (again?)

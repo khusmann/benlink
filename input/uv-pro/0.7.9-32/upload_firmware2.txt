@@ -1,0 +1,5 @@
+# Upload firmware
+
+Upload firmware, but abort after it completed instead of saying "continue"
+
+(Note upload came in two parts in btsnoop.log.last)

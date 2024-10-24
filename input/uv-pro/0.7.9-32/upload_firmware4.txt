@@ -1,0 +1,7 @@
+# Upload firmware
+
+Start upload firmware, then abort
+
+Send "test again"
+
+Start upload firmware again, then abort
