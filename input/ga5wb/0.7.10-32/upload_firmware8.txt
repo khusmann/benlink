@@ -1,0 +1,5 @@
+# Upload firmware
+
+Re-Upload firmware to 0.7.10-32 (through btech ht app)
+Send "hello world"
+Resume
