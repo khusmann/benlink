@@ -1,0 +1,3 @@
+# Upload firmware
+
+Upload firmware to 7.10-32

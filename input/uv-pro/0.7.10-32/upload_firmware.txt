@@ -1,0 +1,10 @@
+# Upload firmware
+
+Attempt to upgrade firmware to 0.7.11, but it just reinstalls 0.7.10-32 (again)
+
+After upload finished, cancel instead of proceed with restart
+
+Send "hello world"
+
+Resume upgrade
+
