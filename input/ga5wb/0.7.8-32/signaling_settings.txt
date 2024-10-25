@@ -9,14 +9,14 @@ Change ID to KC3SLD
 
 ## ID Signaling
 
-Turn off "Identification information"
 Turn on "Identification information"
+Turn off "Identification information"
 
-Turn off "location"
 Turn on "location"
+Turn off "location"
 
-Turn off "allow position check"
 Turn on "allow position check"
+Turn off "allow position check"
 
 ## Data mode
 
@@ -33,8 +33,12 @@ Turn off "automatically share location"
 Turn on "send power voltage"
 Turn off "send power voltage"
 
-Set message to "Hello aprs"
+Set message to "hello aprs"
 Set message to ""
+
+Set callsign to KC3SLD
+Set ssid to 7
+Set password to <>
 
 Set format to APRS
 Set format to BSS
@@ -50,18 +54,9 @@ Set icon to /<
 Set ssid to 1
 Set ssid to 7
 
-Set callsign to KK7VLP
-Set callsign to KC3SLD
-
-//(No passcode settings)
-//Set passcode to 1234
-//Set passcode to <correct>
-
-Set format to APRS
-
 Set Path to WIDE2-1
 
 Send APRS message: "testing 123"
 Send ARPS message: "hello world"
 
-Send picture PD-50
+Send picture Robot 36

@@ -1,12 +1,12 @@
 # General Settings
 
-WX Mode monitor
-WX Mode alert
-WX Mode off
+//WX Mode monitor
+//WX Mode alert
+//WX Mode off
 
-WX2 channel
-WX7 channel
-WX1 channel
+//WX2 channel
+//WX7 channel
+//WX1 channel
 
 Tx time limit 90 seconds
 Tx time limit 60 seconds
@@ -64,7 +64,7 @@ patrol system id 0
 Device speaker Off
 Device speaker On
 Device speaker Auto
-Device speaker Off
+Device speaker On
 
 Volume up to 15
 Volume down to 0

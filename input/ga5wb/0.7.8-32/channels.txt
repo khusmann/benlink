@@ -12,6 +12,8 @@ Set Mute false
 Set Disable Tx true
 Set Disable Tx false
 
+Set Radio power low (channel 9 accidental)
+
 Set Power Low
 Set Power high
 
@@ -32,12 +34,11 @@ Set Tx CTCSS/DCS to off
 Set bandwidth to 12.5Khz
 Set bandwidth to 25Khz
 
-//Not available!
-//Turn off pre/de-emphasis
-//Turn on pre/de-emphasis
-
 Turn on allow Scan
 Turn off allow scan
+
+Turn off pre/de-emphasis
+Turn on pre/de-emphasis
 
 Turn on talk around
 Turn off talk around
@@ -46,4 +47,4 @@ Set name to "Bug"
 Set name to "TestCh"
 
 Upload channel group named "hello" (to group 1)
-Upload channel group named "hello2" (to group 2)
+Upload channel group named "Eugene, OR" (to group 2)
