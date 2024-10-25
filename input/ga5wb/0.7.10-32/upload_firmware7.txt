@@ -1,0 +1,4 @@
+# Upload firmware
+
+Do a bunch of volume settings
+Re-Upload firmware to 0.7.10-32 (again)
