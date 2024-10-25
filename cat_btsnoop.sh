@@ -24,4 +24,5 @@ decode_btsnoop() {
 echo 'id,dir,data'
 
 decode_btsnoop "FS/data/misc/bluetooth/logs/btsnoop_hci.log.last"
+echo 'NEW_BTSNOOP,,'
 decode_btsnoop "FS/data/misc/bluetooth/logs/btsnoop_hci.log"

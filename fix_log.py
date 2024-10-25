@@ -657,13 +657,12 @@ phone_to_radio = HTMessageStream()
 radio_to_phone = HTMessageStream()
 
 for frame in reader:
-    try:
-        data = bytes.fromhex(frame["data"].replace(":", ""))
-    except ValueError:
-        print(
-            f"Error decoding frame {frame['id']}: {frame['data']}", file=sys.stderr
-        )
+    if frame["id"] == "NEW_BTSNOOP":
+        writer.writerow({
+            "id": "NEW_BTSNOOP"
+        })
         continue
+    data = bytes.fromhex(frame["data"].replace(":", ""))
 
     try:
         match frame["dir"]:
