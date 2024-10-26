@@ -49,6 +49,10 @@ and X is set if it's the finall part, and YYY is the message number.
 So perhaps the first part: `ff:01:00:<LEN>:00:02:00:09` is the header, and the
 body is `02:<0000XYYY>:<MESSAGE>`
 
+## Firmware updates
+
+Look for FirmwareUpdateFragment
+
 ## Message Type List
 
 ```
