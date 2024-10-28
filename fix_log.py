@@ -4,39 +4,25 @@ import csv
 import sys
 import typing as t
 
-from htmessageOld import HTMessage, decode_ht_message
+from htmessage import ByteStream, UnknownMessage, read_next_message, Message
 
 
-class HTMessageStream:
-    _buffer: bytes
+class MessageStream:
+    _stream: ByteStream
 
     def __init__(self):
-        self._buffer = b""
+        self._stream = ByteStream(b"")
 
-    def feed(self, data: bytes) -> t.List[HTMessage]:
-        self._buffer += data
+    def feed(self, data: bytes) -> t.List[Message | UnknownMessage]:
+        self._stream.append(data)
 
-        messages: t.List[HTMessage] = []
+        messages: t.List[Message | UnknownMessage] = []
 
-        while len(self._buffer) >= 8:
-            if self._buffer[0] != 0xff:
-                print(
-                    f"Expected buffer[0] = 0xff, got {self._buffer}",
-                    file=sys.stderr
-                )
-                idx = self._buffer.find(b"\xff")
-                if idx == -1:
-                    self._buffer = b""
-                else:
-                    self._buffer = self._buffer[idx:]
-                continue
-
-            msg, self._buffer = decode_ht_message(self._buffer)
-
-            if msg is None:
+        while True:
+            message = read_next_message(self._stream)
+            if message is None:
                 break
-
-            messages.append(msg)
+            messages.append(message)
 
         return messages
 
@@ -47,13 +33,15 @@ def to_text(cmd: bytes):
 
 reader = csv.DictReader(sys.stdin)
 
-output_header = ["id", "dir", "message_type_id", "message_type_str", "message"]
+output_header = [
+    "id", "dir", "is_known", "group", "is_reply", "command", "message"
+]
 
 writer = csv.DictWriter(sys.stdout, fieldnames=output_header)
 writer.writeheader()
 
-phone_to_radio = HTMessageStream()
-radio_to_phone = HTMessageStream()
+phone_to_radio = MessageStream()
+radio_to_phone = MessageStream()
 
 for frame in reader:
     if frame["id"] == "NEW_BTSNOOP":
@@ -61,26 +49,24 @@ for frame in reader:
             "id": "NEW_BTSNOOP"
         })
         continue
+
     data = bytes.fromhex(frame["data"].replace(":", ""))
 
-    try:
-        match frame["dir"]:
-            case "phone->radio":
-                messages = phone_to_radio.feed(data)
-            case "radio->phone":
-                messages = radio_to_phone.feed(data)
-            case _:
-                raise ValueError(f"Unknown direction: {frame['dir']}")
-    except ValueError as e:
-        print(data, file=sys.stderr)
-        print(f"Error processing frame {frame['id']}: {e}", file=sys.stderr)
-        break
+    match frame["dir"]:
+        case "phone->radio":
+            messages = phone_to_radio.feed(data)
+        case "radio->phone":
+            messages = radio_to_phone.feed(data)
+        case _:
+            raise ValueError(f"Unknown direction: {frame['dir']}")
 
     for message in messages:
         writer.writerow({
             "id": frame["id"],
             "dir": frame["dir"],
-            "message_type_id": ", ".join(hex(i) for i in message.message_type_id),
-            "message_type_str": message.message_type_str,
+            "is_known": not isinstance(message, UnknownMessage),
+            "group": message.tid.group,
+            "is_reply": message.tid.is_reply,
+            "command": message.tid.command,
             "message": str(message)
         })
