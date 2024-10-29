@@ -4,7 +4,7 @@ import csv
 import sys
 import typing as t
 
-from htmessage import ByteStream, UnknownMessage, read_next_message, Message
+from htmessageOld2 import ByteStream, UnknownMessage, read_next_message, Message
 
 
 class MessageStream:
