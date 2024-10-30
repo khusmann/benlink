@@ -2087,7 +2087,7 @@ def read_next_message(stream: ByteStream) -> Message | UnknownMessage | None:
 
     frame_header = stream.peek(8)
 
-    reserved_1 = frame_header[1:2]
+    reserved_1 = frame_header[1:3]
     frame_len = frame_header[3]
     tid_raw = frame_header[4:]
 
