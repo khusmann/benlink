@@ -79,6 +79,37 @@ class PackedBits:
 
         return bitstring
 
+    @classmethod
+    def from_bitarray(cls, bitarray: t.Sequence[bool]):
+        value_map: t.Mapping[str, t.Any] = {}
+
+        cursor = 0
+
+        for name, field_type, bitfield in cls._pb_fields:
+            value_bit_len = bitfield.n_fn(AttrProxy(**value_map))
+            if not value_bit_len > 0:
+                raise ValueError(
+                    f"{name} has non-positive bit length ({value_bit_len})"
+                )
+
+            if issubclass(field_type, PackedBits):
+                value_map[name] = field_type.from_bitarray(
+                    bitarray[cursor:cursor+value_bit_len]
+                )
+                cursor += value_bit_len
+            else:
+                value = 0
+                for i in range(value_bit_len):
+                    value |= bitarray[cursor] << (value_bit_len - i - 1)
+                    cursor += 1
+
+                value_map[name] = field_type(value)
+
+        if cursor != len(bitarray):
+            raise ValueError("Bits left over after parsing")
+
+        return cls(**value_map)
+
     def to_bytes(self) -> bytes:
         bits = self.to_bitarray()
 
@@ -96,38 +127,6 @@ class PackedBits:
         return bytes(result)
 
     @classmethod
-    def from_bitarray(cls, bitarray: t.Sequence[bool]):
-        value_map: t.Mapping[str, t.Any] = {}
-
-        cursor = 0
-
-        for name, field_type, bitfield in cls._pb_fields:
-            value_bit_len = bitfield.n_fn(AttrProxy(**value_map))
-            if issubclass(field_type, PackedBits):
-                value_map[name] = field_type.from_bitarray(
-                    bitarray[cursor:cursor+value_bit_len]
-                )
-                cursor += value_bit_len
-            else:
-                value = 0
-
-                if not value_bit_len > 0:
-                    raise ValueError(
-                        f"{name} has non-positive bit length ({value_bit_len})"
-                    )
-
-                for i in range(value_bit_len):
-                    value |= bitarray[cursor] << (value_bit_len - i - 1)
-                    cursor += 1
-
-                value_map[name] = field_type(value)
-
-        if cursor != len(bitarray):
-            raise ValueError("Bits left over after parsing")
-
-        return cls(**value_map)
-
-    @classmethod
     def from_bytes(cls, data: bytes):
         bits: t.List[bool] = []
 
@@ -136,6 +135,22 @@ class PackedBits:
                 bits.append(byte & (1 << (7 - i)) != 0)
 
         return cls.from_bitarray(bits)
+
+    def __repr__(self) -> str:
+        return "".join((
+            self.__class__.__qualname__,
+            "(",
+            ', '.join(
+                f'{name}={getattr(self, name)!r}' for name, _, _ in self._pb_fields
+            ),
+            ")",
+        ))
+
+    def __init__(self, **kwargs: t.Any):
+        for name, _, _ in self._pb_fields:
+            if name not in kwargs:
+                raise TypeError(f"Missing required field {name}")
+            setattr(self, name, kwargs[name])
 
     def __init_subclass__(cls):
         cls._pb_fields = []
@@ -149,25 +164,6 @@ class PackedBits:
                     raise TypeError(
                         f"Expected bitfield for {name}, got {bitfield}"
                     )
-
-        def pb_repr(self: PackedBits) -> str:
-            return "".join((
-                self.__class__.__qualname__,
-                "(",
-                ', '.join(
-                    f'{name}={getattr(self, name)!r}' for name, _, _ in self._pb_fields
-                ),
-                ")",
-            ))
-
-        def pb_init(self: PackedBits, **kwargs: t.Mapping[str, t.Any]):
-            for name, _, _ in self._pb_fields:
-                if name not in kwargs:
-                    raise TypeError(f"Missing required field {name}")
-                setattr(self, name, kwargs[name])
-
-        cls.__repr__ = pb_repr
-        cls.__init__ = pb_init
 
 
 class Bar(PackedBits):
@@ -183,7 +179,7 @@ class Foo(PackedBits):
     e: Bar = bitfield(8)
 
 
-foo = Foo(a=3, b=False, c=3, d=1234, e=Bar(y=10, z=2))  # , e=Bar(y=1, z=2))
+foo = Foo(a=3, b=False, c=3, d=1234, e=Bar(y=10, z=2))
 
 print(foo)
 print(foo.to_bytes())
