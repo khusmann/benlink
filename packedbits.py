@@ -1,16 +1,46 @@
 import typing as t
 from typing_extensions import dataclass_transform
+from collections.abc import Mapping
+
+
+class AttrProxy(Mapping[str, t.Any]):
+    _data: t.Mapping[str, t.Any]
+
+    def __init__(self, **kwargs: t.Mapping[str, t.Any]) -> None:
+        self._data = kwargs
+
+    def __getitem__(self, key: str):
+        return self._data[key]
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getattr__(self, key: str):
+        if key in self._data:
+            return self._data[key]
+        raise AttributeError(
+            f"'AttrProxy' object has no attribute '{key}'"
+        )
+
+    def __repr__(self):
+        return f"AttrProxy({self._data})"
 
 
 class Bitfield:
-    n: int
+    n_fn: t.Callable[[t.Any], int]
 
-    def __init__(self, n: int) -> None:
-        self.n = n
+    def __init__(self, n_fn: t.Callable[[t.Any], int]) -> None:
+        self.n_fn = n_fn
 
 
-def bitfield(n: int) -> t.Any:
-    return Bitfield(n)
+def bitfield(n: int | t.Callable[[t.Any], int]) -> t.Any:
+    if isinstance(n, int):
+        return Bitfield(lambda _: n)
+    else:
+        return Bitfield(n)
 
 
 @dataclass_transform(frozen_default=True, kw_only_default=True, field_specifiers=(bitfield,))
@@ -22,14 +52,22 @@ class PackedBits:
 
         for name, _, bitfield in self._pb_fields:
             value = getattr(self, name)
+            value_bit_len = bitfield.n_fn(self)
 
-            if value >= 1 << bitfield.n:
+            if not value_bit_len > 0:
                 raise ValueError(
-                    f"{name}({value}) is too large for {bitfield.n} bits"
+                    f"{name} has non-positive bit length ({value_bit_len})"
                 )
 
-            for i in range(bitfield.n):
-                bitstring.append(value & (1 << (bitfield.n - i - 1)) != 0)
+            if value >= 1 << value_bit_len:
+                raise ValueError(
+                    f"{name} is too large for {value_bit_len} bits ({value})"
+                )
+
+            for i in range(value_bit_len):
+                bitstring.append(
+                    value & (1 << (value_bit_len - i - 1)) != 0
+                )
 
         if len(bitstring) % 8:
             raise ValueError("Result is not byte aligned (multiple of 8 bits)")
@@ -52,14 +90,21 @@ class PackedBits:
         for name, field_type, bitfield in cls._pb_fields:
             value = 0
 
-            for i in range(bitfield.n):
+            value_bit_len = bitfield.n_fn(AttrProxy(**value_map))
+
+            if not value_bit_len > 0:
+                raise ValueError(
+                    f"{name} has non-positive bit length ({value_bit_len})"
+                )
+
+            for i in range(value_bit_len):
                 curr_byte_idx = cursor // 8
                 curr_bit_idx = cursor % 8
 
                 curr_byte = data[curr_byte_idx]
                 curr_bit = curr_byte >> (7 - curr_bit_idx) & 1
 
-                value |= curr_bit << (bitfield.n - i - 1)
+                value |= curr_bit << (value_bit_len - i - 1)
 
                 cursor += 1
 
@@ -105,11 +150,11 @@ class PackedBits:
 class Foo(PackedBits):
     a: int = bitfield(4)
     b: bool = bitfield(1)
-    c: int = bitfield(3)
+    c: int = bitfield(lambda x: x.a)
     d: int = bitfield(16)
 
 
-foo = Foo(a=1, b=False, c=3, d=1234566)
+foo = Foo(a=3, b=False, c=3, d=1234)
 
 print(foo)
 print(foo.to_bytes())
