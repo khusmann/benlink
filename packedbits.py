@@ -47,7 +47,7 @@ def bitfield(n: int | t.Callable[[t.Any], int]) -> t.Any:
 class PackedBits:
     _pb_fields: t.List[t.Tuple[str, t.Type[t.Any], Bitfield]]
 
-    def to_bytes(self) -> bytes:
+    def to_bitarray(self) -> t.List[bool]:
         bitstring: t.List[bool] = []
 
         for name, _, bitfield in self._pb_fields:
@@ -69,22 +69,28 @@ class PackedBits:
                     value & (1 << (value_bit_len - i - 1)) != 0
                 )
 
-        if len(bitstring) % 8:
+        return bitstring
+
+    def to_bytes(self) -> bytes:
+        bits = self.to_bitarray()
+
+        if len(bits) % 8:
             raise ValueError("Result is not byte aligned (multiple of 8 bits)")
 
         result = bytearray()
 
-        for i in range(0, len(bitstring), 8):
+        for i in range(0, len(bits), 8):
             value = 0
             for j in range(8):
-                value |= bitstring[i + j] << (7 - j)
+                value |= bits[i + j] << (7 - j)
             result.append(value)
 
         return bytes(result)
 
     @classmethod
-    def from_bytes(cls, data: bytes):
+    def from_bitarray(cls, bitarray: t.Sequence[bool]):
         value_map: t.Mapping[str, t.Any] = {}
+
         cursor = 0
 
         for name, field_type, bitfield in cls._pb_fields:
@@ -98,22 +104,25 @@ class PackedBits:
                 )
 
             for i in range(value_bit_len):
-                curr_byte_idx = cursor // 8
-                curr_bit_idx = cursor % 8
-
-                curr_byte = data[curr_byte_idx]
-                curr_bit = curr_byte >> (7 - curr_bit_idx) & 1
-
-                value |= curr_bit << (value_bit_len - i - 1)
-
+                value |= bitarray[cursor] << (value_bit_len - i - 1)
                 cursor += 1
 
             value_map[name] = field_type(value)
 
-        if cursor / 8 != len(data):
+        if cursor != len(bitarray):
             raise ValueError("Bits left over after parsing")
 
         return cls(**value_map)
+
+    @classmethod
+    def from_bytes(cls, data: bytes):
+        bits: t.List[bool] = []
+
+        for byte in data:
+            for i in range(8):
+                bits.append(byte & (1 << (7 - i)) != 0)
+
+        return cls.from_bitarray(bits)
 
     def __init_subclass__(cls):
         cls._pb_fields = []
