@@ -54,20 +54,28 @@ class PackedBits:
             value = getattr(self, name)
             value_bit_len = bitfield.n_fn(self)
 
-            if not value_bit_len > 0:
-                raise ValueError(
-                    f"{name} has non-positive bit length ({value_bit_len})"
-                )
+            match value:
+                case PackedBits():
+                    bitstring += value.to_bitarray()
+                case int() | bool():
+                    if not value_bit_len > 0:
+                        raise ValueError(
+                            f"{name} has non-positive bit length ({value_bit_len})"
+                        )
 
-            if value >= 1 << value_bit_len:
-                raise ValueError(
-                    f"{name} is too large for {value_bit_len} bits ({value})"
-                )
+                    if value >= 1 << value_bit_len:
+                        raise ValueError(
+                            f"{name} is too large for {value_bit_len} bits ({value})"
+                        )
 
-            for i in range(value_bit_len):
-                bitstring.append(
-                    value & (1 << (value_bit_len - i - 1)) != 0
-                )
+                    for i in range(value_bit_len):
+                        bitstring.append(
+                            value & (1 << (value_bit_len - i - 1)) != 0
+                        )
+                case _:
+                    raise ValueError(
+                        f"Unsupported type: {type(value)}"
+                    )
 
         return bitstring
 
@@ -94,20 +102,25 @@ class PackedBits:
         cursor = 0
 
         for name, field_type, bitfield in cls._pb_fields:
-            value = 0
-
             value_bit_len = bitfield.n_fn(AttrProxy(**value_map))
-
-            if not value_bit_len > 0:
-                raise ValueError(
-                    f"{name} has non-positive bit length ({value_bit_len})"
+            if issubclass(field_type, PackedBits):
+                value_map[name] = field_type.from_bitarray(
+                    bitarray[cursor:cursor+value_bit_len]
                 )
+                cursor += value_bit_len
+            else:
+                value = 0
 
-            for i in range(value_bit_len):
-                value |= bitarray[cursor] << (value_bit_len - i - 1)
-                cursor += 1
+                if not value_bit_len > 0:
+                    raise ValueError(
+                        f"{name} has non-positive bit length ({value_bit_len})"
+                    )
 
-            value_map[name] = field_type(value)
+                for i in range(value_bit_len):
+                    value |= bitarray[cursor] << (value_bit_len - i - 1)
+                    cursor += 1
+
+                value_map[name] = field_type(value)
 
         if cursor != len(bitarray):
             raise ValueError("Bits left over after parsing")
@@ -167,10 +180,10 @@ class Foo(PackedBits):
     b: bool = bitfield(1)
     c: int = bitfield(lambda x: x.a)
     d: int = bitfield(16)
-#    e: Bar = bitfield(8)
+    e: Bar = bitfield(8)
 
 
-foo = Foo(a=3, b=False, c=3, d=1234)  # , e=Bar(y=1, z=2))
+foo = Foo(a=3, b=False, c=3, d=1234, e=Bar(y=10, z=2))  # , e=Bar(y=1, z=2))
 
 print(foo)
 print(foo.to_bytes())
