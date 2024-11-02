@@ -45,7 +45,7 @@ def bitfield(n: int | t.Callable[[t.Any], int]) -> t.Any:
 
 @dataclass_transform(frozen_default=True, kw_only_default=True, field_specifiers=(bitfield,))
 class PackedBits:
-    _pb_fields: t.List[t.Tuple[str, t.Type[t.Any], Bitfield]] = []
+    _pb_fields: t.List[t.Tuple[str, t.Type[t.Any], Bitfield]]
 
     def to_bytes(self) -> bytes:
         bitstring: t.List[bool] = []
@@ -116,13 +116,14 @@ class PackedBits:
         return cls(**value_map)
 
     def __init_subclass__(cls):
+        cls._pb_fields = []
+
         for name, field_type in t.get_type_hints(cls).items():
             if not name.startswith("_pb_"):
                 bitfield = getattr(cls, name)
                 if isinstance(bitfield, Bitfield):
                     cls._pb_fields.append((name, field_type, bitfield))
                 else:
-                    print(cls.__annotations__)
                     raise TypeError(
                         f"Expected bitfield for {name}, got {bitfield}"
                     )
@@ -147,14 +148,20 @@ class PackedBits:
         cls.__init__ = pb_init
 
 
+class Bar(PackedBits):
+    y: int = bitfield(4)
+    z: int = bitfield(4)
+
+
 class Foo(PackedBits):
     a: int = bitfield(4)
     b: bool = bitfield(1)
     c: int = bitfield(lambda x: x.a)
     d: int = bitfield(16)
+#    e: Bar = bitfield(8)
 
 
-foo = Foo(a=3, b=False, c=3, d=1234)
+foo = Foo(a=3, b=False, c=3, d=1234)  # , e=Bar(y=1, z=2))
 
 print(foo)
 print(foo.to_bytes())
