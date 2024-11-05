@@ -242,7 +242,7 @@ class Bar(PackedBits):
 
 def foo_discriminator(foo: Foo):
     if foo.b:
-        return (bool, 8)
+        return (Bar, 8)
     else:
         return (int, 16)
 
@@ -251,7 +251,7 @@ class Foo(PackedBits):
     a: int = bitfield(4)
     b: bool = bitfield(1)
     c: int = bitfield(lambda x: x.a)
-    d: int | bool = union_bitfield(foo_discriminator)
+    d: int | Bar = union_bitfield(foo_discriminator)
     e: Bar = bitfield(8)
 
 
@@ -261,7 +261,7 @@ print(foo)
 print(foo.to_bytes())
 print(Foo.from_bytes(foo.to_bytes()))
 
-bar = Foo(a=3, b=True, c=3, d=False, e=Bar(y=10, z=2))
+bar = Foo(a=3, b=True, c=3, d=Bar(y=10, z=15), e=Bar(y=10, z=2))
 
 print(bar)
 print(bar.to_bytes())
