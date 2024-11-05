@@ -8,8 +8,8 @@ from collections.abc import Mapping
 class AttrProxy(Mapping[str, t.Any]):
     _data: t.Mapping[str, t.Any]
 
-    def __init__(self, **kwargs: t.Mapping[str, t.Any]) -> None:
-        self._data = kwargs
+    def __init__(self, data: t.Mapping[str, t.Any]) -> None:
+        self._data = data
 
     def __getitem__(self, key: str):
         return self._data[key]
@@ -132,7 +132,7 @@ class PackedBits:
         cursor = 0
 
         for name, type_len_fn in cls._pb_fields:
-            field_type, value_bit_len = type_len_fn(AttrProxy(**value_map))
+            field_type, value_bit_len = type_len_fn(AttrProxy(value_map))
             if not value_bit_len > 0:
                 raise ValueError(
                     f"{name} has non-positive bit length ({value_bit_len})"
