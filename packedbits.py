@@ -100,28 +100,33 @@ class PackedBits:
                     f"Discriminator expects field {name} to be of type {field_type}, instead got {value}"
                 )
 
-            if isinstance(value, PackedBits):
-                new_bits = value.to_bitarray()
-                if len(new_bits) != value_bit_len:
-                    raise ValueError(
-                        f"Field {name} has incorrect bit length ({len(new_bits)})"
-                    )
-                bitstring += new_bits
-            else:
-                if not value_bit_len > 0:
-                    raise ValueError(
-                        f"{name} has non-positive bit length ({value_bit_len})"
-                    )
+            match value:
+                case PackedBits():
+                    new_bits = value.to_bitarray()
+                    if len(new_bits) != value_bit_len:
+                        raise ValueError(
+                            f"Field {name} has incorrect bit length ({len(new_bits)})"
+                        )
+                    bitstring += new_bits
+                case str():
+                    raise NotImplementedError
+                case bytes():
+                    raise NotImplementedError
+                case _:
+                    if not value_bit_len > 0:
+                        raise ValueError(
+                            f"{name} has non-positive bit length ({value_bit_len})"
+                        )
 
-                if value >= 1 << value_bit_len:
-                    raise ValueError(
-                        f"{name} is too large for {value_bit_len} bits ({value})"
-                    )
+                    if value >= 1 << value_bit_len:
+                        raise ValueError(
+                            f"{name} is too large for {value_bit_len} bits ({value})"
+                        )
 
-                for i in range(value_bit_len):
-                    bitstring.append(
-                        value & (1 << (value_bit_len - i - 1)) != 0
-                    )
+                    for i in range(value_bit_len):
+                        bitstring.append(
+                            value & (1 << (value_bit_len - i - 1)) != 0
+                        )
 
         return bitstring
 
@@ -138,18 +143,23 @@ class PackedBits:
                     f"{name} has non-positive bit length ({value_bit_len})"
                 )
 
-            if issubclass(field_type, PackedBits):
-                value_map[name] = field_type.from_bitarray(
-                    bitarray[cursor:cursor+value_bit_len]
-                )
-                cursor += value_bit_len
-            else:
-                value = 0
-                for i in range(value_bit_len):
-                    value |= bitarray[cursor] << (value_bit_len - i - 1)
-                    cursor += 1
+            match field_type:
+                case field_type if issubclass(field_type, PackedBits):
+                    value_map[name] = field_type.from_bitarray(
+                        bitarray[cursor:cursor+value_bit_len]
+                    )
+                    cursor += value_bit_len
+                case field_type if field_type is str:
+                    raise NotImplementedError
+                case field_type if field_type is bytes:
+                    raise NotImplementedError
+                case _:
+                    value = 0
+                    for i in range(value_bit_len):
+                        value |= bitarray[cursor] << (value_bit_len - i - 1)
+                        cursor += 1
 
-                value_map[name] = field_type(value)
+                    value_map[name] = field_type(value)
 
         if cursor != len(bitarray):
             raise ValueError("Bits left over after parsing")
