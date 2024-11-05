@@ -149,9 +149,9 @@ class PackedBits:
                         bitarray[cursor:cursor+value_bit_len]
                     )
                     cursor += value_bit_len
-                case field_type if field_type is str:
+                case field_type if issubclass(field_type, str):
                     raise NotImplementedError
-                case field_type if field_type is bytes:
+                case field_type if issubclass(field_type, bytes):
                     raise NotImplementedError
                 case _:
                     value = 0
