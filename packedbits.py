@@ -256,15 +256,15 @@ class PackedBits:
                         f"Expected bitfield for {name}, got {bitfield}"
                     )
 
-                is_union_field_type = (
-                    t.get_origin(field_type) is t.Union or
-                    t.get_origin(field_type) is types.UnionType
-                )
-
-                if is_union_field_type and not isinstance(bitfield, UnionField):
-                    raise TypeError(
-                        f"Expected union_bitfield() for union field {name}"
-                    )
+                if is_union_type(field_type):
+                    if any((is_literal_type(tp) for tp in t.get_args(field_type))):
+                        raise TypeError(
+                            f"Union field {name} cannot contain literal types"
+                        )
+                    if not isinstance(bitfield, UnionField):
+                        raise TypeError(
+                            f"Expected union_bitfield() for union field {name}"
+                        )
 
                 cls._pb_fields.append(
                     PBField(
@@ -274,3 +274,14 @@ class PackedBits:
                         bitfield.get_type_len_fn(field_type)
                     )
                 )
+
+
+def is_union_type(tp: t.Type[t.Any]) -> bool:
+    return (
+        t.get_origin(tp) is t.Union or
+        t.get_origin(tp) is types.UnionType
+    )
+
+
+def is_literal_type(tp: t.Type[t.Any]) -> bool:
+    return t.get_origin(tp) is t.Literal

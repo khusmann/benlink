@@ -1,5 +1,6 @@
 from __future__ import annotations
 from packedbits import PackedBits, bitfield, union_bitfield
+import typing as t
 import pytest
 import re
 
@@ -105,6 +106,13 @@ def test_union_field_exception():
     with pytest.raises(TypeError, match=re.escape("Expected union_bitfield() for union field a")):
         class Bad(PackedBits):
             a: int | Inner = bitfield(4)
+        print(Bad)
+
+
+def test_union_field_exception2():
+    with pytest.raises(TypeError, match=re.escape("Union field a cannot contain literal types")):
+        class Bad(PackedBits):
+            a: int | t.Literal[1] = bitfield(4)
         print(Bad)
 
 
