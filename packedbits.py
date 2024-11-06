@@ -33,6 +33,8 @@ class AttrProxy(Mapping[str, t.Any]):
 
 def bitfield(n: int | t.Callable[[t.Any], int], default: _T | None = None) -> _T:
     if isinstance(n, int):
+        if n <= 0:
+            raise ValueError("Bitfield length must be positive")
         return FixedLengthField(n)  # type: ignore
     else:
         return VariableLengthField(n)  # type: ignore
@@ -227,6 +229,10 @@ class PackedBits:
 
         for name, field_type in t.get_type_hints(cls).items():
             if not name.startswith("_pb_"):
+                if name not in vars(cls):
+                    raise TypeError(
+                        f"Missing bitfield {name}"
+                    )
                 bitfield = getattr(cls, name)
 
                 if not isinstance(bitfield, Bitfield):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 from packedbits import PackedBits, bitfield, union_bitfield
+import pytest
+import re
 
 
 def test_int_fields():
@@ -72,3 +74,38 @@ def test_union_fields():
     test2 = Test(a=False, b=127, c=3)
     assert test2.to_bytes() == b'\x7f\x03'
     assert Test.from_bytes(test2.to_bytes()) == test2
+
+
+def test_bitfield_exception():
+    with pytest.raises(TypeError, match=re.escape("Expected bitfield for a, got 1")):
+        class Bad(PackedBits):
+            a: int = 1
+        print(Bad)
+
+
+def test_bitfield_exception2():
+    with pytest.raises(TypeError, match=re.escape("Missing bitfield a")):
+        class Bad(PackedBits):
+            a: int
+        print(Bad)
+
+
+def test_union_field_exception():
+    with pytest.raises(TypeError, match=re.escape("Expected union_bitfield() for union field a")):
+        class Bad(PackedBits):
+            a: int | Inner = bitfield(4)
+        print(Bad)
+
+
+def test_negative_bitfield():
+    with pytest.raises(ValueError, match=re.escape("Bitfield length must be positive")):
+        class Bad(PackedBits):
+            a: int = bitfield(-1)
+        print(Bad)
+
+
+def test_negative_bitfield2():
+    class Bad(PackedBits):
+        a: int = bitfield(lambda x: -1)
+    with pytest.raises(ValueError, match=re.escape("a has non-positive bit length (-1)")):
+        Bad.from_bytes(b'\x00')
