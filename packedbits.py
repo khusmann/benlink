@@ -214,6 +214,14 @@ class PackedBits:
                 raise TypeError(f"Missing required field {name}")
             setattr(self, name, kwargs[name])
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+
+        return all((
+            getattr(self, name) == getattr(other, name) for name, _ in self._pb_fields
+        ))
+
     def __init_subclass__(cls):
         cls._pb_fields = []
 
@@ -239,45 +247,3 @@ class PackedBits:
                 cls._pb_fields.append(
                     (name, bitfield.get_type_len_fn(field_type))
                 )
-
-
-class Bar(PackedBits):
-    y: int = bitfield(4)
-    z: int = bitfield(4)
-
-
-def foo_discriminator(foo: Foo):
-    if foo.b:
-        return (Bar, 8)
-    else:
-        return (int, 16)
-
-
-def bar_discriminator(foo: Foo):
-    if foo.b:
-        return (Bar, 8)
-    else:
-        return (types.NoneType, 0)
-
-
-class Foo(PackedBits):
-    # Literals can't have multiple values
-    a: int = bitfield(4)
-    b: bool = bitfield(1)
-    c: int = bitfield(lambda x: x.a)
-    # Error: Literals cannot be used in unions
-    d: int | Bar | t.Literal[5] = union_bitfield(foo_discriminator)
-    e: Bar | None = union_bitfield(bar_discriminator)
-
-
-foo = Foo(a=3, b=False, c=3, d=1234, e=Bar(y=10, z=2))
-
-print(foo)
-print(foo.to_bytes())
-print(Foo.from_bytes(foo.to_bytes()))
-
-bar = Foo(a=3, b=True, c=3, d=Bar(y=10, z=15), e=Bar(y=10, z=2))
-
-print(bar)
-print(bar.to_bytes())
-print(Foo.from_bytes(bar.to_bytes()))
