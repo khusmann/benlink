@@ -109,3 +109,10 @@ def test_negative_bitfield2():
         a: int = bitfield(lambda x: -1)
     with pytest.raises(ValueError, match=re.escape("a has non-positive bit length (-1)")):
         Bad.from_bytes(b'\x00')
+
+
+def test_value_too_large():
+    class Bad(PackedBits):
+        a: int = bitfield(8)
+    with pytest.raises(ValueError, match=re.escape("a is too large for 8 bits (500)")):
+        Bad(a=500).to_bytes()
