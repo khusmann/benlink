@@ -266,12 +266,21 @@ class PackedBits:
                             f"Expected union_bitfield() for union field {name}"
                         )
 
+                if is_literal_type(field_type):
+                    if len(t.get_args(field_type)) != 1:
+                        raise TypeError(
+                            f"Literal field {name} must have exactly one argument"
+                        )
+                    type_len_fn = bitfield.get_type_len_fn(field_type)
+                else:
+                    type_len_fn = bitfield.get_type_len_fn(field_type)
+
                 cls._pb_fields.append(
                     PBField(
                         name,
                         field_type,
                         bitfield,
-                        bitfield.get_type_len_fn(field_type)
+                        type_len_fn,
                     )
                 )
 

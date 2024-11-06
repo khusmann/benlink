@@ -116,6 +116,13 @@ def test_union_field_exception2():
         print(Bad)
 
 
+def test_literal_field_exception():
+    with pytest.raises(TypeError, match=re.escape("Literal field a must have exactly one argument")):
+        class Bad(PackedBits):
+            a: t.Literal[1, 2] = bitfield(4)
+        print(Bad)
+
+
 def test_negative_bitfield():
     with pytest.raises(ValueError, match=re.escape("Bitfield length must be positive")):
         class Bad(PackedBits):
