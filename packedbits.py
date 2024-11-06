@@ -35,16 +35,19 @@ def bitfield(n: int | t.Callable[[t.Any], int], default: _T | None = None) -> _T
     if isinstance(n, int):
         if n <= 0:
             raise ValueError("Bitfield length must be positive")
-        return FixedLengthField(n)  # type: ignore
+        out = FixedLengthField(n, default)
     else:
-        return VariableLengthField(n)  # type: ignore
+        out = VariableLengthField(n, default)
+
+    return out  # type: ignore
 
 
 _T = t.TypeVar("_T")
 
 
-def union_bitfield(discriminator: t.Callable[[t.Any], t.Tuple[t.Type[_T], int]]) -> _T:
-    return UnionField(discriminator)  # type: ignore
+def union_bitfield(discriminator: t.Callable[[t.Any], t.Tuple[t.Type[_T], int]], default: _T | None = None) -> _T:
+    out = UnionField(discriminator, default)
+    return out  # type: ignore
 
 
 TypeLenFn = t.Callable[[t.Any], t.Tuple[t.Type[t.Any], int]]
@@ -52,6 +55,7 @@ TypeLenFn = t.Callable[[t.Any], t.Tuple[t.Type[t.Any], int]]
 
 class FixedLengthField(t.NamedTuple):
     n: int
+    default: t.Any
 
     def get_type_len_fn(self, field_type: t.Type[t.Any]) -> TypeLenFn:
         def inner(_: t.Any) -> t.Tuple[t.Type[t.Any], int]:
@@ -61,6 +65,7 @@ class FixedLengthField(t.NamedTuple):
 
 class VariableLengthField(t.NamedTuple):
     n_fn: t.Callable[[t.Any], int]
+    default: t.Any
 
     def get_type_len_fn(self, field_type: t.Type[t.Any]) -> TypeLenFn:
         def inner(incomplete: t.Any) -> t.Tuple[t.Type[t.Any], int]:
@@ -70,6 +75,7 @@ class VariableLengthField(t.NamedTuple):
 
 class UnionField(t.NamedTuple):
     type_fn: t.Callable[[t.Any], t.Tuple[t.Type[t.Any], int]]
+    default: t.Any
 
     def get_type_len_fn(self, _: t.Type[t.Any]) -> TypeLenFn:
         return self.type_fn
@@ -82,30 +88,37 @@ Bitfield = t.Union[
 ]
 
 
+class PBField(t.NamedTuple):
+    name: str
+    field_type: t.Type[t.Any]
+    bitfield: Bitfield
+    type_len_fn: TypeLenFn
+
+
 @dataclass_transform(
     frozen_default=True,
     kw_only_default=True,
     field_specifiers=(bitfield, union_bitfield),
 )
 class PackedBits:
-    _pb_fields: t.List[t.Tuple[str, TypeLenFn]]
+    _pb_fields: t.List[PBField]
 
     def to_bitarray(self) -> t.List[bool]:
         bitstring: t.List[bool] = []
 
-        for name, type_len_fn in self._pb_fields:
-            value = getattr(self, name)
-            field_type, value_bit_len = type_len_fn(self)
+        for field in self._pb_fields:
+            value = getattr(self, field.name)
+            field_type, value_bit_len = field.type_len_fn(self)
 
             if t.get_origin(field_type) is t.Literal:
                 if value not in t.get_args(field_type):
                     raise ValueError(
-                        f"Field {name} has unexpected value ({value})"
+                        f"Field {field.name} has unexpected value ({value})"
                     )
             else:
                 if not isinstance(value, field_type):
                     raise TypeError(
-                        f"Discriminator expects field {name} to be of type {field_type}, instead got {value}"
+                        f"Discriminator expects field {field.name} to be of type {field_type}, instead got {value}"
                     )
 
             match value:
@@ -113,7 +126,7 @@ class PackedBits:
                     new_bits = value.to_bitarray()
                     if len(new_bits) != value_bit_len:
                         raise ValueError(
-                            f"Field {name} has incorrect bit length ({len(new_bits)})"
+                            f"Field {field.name} has incorrect bit length ({len(new_bits)})"
                         )
                     bitstring += new_bits
                 case str():
@@ -123,12 +136,12 @@ class PackedBits:
                 case _:
                     if not value_bit_len > 0:
                         raise ValueError(
-                            f"{name} has non-positive bit length ({value_bit_len})"
+                            f"{field.name} has non-positive bit length ({value_bit_len})"
                         )
 
                     if value >= 1 << value_bit_len:
                         raise ValueError(
-                            f"{name} is too large for {value_bit_len} bits ({value})"
+                            f"{field.name} is too large for {value_bit_len} bits ({value})"
                         )
 
                     for i in range(value_bit_len):
@@ -144,16 +157,16 @@ class PackedBits:
 
         cursor = 0
 
-        for name, type_len_fn in cls._pb_fields:
-            field_type, value_bit_len = type_len_fn(AttrProxy(value_map))
+        for field in cls._pb_fields:
+            field_type, value_bit_len = field.type_len_fn(AttrProxy(value_map))
             if not value_bit_len > 0:
                 raise ValueError(
-                    f"{name} has non-positive bit length ({value_bit_len})"
+                    f"{field.name} has non-positive bit length ({value_bit_len})"
                 )
 
             match field_type:
                 case field_type if issubclass(field_type, PackedBits):
-                    value_map[name] = field_type.from_bitarray(
+                    value_map[field.name] = field_type.from_bitarray(
                         bitarray[cursor:cursor+value_bit_len]
                     )
                     cursor += value_bit_len
@@ -167,7 +180,7 @@ class PackedBits:
                         value |= bitarray[cursor] << (value_bit_len - i - 1)
                         cursor += 1
 
-                    value_map[name] = field_type(value)
+                    value_map[field.name] = field_type(value)
 
         if cursor != len(bitarray):
             raise ValueError("Bits left over after parsing")
@@ -205,23 +218,26 @@ class PackedBits:
             self.__class__.__qualname__,
             "(",
             ', '.join(
-                f'{name}={getattr(self, name)!r}' for name, _ in self._pb_fields
+                f'{field.name}={getattr(self, field.name)!r}' for field in self._pb_fields
             ),
             ")",
         ))
 
     def __init__(self, **kwargs: t.Any):
-        for name, _, in self._pb_fields:
-            if name not in kwargs:
-                raise TypeError(f"Missing required field {name}")
-            setattr(self, name, kwargs[name])
+        for field in self._pb_fields:
+            if field.bitfield.default is None:
+                if field.name not in kwargs:
+                    raise TypeError(f"Missing required field {field.name}")
+                setattr(self, field.name, kwargs[field.name])
+            else:
+                setattr(self, field.name, field.bitfield.default)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
             return False
 
         return all((
-            getattr(self, name) == getattr(other, name) for name, _ in self._pb_fields
+            getattr(self, field.name) == getattr(other, field.name) for field in self._pb_fields
         ))
 
     def __init_subclass__(cls):
@@ -251,5 +267,10 @@ class PackedBits:
                     )
 
                 cls._pb_fields.append(
-                    (name, bitfield.get_type_len_fn(field_type))
+                    PBField(
+                        name,
+                        field_type,
+                        bitfield,
+                        bitfield.get_type_len_fn(field_type)
+                    )
                 )

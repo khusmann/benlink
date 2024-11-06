@@ -76,6 +76,17 @@ def test_union_fields():
     assert Test.from_bytes(test2.to_bytes()) == test2
 
 
+def test_defaults():
+    class Test(PackedBits):
+        a: int = bitfield(8)
+        b: int = bitfield(8, default=1)
+        c: int = bitfield(8, default=10)
+
+    test = Test(a=1)
+    assert test.to_bytes() == b'\x01\x01\x0a'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
 def test_bitfield_exception():
     with pytest.raises(TypeError, match=re.escape("Expected bitfield for a, got 1")):
         class Bad(PackedBits):
