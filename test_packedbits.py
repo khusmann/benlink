@@ -111,8 +111,11 @@ def test_union_field_exception():
 
 def test_union_field_exception2():
     with pytest.raises(TypeError, match=re.escape("Union field a cannot contain literal types")):
+        def discriminator(_: Bad):
+            return (int, 8)
+
         class Bad(PackedBits):
-            a: int | t.Literal[1] = bitfield(4)
+            a: int | t.Literal[1] = union_bitfield(discriminator)
         print(Bad)
 
 

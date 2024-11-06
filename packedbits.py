@@ -57,7 +57,7 @@ class FixedLengthField(t.NamedTuple):
     n: int
     default: t.Any
 
-    def get_type_len_fn(self, field_type: t.Type[t.Any]) -> TypeLenFn:
+    def build_type_len_fn(self, field_type: t.Type[t.Any]) -> TypeLenFn:
         def inner(_: t.Any) -> t.Tuple[t.Type[t.Any], int]:
             return (field_type, self.n)
         return inner
@@ -67,18 +67,15 @@ class VariableLengthField(t.NamedTuple):
     n_fn: t.Callable[[t.Any], int]
     default: t.Any
 
-    def get_type_len_fn(self, field_type: t.Type[t.Any]) -> TypeLenFn:
+    def build_type_len_fn(self, field_type: t.Type[t.Any]) -> TypeLenFn:
         def inner(incomplete: t.Any) -> t.Tuple[t.Type[t.Any], int]:
             return (field_type, self.n_fn(incomplete))
         return inner
 
 
 class UnionField(t.NamedTuple):
-    type_fn: t.Callable[[t.Any], t.Tuple[t.Type[t.Any], int]]
+    type_len_fn: t.Callable[[t.Any], t.Tuple[t.Type[t.Any], int]]
     default: t.Any
-
-    def get_type_len_fn(self, _: t.Type[t.Any]) -> TypeLenFn:
-        return self.type_fn
 
 
 Bitfield = t.Union[
@@ -251,29 +248,40 @@ class PackedBits:
                     )
                 bitfield = getattr(cls, name)
 
-                if not isinstance(bitfield, Bitfield):
-                    raise TypeError(
-                        f"Expected bitfield for {name}, got {bitfield}"
-                    )
-
-                if is_union_type(field_type):
-                    if any((is_literal_type(tp) for tp in t.get_args(field_type))):
-                        raise TypeError(
-                            f"Union field {name} cannot contain literal types"
-                        )
-                    if not isinstance(bitfield, UnionField):
-                        raise TypeError(
-                            f"Expected union_bitfield() for union field {name}"
-                        )
-
                 if is_literal_type(field_type):
                     if len(t.get_args(field_type)) != 1:
                         raise TypeError(
                             f"Literal field {name} must have exactly one argument"
                         )
-                    type_len_fn = bitfield.get_type_len_fn(field_type)
+                    field_type_constructor = field_type
                 else:
-                    type_len_fn = bitfield.get_type_len_fn(field_type)
+                    field_type_constructor = field_type
+
+                match bitfield:
+                    case UnionField(type_len_fn):
+                        if not is_union_type(field_type):
+                            raise TypeError(
+                                f"Expected union type for field {name}, got {field_type}"
+                            )
+                        if any((is_literal_type(tp) for tp in t.get_args(field_type))):
+                            raise TypeError(
+                                f"Union field {name} cannot contain literal types"
+                            )
+
+                        type_len_fn = type_len_fn
+                    case FixedLengthField() | VariableLengthField():
+                        if is_union_type(field_type):
+                            raise TypeError(
+                                f"Expected union_bitfield() for union field {name}"
+                            )
+
+                        type_len_fn = bitfield.build_type_len_fn(
+                            field_type_constructor
+                        )
+                    case _:
+                        raise TypeError(
+                            f"Expected bitfield for {name}, got {bitfield}"
+                        )
 
                 cls._pb_fields.append(
                     PBField(
