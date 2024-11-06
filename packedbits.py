@@ -31,11 +31,11 @@ class AttrProxy(Mapping[str, t.Any]):
         return f"AttrProxy({self._data})"
 
 
-def bitfield(n: int | t.Callable[[t.Any], int]) -> t.Any:
+def bitfield(n: int | t.Callable[[t.Any], int], default: _T | None = None) -> _T:
     if isinstance(n, int):
-        return FixedLengthField(n)
+        return FixedLengthField(n)  # type: ignore
     else:
-        return VariableLengthField(n)
+        return VariableLengthField(n)  # type: ignore
 
 
 _T = t.TypeVar("_T")
@@ -95,10 +95,16 @@ class PackedBits:
             value = getattr(self, name)
             field_type, value_bit_len = type_len_fn(self)
 
-            if not isinstance(value, field_type):
-                raise TypeError(
-                    f"Discriminator expects field {name} to be of type {field_type}, instead got {value}"
-                )
+            if t.get_origin(field_type) is t.Literal:
+                if value not in t.get_args(field_type):
+                    raise ValueError(
+                        f"Field {name} has unexpected value ({value})"
+                    )
+            else:
+                if not isinstance(value, field_type):
+                    raise TypeError(
+                        f"Discriminator expects field {name} to be of type {field_type}, instead got {value}"
+                    )
 
             match value:
                 case PackedBits():
@@ -247,12 +253,21 @@ def foo_discriminator(foo: Foo):
         return (int, 16)
 
 
+def bar_discriminator(foo: Foo):
+    if foo.b:
+        return (Bar, 8)
+    else:
+        return (types.NoneType, 0)
+
+
 class Foo(PackedBits):
+    # Literals can't have multiple values
     a: int = bitfield(4)
     b: bool = bitfield(1)
     c: int = bitfield(lambda x: x.a)
-    d: int | Bar = union_bitfield(foo_discriminator)
-    e: Bar = bitfield(8)
+    # Error: Literals cannot be used in unions
+    d: int | Bar | t.Literal[5] = union_bitfield(foo_discriminator)
+    e: Bar | None = union_bitfield(bar_discriminator)
 
 
 foo = Foo(a=3, b=False, c=3, d=1234, e=Bar(y=10, z=2))
