@@ -50,15 +50,24 @@ def union_bitfield(discriminator: t.Callable[[t.Any], t.Tuple[t.Type[_T], int]],
     return out  # type: ignore
 
 
-TypeLenFn = t.Callable[[t.Any], t.Tuple[t.Type[t.Any], int]]
+class LiteralType:
+    value: t.Any
+    type: t.Type[t.Any]
+
+    def __init__(self, value: t.Any):
+        self.value = value
+        self.type = type(value)
+
+
+TypeLenFn = t.Callable[[t.Any], t.Tuple[t.Type[t.Any] | LiteralType, int]]
 
 
 class FixedLengthField(t.NamedTuple):
     n: int
     default: t.Any
 
-    def build_type_len_fn(self, field_type: t.Type[t.Any]) -> TypeLenFn:
-        def inner(_: t.Any) -> t.Tuple[t.Type[t.Any], int]:
+    def build_type_len_fn(self, field_type: t.Type[t.Any] | LiteralType) -> TypeLenFn:
+        def inner(_: t.Any):
             return (field_type, self.n)
         return inner
 
@@ -67,8 +76,8 @@ class VariableLengthField(t.NamedTuple):
     n_fn: t.Callable[[t.Any], int]
     default: t.Any
 
-    def build_type_len_fn(self, field_type: t.Type[t.Any]) -> TypeLenFn:
-        def inner(incomplete: t.Any) -> t.Tuple[t.Type[t.Any], int]:
+    def build_type_len_fn(self, field_type: t.Type[t.Any] | LiteralType) -> TypeLenFn:
+        def inner(incomplete: t.Any):
             return (field_type, self.n_fn(incomplete))
         return inner
 
@@ -107,8 +116,8 @@ class PackedBits:
             value = getattr(self, field.name)
             field_type, value_bit_len = field.type_len_fn(self)
 
-            if t.get_origin(field_type) is t.Literal:
-                if value not in t.get_args(field_type):
+            if isinstance(field_type, LiteralType):
+                if field_type.value != value:
                     raise ValueError(
                         f"Field {field.name} has unexpected value ({value})"
                     )
@@ -161,23 +170,37 @@ class PackedBits:
                     f"{field.name} has non-positive bit length ({value_bit_len})"
                 )
 
-            match field_type:
-                case field_type if issubclass(field_type, PackedBits):
-                    value_map[field.name] = field_type.from_bitarray(
+            if isinstance(field_type, LiteralType):
+                field_type_cnstr = field_type.type
+            else:
+                field_type_cnstr = field_type
+
+            match field_type_cnstr:
+                case field_type_cnstr if issubclass(field_type_cnstr, PackedBits):
+                    value = field_type_cnstr.from_bitarray(
                         bitarray[cursor:cursor+value_bit_len]
                     )
                     cursor += value_bit_len
-                case field_type if issubclass(field_type, str):
+                case field_type_cnstr if issubclass(field_type_cnstr, str):
                     raise NotImplementedError
-                case field_type if issubclass(field_type, bytes):
+                case field_type_cnstr if issubclass(field_type_cnstr, bytes):
                     raise NotImplementedError
                 case _:
-                    value = 0
+                    int_value = 0
                     for i in range(value_bit_len):
-                        value |= bitarray[cursor] << (value_bit_len - i - 1)
+                        int_value |= bitarray[cursor] << (
+                            value_bit_len - i - 1)
                         cursor += 1
 
-                    value_map[field.name] = field_type(value)
+                    value = field_type_cnstr(int_value)
+
+            if isinstance(field_type, LiteralType):
+                if value != field_type.value:
+                    raise ValueError(
+                        f"Field {field.name} has unexpected value ({value})"
+                    )
+
+            value_map[field.name] = value
 
         if cursor != len(bitarray):
             raise ValueError("Bits left over after parsing")
@@ -253,7 +276,8 @@ class PackedBits:
                         raise TypeError(
                             f"Literal field {name} must have exactly one argument"
                         )
-                    field_type_constructor = field_type
+                    value = t.get_args(field_type)[0]
+                    field_type_constructor = LiteralType(value)
                 else:
                     field_type_constructor = field_type
 

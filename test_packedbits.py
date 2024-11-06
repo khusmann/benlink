@@ -126,6 +126,23 @@ def test_literal_field_exception():
         print(Bad)
 
 
+def test_literal_field_exception2():
+    class Bad(PackedBits):
+        a: t.Literal[1] = bitfield(8)
+    with pytest.raises(ValueError, match=re.escape("Field a has unexpected value (0)")):
+        Bad.from_bytes(b'\x00')
+
+
+def test_literal_field_exception3():
+    class Bad(PackedBits):
+        a: t.Literal[1] = bitfield(8)
+
+    foo = Bad(a=0)  # type: ignore
+
+    with pytest.raises(ValueError, match=re.escape("Field a has unexpected value (0)")):
+        foo.to_bytes()
+
+
 def test_negative_bitfield():
     with pytest.raises(ValueError, match=re.escape("Bitfield length must be positive")):
         class Bad(PackedBits):
