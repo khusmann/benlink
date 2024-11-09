@@ -268,7 +268,7 @@ class PackedBits:
             if isinstance(field_type, LiteralType):
                 if field_type.value != value:
                     raise ValueError(
-                        f"Field {field.name} has unexpected value ({value})"
+                        f"Field `{field.name}` has unexpected value ({value})"
                     )
             else:
                 if not isinstance(value, field_type):
@@ -290,7 +290,7 @@ class PackedBits:
 
             if len(new_bits) != value_bit_len:
                 raise ValueError(
-                    f"Field {field.name} has incorrect bit length ({len(new_bits)})"
+                    f"Field `{field.name}` has incorrect bit length ({len(new_bits)})"
                 )
 
             bits += new_bits
@@ -320,18 +320,18 @@ class PackedBits:
                 if issubclass(field_type, types.NoneType):
                     if value_bit_len != 0:
                         raise ValueError(
-                            f"None field {field.name} must have zero bit length"
+                            f"None field `{field.name}` must have zero bit length"
                         )
                 else:
                     if not value_bit_len > 0:
                         raise ValueError(
-                            f"{field.name} has non-positive bit length ({value_bit_len})"
+                            f"Field `{field.name}` has non-positive bit length ({value_bit_len})"
                         )
 
                 if issubclass(field_type, str) or issubclass(field_type, bytes):
                     if value_bit_len % 8:
                         raise ValueError(
-                            f"Field {field.name} length ({value_bit_len}) is not a multiple of 8"
+                            f"Field `{field.name}` length ({value_bit_len}) is not a multiple of 8"
                         )
 
             match field_type_cnstr:
@@ -355,7 +355,7 @@ class PackedBits:
             if isinstance(field_type, LiteralType):
                 if value != field_type.value:
                     raise ValueError(
-                        f"Field {field.name} has unexpected value ({value})"
+                        f"Field `{field.name}` has unexpected value ({value})"
                     )
 
             value_map[field.name] = value
@@ -403,14 +403,14 @@ class PackedBits:
             if not name.startswith("_pb_"):
                 if name not in vars(cls):
                     raise TypeError(
-                        f"Missing bitfield {name}"
+                        f"Expected bitfield for field `{name}`"
                     )
                 bitfield = getattr(cls, name)
 
                 if is_literal_type(field_type):
                     if len(t.get_args(field_type)) != 1:
                         raise TypeError(
-                            f"Literal field {name} must have exactly one argument"
+                            f"Literal field `{name}` must have exactly one argument"
                         )
                     value = t.get_args(field_type)[0]
                     field_type_constructor = LiteralType(value)
@@ -421,18 +421,18 @@ class PackedBits:
                     case UnionField(type_len_fn):
                         if not is_union_type(field_type):
                             raise TypeError(
-                                f"Expected union type for field {name}, got {field_type}"
+                                f"Expected union type for field `{name}`, got {field_type}"
                             )
                         if any((is_literal_type(tp) for tp in t.get_args(field_type))):
                             raise TypeError(
-                                f"Union field {name} cannot contain literal types"
+                                f"Union field `{name}` cannot contain literal types"
                             )
 
                         type_len_fn = type_len_fn
                     case FixedLengthField() | VariableLengthField():
                         if is_union_type(field_type):
                             raise TypeError(
-                                f"Expected union_bitfield() for union field {name}"
+                                f"Expected union_bitfield() for union field `{name}`"
                             )
 
                         type_len_fn = bitfield.build_type_len_fn(
@@ -440,13 +440,13 @@ class PackedBits:
                         )
                     case _:
                         raise TypeError(
-                            f"Expected bitfield for {name}, got {bitfield}"
+                            f"Expected bitfield for field `{name}`, got {bitfield}"
                         )
 
                 if isinstance(bitfield, FixedLengthField) and field_type_constructor is types.NoneType:
                     if bitfield.n != 0:
                         raise ValueError(
-                            f"None field {name} must have zero bit length"
+                            f"None field `{name}` must have zero bit length"
                         )
 
                 cls._pb_fields.append(

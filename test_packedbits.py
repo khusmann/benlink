@@ -46,7 +46,7 @@ def test_none_fields():
 
 
 def test_none_exception():
-    with pytest.raises(ValueError, match=re.escape("None field a must have zero bit length")):
+    with pytest.raises(ValueError, match=re.escape("None field `a` must have zero bit length")):
         class Bad(PackedBits):
             a: None = bitfield(8)
         print(Bad)
@@ -57,7 +57,7 @@ def test_str_alignment():
         a: bool = bitfield(1)
         b: str = bitfield(7)
 
-    with pytest.raises(ValueError, match=re.escape("Field b length (7) is not a multiple of 8")):
+    with pytest.raises(ValueError, match=re.escape("Field `b` length (7) is not a multiple of 8")):
         Test.from_bytes(b'\x00')
 
 
@@ -66,7 +66,7 @@ def test_bytes_alignment():
         a: bool = bitfield(1)
         b: bytes = bitfield(7)
 
-    with pytest.raises(ValueError, match=re.escape("Field b length (7) is not a multiple of 8")):
+    with pytest.raises(ValueError, match=re.escape("Field `b` length (7) is not a multiple of 8")):
         Test.from_bytes(b'\x00')
 
 
@@ -160,28 +160,28 @@ def test_defaults():
 
 
 def test_bitfield_exception():
-    with pytest.raises(TypeError, match=re.escape("Expected bitfield for a, got 1")):
+    with pytest.raises(TypeError, match=re.escape("Expected bitfield for field `a`, got 1")):
         class Bad(PackedBits):
             a: int = 1
         print(Bad)
 
 
 def test_bitfield_exception2():
-    with pytest.raises(TypeError, match=re.escape("Missing bitfield a")):
+    with pytest.raises(TypeError, match=re.escape("Expected bitfield for field `a`")):
         class Bad(PackedBits):
             a: int
         print(Bad)
 
 
 def test_union_field_exception():
-    with pytest.raises(TypeError, match=re.escape("Expected union_bitfield() for union field a")):
+    with pytest.raises(TypeError, match=re.escape("Expected union_bitfield() for union field `a`")):
         class Bad(PackedBits):
             a: int | Inner = bitfield(4)
         print(Bad)
 
 
 def test_union_field_exception2():
-    with pytest.raises(TypeError, match=re.escape("Union field a cannot contain literal types")):
+    with pytest.raises(TypeError, match=re.escape("Union field `a` cannot contain literal types")):
         def discriminator(_: Bad):
             return (int, 8)
 
@@ -191,7 +191,7 @@ def test_union_field_exception2():
 
 
 def test_literal_field_exception():
-    with pytest.raises(TypeError, match=re.escape("Literal field a must have exactly one argument")):
+    with pytest.raises(TypeError, match=re.escape("Literal field `a` must have exactly one argument")):
         class Bad(PackedBits):
             a: t.Literal[1, 2] = bitfield(4)
         print(Bad)
@@ -200,7 +200,7 @@ def test_literal_field_exception():
 def test_literal_field_exception2():
     class Bad(PackedBits):
         a: t.Literal[1] = bitfield(8)
-    with pytest.raises(ValueError, match=re.escape("Field a has unexpected value (0)")):
+    with pytest.raises(ValueError, match=re.escape("Field `a` has unexpected value (0)")):
         Bad.from_bytes(b'\x00')
 
 
@@ -210,7 +210,7 @@ def test_literal_field_exception3():
 
     foo = Bad(a=0)  # type: ignore
 
-    with pytest.raises(ValueError, match=re.escape("Field a has unexpected value (0)")):
+    with pytest.raises(ValueError, match=re.escape("Field `a` has unexpected value (0)")):
         foo.to_bytes()
 
 
@@ -224,7 +224,7 @@ def test_negative_bitfield():
 def test_negative_bitfield2():
     class Bad(PackedBits):
         a: int = bitfield(lambda x: -1)
-    with pytest.raises(ValueError, match=re.escape("a has non-positive bit length (-1)")):
+    with pytest.raises(ValueError, match=re.escape("Field `a` has non-positive bit length (-1)")):
         Bad.from_bytes(b'\x00')
 
 
