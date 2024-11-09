@@ -66,7 +66,7 @@ class BitStream:
     _bits: Bits
     _pos: int = 0
 
-    def __init__(self, bits: Bits, pos: int = 0) -> None:
+    def __init__(self, bits: Bits = Bits(), pos: int = 0) -> None:
         self._bits = bits
         self._pos = pos
 
