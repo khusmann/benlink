@@ -182,8 +182,8 @@ class AttrProxy(Mapping[str, t.Any]):
 
 def bitfield(n: int | t.Callable[[t.Any], int], default: _T | None = None) -> _T:
     if isinstance(n, int):
-        if n <= 0:
-            raise ValueError("Bitfield length must be positive")
+        if n < 0:
+            raise ValueError("Bitfield length must be non-negative")
         out = FixedLengthField(n, default)
     else:
         out = VariableLengthField(n, default)
@@ -279,17 +279,21 @@ class PackedBits:
             match value:
                 case PackedBits():
                     new_bits = value.to_bits()
-                    if len(new_bits) != value_bit_len:
-                        raise ValueError(
-                            f"Field {field.name} has incorrect bit length ({len(new_bits)})"
-                        )
-                    bits += new_bits
                 case str():
-                    raise NotImplementedError
+                    new_bits = Bits.from_str(value)
                 case bytes():
-                    raise NotImplementedError
+                    new_bits = Bits.from_bytes(value)
+                case None:
+                    new_bits = Bits()
                 case _:
-                    bits += Bits.from_int(value, value_bit_len)
+                    new_bits = Bits.from_int(value, value_bit_len)
+
+            if len(new_bits) != value_bit_len:
+                raise ValueError(
+                    f"Field {field.name} has incorrect bit length ({len(new_bits)})"
+                )
+
+            bits += new_bits
 
         return Bits(bits)
 
@@ -307,15 +311,22 @@ class PackedBits:
 
         for field in cls._pb_fields:
             field_type, value_bit_len = field.type_len_fn(AttrProxy(value_map))
-            if not value_bit_len > 0:
-                raise ValueError(
-                    f"{field.name} has non-positive bit length ({value_bit_len})"
-                )
 
             if isinstance(field_type, LiteralType):
                 field_type_cnstr = field_type.type
             else:
                 field_type_cnstr = field_type
+
+                if issubclass(field_type, types.NoneType):
+                    if value_bit_len != 0:
+                        raise ValueError(
+                            f"None field {field.name} must have zero bit length"
+                        )
+                else:
+                    if not value_bit_len > 0:
+                        raise ValueError(
+                            f"{field.name} has non-positive bit length ({value_bit_len})"
+                        )
 
             match field_type_cnstr:
                 case field_type_cnstr if issubclass(field_type_cnstr, PackedBits):
@@ -323,9 +334,23 @@ class PackedBits:
                         stream.read_bits(value_bit_len)
                     )
                 case field_type_cnstr if issubclass(field_type_cnstr, str):
-                    raise NotImplementedError
+                    if value_bit_len % 8:
+                        raise ValueError(
+                            f"String field {field.name} must be byte aligned"
+                        )
+                    value = stream.read_str(value_bit_len // 8)
                 case field_type_cnstr if issubclass(field_type_cnstr, bytes):
-                    raise NotImplementedError
+                    if value_bit_len % 8:
+                        raise ValueError(
+                            f"Bytes field {field.name} must be byte aligned"
+                        )
+                    value = stream.read_bytes(value_bit_len // 8)
+                case field_type_cnstr if issubclass(field_type_cnstr, types.NoneType):
+                    if value_bit_len != 0:
+                        raise ValueError(
+                            f"None field {field.name} must have zero bit length"
+                        )
+                    value = field_type_cnstr()
                 case _:
                     value = field_type_cnstr(stream.read_int(value_bit_len))
 
@@ -418,6 +443,12 @@ class PackedBits:
                     case _:
                         raise TypeError(
                             f"Expected bitfield for {name}, got {bitfield}"
+                        )
+
+                if isinstance(bitfield, FixedLengthField) and field_type_constructor is types.NoneType:
+                    if bitfield.n != 0:
+                        raise ValueError(
+                            f"None field {name} must have zero bit length"
                         )
 
                 cls._pb_fields.append(

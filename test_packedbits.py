@@ -15,6 +15,59 @@ def test_int_fields():
     assert Test.from_bytes(test.to_bytes()) == test
 
 
+def test_byte_fields():
+    class Test(PackedBits):
+        a: bytes = bitfield(8)
+        b: bytes = bitfield(16)
+
+    test = Test(a=b'\x01', b=b'\x12\x34')
+    assert test.to_bytes() == b'\x01\x12\x34'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
+def test_str_fields():
+    class Test(PackedBits):
+        a: str = bitfield(8)
+        b: str = bitfield(16)
+
+    test = Test(a='a', b='bc')
+    assert test.to_bytes() == b'abc'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
+def test_none_fields():
+    class Test(PackedBits):
+        a: int = bitfield(8)
+        b: None = bitfield(0)
+
+    test = Test(a=1, b=None)
+    assert test.to_bytes() == b'\x01'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
+def test_none_exception():
+    with pytest.raises(ValueError, match=re.escape("None field a must have zero bit length")):
+        class Bad(PackedBits):
+            a: None = bitfield(8)
+        print(Bad)
+
+
+def test_optional_fields():
+    class Test(PackedBits):
+        a: int = bitfield(8)
+        b: t.Optional[int] = union_bitfield(
+            lambda x: (int, 8) if x.a == 2 else (type(None), 0)
+        )
+
+    test = Test(a=1, b=None)
+    assert test.to_bytes() == b'\x01'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+    test = Test(a=2, b=9)
+    assert test.to_bytes() == b'\x02\x09'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
 def test_bool_fields():
     class Test(PackedBits):
         a: bool = bitfield(1)
@@ -144,7 +197,7 @@ def test_literal_field_exception3():
 
 
 def test_negative_bitfield():
-    with pytest.raises(ValueError, match=re.escape("Bitfield length must be positive")):
+    with pytest.raises(ValueError, match=re.escape("Bitfield length must be non-negative")):
         class Bad(PackedBits):
             a: int = bitfield(-1)
         print(Bad)
