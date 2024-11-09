@@ -26,6 +26,15 @@ def test_byte_fields():
     assert Test.from_bytes(test.to_bytes()) == test
 
 
+def test_empty_bytes():
+    class Test(PackedBits):
+        a: bytes = bitfield(0)
+
+    test = Test(a=b'')
+    assert test.to_bytes() == b''
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
 def test_str_fields():
     class Test(PackedBits):
         a: str = bitfield(8)

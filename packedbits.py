@@ -70,14 +70,6 @@ class BitStream:
         self._bits = bits
         self._pos = pos
 
-    @property
-    def data(self):
-        return self._bits
-
-    @property
-    def pos(self):
-        return self._pos
-
     @classmethod
     def from_bytes(cls, data: bytes) -> BitStream:
         return cls(Bits.from_bytes(data))
@@ -100,14 +92,17 @@ class BitStream:
         return len(self._bits) - self._pos
 
     def _assert_advance(self, n_bits: int) -> None:
-        if n_bits <= 0:
-            raise ValueError("Number of bits to advance must be positive")
+        if n_bits < 0:
+            raise ValueError("Number of bits to advance must be non-negative")
         if n_bits > self.n_available():
             raise EOFError
 
     def advance(self, n_bits: int) -> None:
         self._assert_advance(n_bits)
         self._pos += n_bits
+
+    def tell(self) -> int:
+        return self._pos
 
     def seek(self, pos: int) -> None:
         if pos < 0:
@@ -320,45 +315,47 @@ class PackedBits:
         for field in cls._pb_fields:
             field_type, value_bit_len = field.type_len_fn(AttrProxy(value_map))
 
-            if isinstance(field_type, LiteralType):
-                field_type_cnstr = field_type.type
-            else:
-                field_type_cnstr = field_type
+            field_type_cnstr = (
+                field_type.type if isinstance(field_type, LiteralType)
+                else field_type
+            )
 
+            if not isinstance(field_type, LiteralType):
                 if issubclass(field_type, types.NoneType):
                     if value_bit_len != 0:
                         raise ValueError(
                             f"None field `{field.name}` must have zero bit length"
+                        )
+                elif issubclass(field_type, str) or issubclass(field_type, bytes):
+                    if value_bit_len % 8:
+                        raise ValueError(
+                            f"Field `{field.name}` length ({value_bit_len}) is not a multiple of 8"
+                        )
+                    if value_bit_len < 0:
+                        raise ValueError(
+                            f"Field `{field.name}` has negative bit length ({value_bit_len})"
                         )
                 else:
                     if not value_bit_len > 0:
                         raise ValueError(
                             f"Field `{field.name}` has non-positive bit length ({value_bit_len})"
                         )
-
-                if issubclass(field_type, str) or issubclass(field_type, bytes):
-                    if value_bit_len % 8:
-                        raise ValueError(
-                            f"Field `{field.name}` length ({value_bit_len}) is not a multiple of 8"
-                        )
-
-            match field_type_cnstr:
-                case field_type_cnstr if issubclass(field_type_cnstr, PackedBits):
-                    value = field_type_cnstr.from_bits(
-                        stream.read_bits(value_bit_len)
-                    )
-                case field_type_cnstr if issubclass(field_type_cnstr, str):
-                    value = field_type_cnstr(
-                        stream.read_str(value_bit_len // 8)
-                    )
-                case field_type_cnstr if issubclass(field_type_cnstr, bytes):
-                    value = field_type_cnstr(
-                        stream.read_bytes(value_bit_len // 8)
-                    )
-                case field_type_cnstr if issubclass(field_type_cnstr, types.NoneType):
-                    value = field_type_cnstr()
-                case _:
-                    value = field_type_cnstr(stream.read_int(value_bit_len))
+            if issubclass(field_type_cnstr, PackedBits):
+                value = field_type_cnstr.from_bits(
+                    stream.read_bits(value_bit_len)
+                )
+            elif issubclass(field_type_cnstr, str):
+                value = field_type_cnstr(
+                    stream.read_str(value_bit_len // 8)
+                )
+            elif issubclass(field_type_cnstr, bytes):
+                value = field_type_cnstr(
+                    stream.read_bytes(value_bit_len // 8)
+                )
+            elif issubclass(field_type_cnstr, types.NoneType):
+                value = field_type_cnstr()
+            else:
+                value = field_type_cnstr(stream.read_int(value_bit_len))
 
             if isinstance(field_type, LiteralType):
                 if value != field_type.value:
