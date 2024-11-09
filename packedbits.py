@@ -5,6 +5,155 @@ from typing_extensions import dataclass_transform
 from collections.abc import Mapping
 
 
+class Bits(t.Tuple[bool, ...]):
+    @t.overload
+    def __getitem__(self, index: t.SupportsIndex) -> bool:
+        ...
+
+    @t.overload
+    def __getitem__(self, index: slice) -> Bits:
+        ...
+
+    def __getitem__(self, index: t.SupportsIndex | slice) -> bool | Bits:
+        if isinstance(index, slice):
+            return Bits(super().__getitem__(index))
+        return super().__getitem__(index)
+
+    def __add__(self, other: t.Tuple[object, ...]) -> Bits:
+        return Bits(super().__add__(tuple(bool(bit) for bit in other)))
+
+    def __repr__(self) -> str:
+        str_bits = "".join(str(int(bit)) for bit in self)
+        return f"0b{str_bits}"
+
+    @classmethod
+    def from_str(cls, data: str) -> Bits:
+        return cls.from_bytes(data.encode("utf-8"))
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> Bits:
+        bits: t.List[bool] = []
+        for byte in data:
+            bits += cls.from_int(byte, 8)
+        return cls(bits)
+
+    @classmethod
+    def from_int(cls, value: int, n_bits: int) -> Bits:
+        if n_bits <= 0:
+            raise ValueError("Number of bits must be positive")
+        if value >= 1 << n_bits:
+            raise ValueError(f"Value {value} is too large for {n_bits} bits")
+        return cls(
+            value & (1 << (n_bits - i - 1)) != 0 for i in range(n_bits)
+        )
+
+    def to_int(self) -> int:
+        out = 0
+        for i, bit in enumerate(self):
+            out |= bit << (len(self) - i - 1)
+        return out
+
+    def to_bytes(self) -> bytes:
+        if len(self) % 8:
+            raise ValueError("Bits is not byte aligned (multiple of 8 bits)")
+        return bytes(self[i:i+8].to_int() for i in range(0, len(self), 8))
+
+    def to_str(self) -> str:
+        return self.to_bytes().decode("utf-8")
+
+
+class BitStream:
+    _bits: Bits
+    _pos: int = 0
+
+    def __init__(self, bits: Bits, pos: int = 0) -> None:
+        self._bits = bits
+        self._pos = pos
+
+    @property
+    def data(self):
+        return self._bits
+
+    @property
+    def pos(self):
+        return self._pos
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> BitStream:
+        return cls(Bits.from_bytes(data))
+
+    def extend(self, data: Bits) -> None:
+        self._bits += data
+
+    def extend_bytes(self, data: bytes) -> None:
+        self.extend(Bits.from_bytes(data))
+
+    def rebase(self):
+        if self._pos != 0:
+            self._bits = self._bits[self._pos:]
+            self._pos = 0
+
+    def is_byte_aligned(self) -> bool:
+        return self._pos % 8 == 0
+
+    def n_available(self) -> int:
+        return len(self._bits) - self._pos
+
+    def _assert_advance(self, n_bits: int) -> None:
+        if n_bits <= 0:
+            raise ValueError("Number of bits to advance must be positive")
+        if n_bits > self.n_available():
+            raise EOFError
+
+    def advance(self, n_bits: int) -> None:
+        self._assert_advance(n_bits)
+        self._pos += n_bits
+
+    def seek(self, pos: int) -> None:
+        if pos < 0:
+            raise ValueError("Position must be non-negative")
+        if pos > len(self._bits):
+            raise EOFError
+        self._pos = pos
+
+    def peek_bits(self, n_bits: int) -> Bits:
+        self._assert_advance(n_bits)
+        return self._bits[self._pos:self._pos+n_bits]
+
+    def read_bits(self, n_bits: int) -> Bits:
+        out = self.peek_bits(n_bits)
+        self.advance(n_bits)
+        return out
+
+    def peek_bool(self) -> bool:
+        return self.peek_bits(1)[0]
+
+    def read_bool(self) -> bool:
+        return self.read_bits(1)[0]
+
+    def peek_int(self, n_bits: int):
+        return self.peek_bits(n_bits).to_int()
+
+    def read_int(self, n_bits: int):
+        out = self.peek_int(n_bits)
+        self.advance(n_bits)
+        return out
+
+    def peek_bytes(self, n_bytes: int):
+        return self.peek_bits(n_bytes * 8).to_bytes()
+
+    def read_bytes(self, n_bytes: int):
+        out = self.peek_bytes(n_bytes)
+        self.advance(n_bytes * 8)
+        return out
+
+    def peek_str(self, n_bytes: int):
+        return self.peek_bytes(n_bytes).decode("utf-8")
+
+    def read_str(self, n_bytes: int):
+        return self.read_bytes(n_bytes).decode("utf-8")
+
+
 class AttrProxy(Mapping[str, t.Any]):
     _data: t.Mapping[str, t.Any]
 
@@ -109,8 +258,8 @@ class PBField(t.NamedTuple):
 class PackedBits:
     _pb_fields: t.List[PBField]
 
-    def to_bitarray(self) -> t.List[bool]:
-        bitstring: t.List[bool] = []
+    def to_bits(self) -> Bits:
+        bits: t.List[bool] = []
 
         for field in self._pb_fields:
             value = getattr(self, field.name)
@@ -129,39 +278,32 @@ class PackedBits:
 
             match value:
                 case PackedBits():
-                    new_bits = value.to_bitarray()
+                    new_bits = value.to_bits()
                     if len(new_bits) != value_bit_len:
                         raise ValueError(
                             f"Field {field.name} has incorrect bit length ({len(new_bits)})"
                         )
-                    bitstring += new_bits
+                    bits += new_bits
                 case str():
                     raise NotImplementedError
                 case bytes():
                     raise NotImplementedError
                 case _:
-                    if not value_bit_len > 0:
-                        raise ValueError(
-                            f"{field.name} has non-positive bit length ({value_bit_len})"
-                        )
+                    bits += Bits.from_int(value, value_bit_len)
 
-                    if value >= 1 << value_bit_len:
-                        raise ValueError(
-                            f"{field.name} is too large for {value_bit_len} bits ({value})"
-                        )
-
-                    for i in range(value_bit_len):
-                        bitstring.append(
-                            value & (1 << (value_bit_len - i - 1)) != 0
-                        )
-
-        return bitstring
+        return Bits(bits)
 
     @classmethod
-    def from_bitarray(cls, bitarray: t.Sequence[bool]):
-        value_map: t.Mapping[str, t.Any] = {}
+    def from_bits(cls, bits: Bits):
+        stream = BitStream(bits)
+        out = cls.from_bitstream(stream)
+        if stream.n_available():
+            raise ValueError("Bits left over after parsing")
+        return out
 
-        cursor = 0
+    @classmethod
+    def from_bitstream(cls, stream: BitStream):
+        value_map: t.Mapping[str, t.Any] = {}
 
         for field in cls._pb_fields:
             field_type, value_bit_len = field.type_len_fn(AttrProxy(value_map))
@@ -177,22 +319,15 @@ class PackedBits:
 
             match field_type_cnstr:
                 case field_type_cnstr if issubclass(field_type_cnstr, PackedBits):
-                    value = field_type_cnstr.from_bitarray(
-                        bitarray[cursor:cursor+value_bit_len]
+                    value = field_type_cnstr.from_bits(
+                        stream.read_bits(value_bit_len)
                     )
-                    cursor += value_bit_len
                 case field_type_cnstr if issubclass(field_type_cnstr, str):
                     raise NotImplementedError
                 case field_type_cnstr if issubclass(field_type_cnstr, bytes):
                     raise NotImplementedError
                 case _:
-                    int_value = 0
-                    for i in range(value_bit_len):
-                        int_value |= bitarray[cursor] << (
-                            value_bit_len - i - 1)
-                        cursor += 1
-
-                    value = field_type_cnstr(int_value)
+                    value = field_type_cnstr(stream.read_int(value_bit_len))
 
             if isinstance(field_type, LiteralType):
                 if value != field_type.value:
@@ -202,36 +337,14 @@ class PackedBits:
 
             value_map[field.name] = value
 
-        if cursor != len(bitarray):
-            raise ValueError("Bits left over after parsing")
-
         return cls(**value_map)
 
     def to_bytes(self) -> bytes:
-        bits = self.to_bitarray()
-
-        if len(bits) % 8:
-            raise ValueError("Result is not byte aligned (multiple of 8 bits)")
-
-        result = bytearray()
-
-        for i in range(0, len(bits), 8):
-            value = 0
-            for j in range(8):
-                value |= bits[i + j] << (7 - j)
-            result.append(value)
-
-        return bytes(result)
+        return self.to_bits().to_bytes()
 
     @classmethod
     def from_bytes(cls, data: bytes):
-        bits: t.List[bool] = []
-
-        for byte in data:
-            for i in range(8):
-                bits.append(byte & (1 << (7 - i)) != 0)
-
-        return cls.from_bitarray(bits)
+        return cls.from_bits(Bits.from_bytes(data))
 
     def __repr__(self) -> str:
         return "".join((

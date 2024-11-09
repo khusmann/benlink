@@ -1,5 +1,5 @@
 from __future__ import annotations
-from packedbits import PackedBits, bitfield, union_bitfield
+from packedbits import PackedBits, bitfield, union_bitfield, BitStream
 import typing as t
 import pytest
 import re
@@ -160,5 +160,19 @@ def test_negative_bitfield2():
 def test_value_too_large():
     class Bad(PackedBits):
         a: int = bitfield(8)
-    with pytest.raises(ValueError, match=re.escape("a is too large for 8 bits (500)")):
+    with pytest.raises(ValueError, match=re.escape("Value 500 is too large for 8 bits")):
         Bad(a=500).to_bytes()
+
+
+def test_bitstream_eof():
+    foo = BitStream.from_bytes(b'\x01')
+    foo.read_int(8)
+    with pytest.raises(EOFError):
+        foo.read_bool()
+
+
+def test_bitstream_eof2():
+    foo = BitStream.from_bytes(b'\x01')
+    foo.read_int(8)
+    with pytest.raises(EOFError):
+        foo.advance(1)
