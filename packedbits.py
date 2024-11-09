@@ -328,28 +328,26 @@ class PackedBits:
                             f"{field.name} has non-positive bit length ({value_bit_len})"
                         )
 
+                if issubclass(field_type, str) or issubclass(field_type, bytes):
+                    if value_bit_len % 8:
+                        raise ValueError(
+                            f"{field.name} must be byte aligned"
+                        )
+
             match field_type_cnstr:
                 case field_type_cnstr if issubclass(field_type_cnstr, PackedBits):
                     value = field_type_cnstr.from_bits(
                         stream.read_bits(value_bit_len)
                     )
                 case field_type_cnstr if issubclass(field_type_cnstr, str):
-                    if value_bit_len % 8:
-                        raise ValueError(
-                            f"String field {field.name} must be byte aligned"
-                        )
-                    value = stream.read_str(value_bit_len // 8)
+                    value = field_type_cnstr(
+                        stream.read_str(value_bit_len // 8)
+                    )
                 case field_type_cnstr if issubclass(field_type_cnstr, bytes):
-                    if value_bit_len % 8:
-                        raise ValueError(
-                            f"Bytes field {field.name} must be byte aligned"
-                        )
-                    value = stream.read_bytes(value_bit_len // 8)
+                    value = field_type_cnstr(
+                        stream.read_bytes(value_bit_len // 8)
+                    )
                 case field_type_cnstr if issubclass(field_type_cnstr, types.NoneType):
-                    if value_bit_len != 0:
-                        raise ValueError(
-                            f"None field {field.name} must have zero bit length"
-                        )
                     value = field_type_cnstr()
                 case _:
                     value = field_type_cnstr(stream.read_int(value_bit_len))
