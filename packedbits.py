@@ -468,3 +468,26 @@ def is_union_type(tp: t.Type[t.Any]) -> bool:
 
 def is_literal_type(tp: t.Type[t.Any]) -> bool:
     return t.get_origin(tp) is t.Literal
+
+
+def is_classvar_type(tp: t.Type[t.Any]) -> bool:
+    return t.get_origin(tp) is t.ClassVar
+
+
+def set_literal_classvars():
+    def inner(cls: t.Type[_T]) -> t.Type[_T]:
+        for name, field_type in t.get_type_hints(cls).items():
+            if is_classvar_type(field_type):
+                field_type_inner = t.get_args(field_type)[0]
+                if is_literal_type(field_type_inner):
+                    field_type_inner_args = t.get_args(field_type_inner)
+                    if len(field_type_inner_args) == 1:
+                        value = t.get_args(field_type_inner)[0]
+                        setattr(cls, name, value)
+                    else:
+                        if name not in vars(cls):
+                            raise TypeError(
+                                f"ClassVar field `{name}` is defined with multiple literal values but has no default set"
+                            )
+        return cls
+    return inner

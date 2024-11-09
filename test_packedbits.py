@@ -1,5 +1,6 @@
 from __future__ import annotations
-from packedbits import PackedBits, bitfield, union_bitfield, BitStream
+from packedbits import PackedBits, bitfield, union_bitfield, BitStream, set_literal_classvars
+from dataclasses import dataclass
 import typing as t
 import pytest
 import re
@@ -247,3 +248,34 @@ def test_bitstream_eof2():
     foo.read_int(8)
     with pytest.raises(EOFError):
         foo.advance(1)
+
+
+def test_set_literal_classvars():
+    @set_literal_classvars()
+    @dataclass()
+    class Test:
+        a: t.ClassVar[t.Literal[1]]
+        b: t.Literal[2]
+
+    assert Test.a == 1
+
+    assert Test(2).b == 2
+
+    with pytest.raises(AttributeError, match=re.escape("type object 'Test' has no attribute 'b'")):
+        print(Test.b)
+
+
+def test_set_literal_classvars_exception():
+    @set_literal_classvars()
+    @dataclass()
+    class Good:
+        a: t.ClassVar[t.Literal[1, 2]] = 1
+        b: t.ClassVar[bool] = True
+    assert Good.a == 1
+
+    with pytest.raises(TypeError, match=re.escape("ClassVar field `a` is defined with multiple literal values but has no default set")):
+        @set_literal_classvars()
+        @dataclass()
+        class Bad:
+            a: t.ClassVar[t.Literal[1, 2]]
+        print(Bad)
