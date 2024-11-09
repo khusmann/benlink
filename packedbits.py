@@ -180,6 +180,14 @@ class AttrProxy(Mapping[str, t.Any]):
         return f"AttrProxy({self._data})"
 
 
+@t.overload
+def bitfield(n: int | t.Callable[[t.Any], int]) -> t.Any: ...
+
+
+@t.overload
+def bitfield(n: int | t.Callable[[t.Any], int], default: _T) -> _T: ...
+
+
 def bitfield(n: int | t.Callable[[t.Any], int], default: _T | None = None) -> _T:
     if isinstance(n, int):
         if n < 0:
