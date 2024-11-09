@@ -4,25 +4,28 @@ import csv
 import sys
 import typing as t
 
-from htmessageOld2 import ByteStream, UnknownMessage, read_next_message, Message
+from messageframe import MessageFrame
+from packedbits import BitStream
 
 
 class MessageStream:
-    _stream: ByteStream
+    _stream: BitStream
 
     def __init__(self):
-        self._stream = ByteStream(b"")
+        self._stream = BitStream()
 
-    def feed(self, data: bytes) -> t.List[Message | UnknownMessage]:
-        self._stream.append(data)
+    def update(self, data: bytes) -> t.List[MessageFrame]:
+        self._stream.extend_bytes(data)
 
-        messages: t.List[Message | UnknownMessage] = []
+        messages: t.List[MessageFrame] = []
 
         while True:
-            message = read_next_message(self._stream)
-            if message is None:
+            pos = self._stream.tell()
+            try:
+                messages.append(MessageFrame.from_bitstream(self._stream))
+            except EOFError:
+                self._stream.seek(pos)
                 break
-            messages.append(message)
 
         return messages
 
@@ -54,9 +57,9 @@ for frame in reader:
 
     match frame["dir"]:
         case "phone->radio":
-            messages = phone_to_radio.feed(data)
+            messages = phone_to_radio.update(data)
         case "radio->phone":
-            messages = radio_to_phone.feed(data)
+            messages = radio_to_phone.update(data)
         case _:
             raise ValueError(f"Unknown direction: {frame['dir']}")
 
@@ -64,9 +67,9 @@ for frame in reader:
         writer.writerow({
             "id": frame["id"],
             "dir": frame["dir"],
-            "is_known": not isinstance(message, UnknownMessage),
-            "group": message.tid.group,
-            "is_reply": message.tid.is_reply,
-            "command": message.tid.command,
+            "is_known": True,
+            "group": message.type_group.name,
+            "is_reply": message.is_reply,
+            "command": message.type.name,
             "message": str(message)
         })

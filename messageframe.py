@@ -1,3 +1,6 @@
+from __future__ import annotations
+# from dataclasses import dataclass
+from packedbits import PackedBits, bitfield, union_bitfield
 import typing as t
 from enum import IntEnum, IntFlag
 
@@ -129,49 +132,106 @@ class ReplyStatus(IntEnum):
     IN_PROGRESS = 7
 
 
-class GetDevInfo(t.NamedTuple):
-    body: bytes
-    type_group: t.Literal[FrameTypeGroup.BASIC] = FrameTypeGroup.BASIC
-    is_reply: t.Literal[False] = False
-    type: t.Literal[FrameTypeBasic.GET_DEV_INFO] = FrameTypeBasic.GET_DEV_INFO
-    checksum: None | int = None
+class DevInfo(PackedBits):
+    vendor_id: int = bitfield(8)
+    product_id: int = bitfield(16)
+    hw_ver: int = bitfield(8)
+    soft_ver: int = bitfield(16)
+    support_radio: bool = bitfield(1)
+    support_medium_power: bool = bitfield(1)
+    fixed_loc_speaker_vol: bool = bitfield(1)
+    not_support_soft_power_ctrl: bool = bitfield(1)
+    have_no_speaker: bool = bitfield(1)
+    have_hm_speaker: bool = bitfield(1)
+    region_count: int = bitfield(6)
+    support_noaa: bool = bitfield(1)
+    gmrs: bool = bitfield(1)
+    support_vfo: bool = bitfield(1)
+    support_dmr: bool = bitfield(1)
+    channel_count: int = bitfield(8)
+    freq_range_count: int = bitfield(4)
 
 
-class GetDevInfoReply(t.NamedTuple):
-    body: bytes
-    type_group: t.Literal[FrameTypeGroup.BASIC] = FrameTypeGroup.BASIC
-    is_reply: t.Literal[True] = True
-    type: t.Literal[FrameTypeBasic.GET_DEV_INFO] = FrameTypeBasic.GET_DEV_INFO
-    checksum: None | int = None
+def frame_type_disc(m: MessageFrame):
+    match m.type_group:
+        case FrameTypeGroup.BASIC:
+            return (FrameTypeBasic, 15)
+        case FrameTypeGroup.EXTENDED:
+            return (FrameTypeExtended, 15)
 
 
-class GetDevStateVar(t.NamedTuple):
-    body: bytes
-    type_group: t.Literal[FrameTypeGroup.EXTENDED] = FrameTypeGroup.EXTENDED
-    is_reply: t.Literal[False] = False
-    type: t.Literal[FrameTypeExtended.GET_DEV_STATE_VAR] = FrameTypeExtended.GET_DEV_STATE_VAR
-    checksum: None | int = None
+def checksum_disc(m: MessageFrame):
+    if FrameOptions.CHECKSUM in m.options:
+        return (int, 8)
+    else:
+        return (type(None), 0)
 
 
-class GetDevStateVarReply(t.NamedTuple):
-    body: bytes
-    type_group: t.Literal[FrameTypeGroup.EXTENDED] = FrameTypeGroup.EXTENDED
-    is_reply: t.Literal[True] = True
-    type: t.Literal[FrameTypeExtended.GET_DEV_STATE_VAR] = FrameTypeExtended.GET_DEV_STATE_VAR
-    checksum: None | int = None
+class MessageFrame(PackedBits):
+    header: t.Literal[b'\xff\x01'] = bitfield(16, default=b'\xff\x01')
+    options: FrameOptions = bitfield(8)
+    length: int = bitfield(8)
+    type_group: FrameTypeGroup = bitfield(16)
+    is_reply: bool = bitfield(1)
+    type: FrameTypeBasic | FrameTypeExtended = union_bitfield(frame_type_disc)
+    body: bytes = bitfield(lambda x: x.length * 8)
+    checksum: int | None = union_bitfield(checksum_disc, default=None)
 
-
-class UnknownMessageFrame(t.NamedTuple):
-    body: bytes
-    type_group: int
-    is_reply: bool
-    type: int
-    checksum: None | int = None
-
-
-MessageFrame = t.Union[
-    GetDevInfo,
-    GetDevInfoReply,
-    GetDevStateVar,
-    GetDevStateVarReply,
-]
+# class GetDevInfo(t.NamedTuple):
+#    body: bytes
+#    type_group: t.Literal[FrameTypeGroup.BASIC] = FrameTypeGroup.BASIC
+#    is_reply: t.Literal[False] = False
+#    type: t.Literal[FrameTypeBasic.GET_DEV_INFO] = FrameTypeBasic.GET_DEV_INFO
+#    checksum: None | int = None
+#
+#
+# ShortT = t.TypeVar("ShortT")
+#
+# ShortCut = t.ClassVar[t.Literal[ShortT]]
+#
+#
+# @dataclass(kw_only=True)
+# class GetDevInfoReplySuccessFrame:
+#    type_group: t.ClassVar[t.Literal[FrameTypeGroup.BASIC]]
+#    is_reply: t.ClassVar[t.Literal[True]]
+#    type:  t.ClassVar[t.Literal[FrameTypeBasic.GET_DEV_INFO]]
+#    reply_status: t.ClassVar[t.Literal[ReplyStatus.SUCCESS]]
+#    checksum: None | int = None
+#
+#
+# @dataclass()
+# class GetDevInfoReplySuccess(GetDevInfoReplySuccessFrame):
+#    info: DevInfo
+#
+#
+# class GetDevInfoReplyFailure(t.NamedTuple):
+#    reply_status: ReplyStatusFail
+#    type_group: t.Literal[FrameTypeGroup.BASIC] = FrameTypeGroup.BASIC
+#    is_reply: t.Literal[True] = True
+#    type: t.Literal[FrameTypeBasic.GET_DEV_INFO] = FrameTypeBasic.GET_DEV_INFO
+#    checksum: None | int = None
+#
+#
+# class GetDevStateVar(t.NamedTuple):
+#    body: bytes
+#    type_group = FrameTypeGroup.EXTENDED
+#    is_reply = False
+#    type = FrameTypeExtended.GET_DEV_STATE_VAR
+#    checksum: None | int = None
+#
+#
+# class GetDevStateVarReply(t.NamedTuple):
+#    body: bytes
+#    type_group: t.Literal[FrameTypeGroup.EXTENDED] = FrameTypeGroup.EXTENDED
+#    is_reply: t.Literal[True] = True
+#    type: t.Literal[FrameTypeExtended.GET_DEV_STATE_VAR] = FrameTypeExtended.GET_DEV_STATE_VAR
+#    checksum: None | int = None
+#
+#
+# MessageFrame = t.Union[
+#    GetDevInfo,
+#    GetDevInfoReplySuccess,
+#    GetDevInfoReplyFailure,
+#    GetDevStateVar,
+#    GetDevStateVarReply,
+# ]
