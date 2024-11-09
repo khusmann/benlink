@@ -52,6 +52,24 @@ def test_none_exception():
         print(Bad)
 
 
+def test_str_alignment():
+    class Test(PackedBits):
+        a: bool = bitfield(1)
+        b: str = bitfield(7)
+
+    with pytest.raises(ValueError, match=re.escape("Field b length (7) is not a multiple of 8")):
+        Test.from_bytes(b'\x00')
+
+
+def test_bytes_alignment():
+    class Test(PackedBits):
+        a: bool = bitfield(1)
+        b: bytes = bitfield(7)
+
+    with pytest.raises(ValueError, match=re.escape("Field b length (7) is not a multiple of 8")):
+        Test.from_bytes(b'\x00')
+
+
 def test_optional_fields():
     class Test(PackedBits):
         a: int = bitfield(8)

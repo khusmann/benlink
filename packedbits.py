@@ -331,7 +331,7 @@ class PackedBits:
                 if issubclass(field_type, str) or issubclass(field_type, bytes):
                     if value_bit_len % 8:
                         raise ValueError(
-                            f"{field.name} must be byte aligned"
+                            f"Field {field.name} length ({value_bit_len}) is not a multiple of 8"
                         )
 
             match field_type_cnstr:
