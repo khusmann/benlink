@@ -64,7 +64,7 @@ class Bits(t.Tuple[bool, ...]):
 
 class BitStream:
     _bits: Bits
-    _pos: int = 0
+    _pos: int
 
     def __init__(self, bits: Bits = Bits(), pos: int = 0) -> None:
         self._bits = bits
@@ -303,7 +303,12 @@ class PackedBits:
     @classmethod
     def from_bits(cls, bits: Bits):
         stream = BitStream(bits)
-        out = cls.from_bitstream(stream)
+
+        try:
+            out = cls.from_bitstream(stream)
+        except EOFError:
+            raise ValueError("Not enough bits to parse object")
+
         if stream.n_available():
             raise ValueError("Bits left over after parsing")
         return out

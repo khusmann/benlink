@@ -118,6 +118,15 @@ def test_varlength_fields():
     assert Test.from_bytes(test.to_bytes()) == test
 
 
+def test_too_few_bits():
+    class Test(PackedBits):
+        a: int = bitfield(8)
+        b: int = bitfield(8)
+
+    with pytest.raises(ValueError, match=re.escape("Not enough bits to parse object")):
+        Test.from_bytes(b'\x01')
+
+
 class Inner(PackedBits):
     a: int = bitfield(4)
     b: int = bitfield(4)
