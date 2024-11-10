@@ -419,7 +419,9 @@ class PackedBits:
         out = cls.from_bitstream(stream, raise_value_error_on_eof=True)
 
         if stream.n_available():
-            raise ValueError("Bits left over after parsing")
+            raise ValueError(
+                f"Bits left over after parsing ({stream.n_available()})"
+            )
 
         return out
 

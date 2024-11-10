@@ -5,6 +5,29 @@ import typing as t
 from enum import IntEnum, IntFlag
 
 
+class ReplyStatus(IntEnum):
+    SUCCESS = 0
+    NOT_SUPPORTED = 1
+    NOT_AUTHENTICATED = 2
+    INSUFFICIENT_RESOURCES = 3
+    AUTHENTICATING = 4
+    INVALID_PARAMETER = 5
+    INCORRECT_STATE = 6
+    IN_PROGRESS = 7
+
+#################################################
+# READ_RF_CHANNEL
+
+
+class ReadRFChBody(PackedBits):
+    channel: int = bitfield(8)
+
+
+class ReadRFChReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+    channel: int = bitfield(8)
+    info: bytes = bitfield(198)
+
 #################################################
 # GET_DEV_STATE_VAR
 
@@ -226,17 +249,6 @@ class FrameTypeBasic(IntEnum):
     GET_PF_ACTIONS = 75
 
 
-class ReplyStatus(IntEnum):
-    SUCCESS = 0
-    NOT_SUPPORTED = 1
-    NOT_AUTHENTICATED = 2
-    INSUFFICIENT_RESOURCES = 3
-    AUTHENTICATING = 4
-    INVALID_PARAMETER = 5
-    INCORRECT_STATE = 6
-    IN_PROGRESS = 7
-
-
 def frame_type_disc(m: MessageFrame):
     match m.type_group:
         case FrameTypeGroup.BASIC:
@@ -262,6 +274,8 @@ def body_disc(m: MessageFrame):
                     out = GetDevInfoReplyBody if m.is_reply else GetDevInfoBody
                 case FrameTypeBasic.READ_STATUS:
                     out = ReadStatusReplyBody if m.is_reply else ReadStatusBody
+                case FrameTypeBasic.READ_RF_CH:
+                    out = ReadRFChReplyBody if m.is_reply else ReadRFChBody
                 case _:
                     out = bytes
         case FrameTypeGroup.EXTENDED:
@@ -277,6 +291,8 @@ MessageBody = t.Union[
     GetDevInfoReplyBody,
     ReadStatusBody,
     ReadStatusReplyBody,
+    ReadRFChBody,
+    ReadRFChReplyBody,
 ]
 
 
