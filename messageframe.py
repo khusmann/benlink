@@ -16,6 +16,82 @@ class ReplyStatus(IntEnum):
     IN_PROGRESS = 7
 
 #################################################
+# READ_BSS_SETTINGS / WRITE_BSS_SETTINGS
+
+
+class BSSSettings(PackedBits):
+    max_fwd_times: int = bitfield(4)
+    time_to_live: int = bitfield(4)
+    ptt_release_send_location: bool = bitfield(1)
+    ptt_release_send_id_info: bool = bitfield(1)
+    ptt_release_send_bss_user_id: bool = bitfield(1)
+    should_share_location: bool = bitfield(1)
+    send_pwr_voltage: bool = bitfield(1)
+    use_aprs_format: bool = bitfield(1)
+    allow_position_check: bool = bitfield(1)
+    _pad: t.Literal[0] = bitfield(1)
+    callsign_ssid: int = bitfield(4)
+    _pad2: t.Literal[0] = bitfield(4)
+    location_share_interval: int = bitfield(8)
+    bss_user_id_lower: int = bitfield(32)
+    ptt_release_id_info: bytes = bitfield(8 * 12)
+    beacon_message: bytes = bitfield(8 * 18)
+    aprs_symbol: bytes = bitfield(8 * 2)
+    aprs_callsign: bytes = bitfield(8 * 6)
+
+
+class BSSSettingsExt(BSSSettings):
+    bss_user_id_upper: int = bitfield(32)
+
+
+class ReadBSSSettingsBody(PackedBits):
+    unknown: int = bitfield(8)
+
+
+class ReadBSSSettingsReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+    bss_settings: BSSSettings | BSSSettingsExt = union_bitfield(
+        lambda x: BSSSettingsExt  # TODO: Switch based on response size
+    )
+
+
+class WriteBSSSettingsBody(PackedBits):
+    bss_settings: BSSSettings | BSSSettingsExt = union_bitfield(
+        lambda x: BSSSettingsExt  # TODO: Switch based on response size
+    )
+
+
+class WriteBSSSettingsReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+
+
+#################################################
+# EVENT_NOTIFICATION
+
+
+class EventNotificationType(IntEnum):
+    UNKNOWN = 0
+    HT_STATUS_CHANGED = 1
+    DATA_RXD = 2
+    NEW_INQUIRY_DATA = 3
+    RESTORE_FACTORY_SETTINGS = 4
+    HT_CH_CHANGED = 5
+    HT_SETTINGS_CHANGED = 6
+    RINGING_STOPPED = 7
+    RADIO_STATUS_CHANGED = 8
+    USER_ACTION = 9
+    SYSTEM_EVENT = 10
+    BSS_SETTINGS_CHANGED = 11
+
+
+class EventNotifcationBSSSettingsChanged(PackedBits):
+    pass
+
+
+class EventNotificationBody(PackedBits):
+    event_type: EventNotificationType = bitfield(8)
+
+#################################################
 # GET_PF
 
 
@@ -475,6 +551,10 @@ def body_disc(m: MessageFrame):
                     out = WriteSettingsReplyBody if m.is_reply else WriteSettingsBody
                 case FrameTypeBasic.GET_PF:
                     out = GetPFReplyBody if m.is_reply else GetPFBody
+                case FrameTypeBasic.READ_BSS_SETTINGS:
+                    out = ReadBSSSettingsReplyBody if m.is_reply else ReadBSSSettingsBody
+                case FrameTypeBasic.WRITE_BSS_SETTINGS:
+                    out = WriteBSSSettingsReplyBody if m.is_reply else WriteBSSSettingsBody
                 case _:
                     out = bytes
         case FrameTypeGroup.EXTENDED:
@@ -500,6 +580,10 @@ MessageBody = t.Union[
     WriteSettingsReplyBody,
     GetPFBody,
     GetPFReplyBody,
+    ReadBSSSettingsBody,
+    ReadBSSSettingsReplyBody,
+    WriteBSSSettingsBody,
+    WriteBSSSettingsReplyBody,
 ]
 
 
