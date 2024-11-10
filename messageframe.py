@@ -323,8 +323,6 @@ def checksum_disc(m: MessageFrame):
 
 
 def body_disc(m: MessageFrame):
-    n_bits = m.n_bytes_body * 8
-
     match m.type_group:
         case FrameTypeGroup.BASIC:
             match m.type:
@@ -343,7 +341,7 @@ def body_disc(m: MessageFrame):
                 case _:
                     out = bytes
 
-    return (out, n_bits)
+    return (out, m.n_bytes_body * 8)
 
 
 MessageBody = t.Union[
