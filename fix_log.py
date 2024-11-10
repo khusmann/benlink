@@ -71,5 +71,5 @@ for frame in reader:
             "group": message.type_group.name,
             "is_reply": message.is_reply,
             "command": message.type.name,
-            "message": str(message)
+            "message": str(message.body)
         })
