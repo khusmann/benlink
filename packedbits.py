@@ -193,7 +193,11 @@ def bitfield(n: int | t.Callable[[t.Any], int] | None = None, default: _T | None
             raise ValueError("Bitfield length must be non-negative")
         out = FixedLengthField(n, default)
     elif n is None:
-        out = FixedLengthField(None, default)
+        if default is not None and not isinstance(default, PackedBits):
+            raise ValueError(
+                "Field type must be PackedBits for auto length field"
+            )
+        out = AutoLengthField(default)
     else:
         out = VariableLengthField(n, default)
 
@@ -246,37 +250,33 @@ class LiteralType:
         self.type = type(value)
 
 
-TypeLenFn = t.Callable[
-    [t.Any],
-    t.Type["PackedBits"] | t.Tuple[t.Type[t.Any] | LiteralType, int]
-]
+TypeLenFn = t.Callable[[t.Any], t.Tuple[t.Type[t.Any] | LiteralType, int]]
+
+
+class AutoLengthField(t.NamedTuple):
+    default: PackedBits | None
+
+    def build_type_len_fn(self, field_type: t.Type[_PackedBitsT]) -> TypeLenFn:
+        n = field_type._pb_n_bits  # type: ignore
+
+        if n is None:
+            raise ValueError(
+                "Auto length field requires a PackedBits with fixed bit length"
+            )
+
+        def inner(_: t.Any):
+            return (field_type, n)
+        return inner
 
 
 class FixedLengthField(t.NamedTuple):
-    n: int | None
+    n: int
     default: t.Any
 
     def build_type_len_fn(self, field_type: t.Type[t.Any] | LiteralType) -> TypeLenFn:
-        if not isinstance(field_type, LiteralType) and issubclass(field_type, PackedBits) and self.n is None:
-            n = field_type._pb_n_bits  # type: ignore
-            if n is None:
-                raise ValueError(
-                    "Variable length field requires explicit bit length"
-                )
-
-            def inner_auto(_: t.Any):
-                return (field_type, n)
-            return inner_auto
-        else:
-            n = self.n
-            if n is None:
-                raise ValueError(
-                    "Expected a PackedBits type"
-                )
-
-            def inner(_: t.Any):
-                return (field_type, n)
-            return inner
+        def inner(_: t.Any):
+            return (field_type, self.n)
+        return inner
 
 
 class VariableLengthField(t.NamedTuple):
@@ -290,13 +290,27 @@ class VariableLengthField(t.NamedTuple):
 
 
 class UnionField(t.NamedTuple):
-    type_len_fn: t.Callable[
+    discriminator: t.Callable[
         [t.Any], t.Type[PackedBits] | t.Tuple[t.Type[t.Any], int]
     ]
     default: t.Any
 
+    def build_type_len_fn(self) -> TypeLenFn:
+        def inner(incomplete: t.Any):
+            out = self.discriminator(incomplete)
+            if isinstance(out, tuple):
+                return out
+            n = out._pb_n_bits  # type: ignore
+            if n is None:
+                raise ValueError(
+                    "Union field requires a PackedBits with fixed bit length"
+                )
+            return (out, n)
+        return inner
+
 
 Bitfield = t.Union[
+    AutoLengthField,
     FixedLengthField,
     VariableLengthField,
     UnionField,
@@ -324,16 +338,7 @@ class PackedBits:
 
         for field in self._pb_fields:
             value = getattr(self, field.name)
-            type_len_result = field.type_len_fn(self)
-            if isinstance(type_len_result, tuple):
-                field_type, value_bit_len = type_len_result
-            else:
-                field_type = type_len_result
-                value_bit_len = self._pb_n_bits
-                if value_bit_len is None:
-                    raise ValueError(
-                        "Variable length field requires explicit bit length"
-                    )
+            field_type, value_bit_len = field.type_len_fn(self)
 
             if isinstance(field_type, LiteralType):
                 if field_type.value != value:
@@ -385,16 +390,7 @@ class PackedBits:
         value_map: t.Mapping[str, t.Any] = {}
 
         for field in cls._pb_fields:
-            type_len_result = field.type_len_fn(AttrProxy(value_map))
-            if isinstance(type_len_result, tuple):
-                field_type, value_bit_len = type_len_result
-            else:
-                field_type = type_len_result
-                value_bit_len = field_type._pb_n_bits
-                if value_bit_len is None:
-                    raise ValueError(
-                        "Variable length field requires explicit bit length"
-                    )
+            field_type, value_bit_len = field.type_len_fn(AttrProxy(value_map))
 
             field_type_cnstr = (
                 field_type.type if isinstance(field_type, LiteralType)
@@ -505,7 +501,7 @@ class PackedBits:
                     field_type_constructor = field_type
 
                 match bitfield:
-                    case UnionField(type_len_fn):
+                    case UnionField():
                         if not is_union_type(field_type):
                             raise TypeError(
                                 f"Expected union type for field `{name}`, got {field_type}"
@@ -515,7 +511,8 @@ class PackedBits:
                                 f"Union field `{name}` cannot contain literal types"
                             )
 
-                        type_len_fn = type_len_fn
+                        type_len_fn = bitfield.build_type_len_fn()
+                        n_bits = None
                     case FixedLengthField() | VariableLengthField():
                         if is_union_type(field_type):
                             raise TypeError(
@@ -525,6 +522,19 @@ class PackedBits:
                         type_len_fn = bitfield.build_type_len_fn(
                             field_type_constructor
                         )
+                        if isinstance(bitfield, FixedLengthField):
+                            n_bits = bitfield.n
+                        else:
+                            n_bits = None
+                    case AutoLengthField():
+                        if not (isinstance(field_type_constructor, type) and issubclass(field_type_constructor, PackedBits)):
+                            raise TypeError(
+                                f"Auto length field `{name}` must be a PackedBits class"
+                            )
+                        type_len_fn = bitfield.build_type_len_fn(
+                            field_type_constructor
+                        )
+                        n_bits = field_type_constructor._pb_n_bits
                     case _:
                         raise TypeError(
                             f"Expected bitfield for field `{name}`, got {bitfield}"
@@ -536,8 +546,8 @@ class PackedBits:
                             f"None field `{name}` must have zero bit length"
                         )
 
-                if isinstance(bitfield, FixedLengthField) and cls._pb_n_bits is not None and bitfield.n is not None:
-                    cls._pb_n_bits += bitfield.n
+                if n_bits is not None and cls._pb_n_bits is not None:
+                    cls. _pb_n_bits += n_bits
                 else:
                     cls._pb_n_bits = None
 

@@ -134,10 +134,10 @@ class Inner(PackedBits):
 
 def test_nested_fields():
     class Test(PackedBits):
-        a: Inner = bitfield(8)
-        b: Inner = bitfield(8)
+        x: Inner = bitfield(8)
+        y: Inner = bitfield(8)
 
-    test = Test(a=Inner(a=1, b=2), b=Inner(a=3, b=4))
+    test = Test(x=Inner(a=1, b=2), y=Inner(a=3, b=4))
     assert test.to_bytes() == b'\x12\x34'
     assert Test.from_bytes(test.to_bytes()) == test
 
