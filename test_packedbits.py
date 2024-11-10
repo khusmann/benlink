@@ -71,6 +71,18 @@ def test_none_union():
     assert Test.from_bytes(test.to_bytes()) == test
 
 
+def test_inheritance():
+    class Base(PackedBits):
+        a: int = bitfield(8)
+
+    class Test(Base):
+        b: int = bitfield(8)
+
+    test = Test(a=1, b=2)
+    assert test.to_bytes() == b'\x01\x02'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
 def test_none_packedbits_union():
     class Test(PackedBits):
         a: int = bitfield(8)
@@ -155,7 +167,7 @@ def test_too_few_bits():
         a: int = bitfield(8)
         b: int = bitfield(8)
 
-    with pytest.raises(ValueError, match=re.escape("Not enough bits to parse object")):
+    with pytest.raises(ValueError, match=re.escape("Not enough bits to parse field b as int with 8 bits")):
         Test.from_bytes(b'\x01')
 
 

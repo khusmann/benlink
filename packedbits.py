@@ -556,7 +556,7 @@ class PackedBits:
 
         for name, field_type in t.get_type_hints(cls).items():
             if not name.startswith("_pb_"):
-                if name not in vars(cls):
+                if not any(name in vars(c) for c in cls.mro()):
                     raise TypeError(
                         f"Expected bitfield for field `{name}`"
                     )
