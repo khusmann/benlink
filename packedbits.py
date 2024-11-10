@@ -176,22 +176,23 @@ class AttrProxy(Mapping[str, t.Any]):
 
 
 @t.overload
-def bitfield() -> t.Any: ...
+def bitfield(
+    n: int | t.Callable[[t.Any], int] | None = None,
+    default: None = None,
+    scale: float = 1
+) -> t.Any: ...
 
 
 @t.overload
-def bitfield(n: int | t.Callable[[t.Any], int] | None) -> t.Any: ...
+def bitfield(
+    n: int | t.Callable[[t.Any], int] | None, default: _T, scale: float = 1) -> _T: ...
 
 
-@t.overload
-def bitfield(n: int | t.Callable[[t.Any], int] | None, default: _T) -> _T: ...
-
-
-def bitfield(n: int | t.Callable[[t.Any], int] | None = None, default: _T | None = None) -> _T:
+def bitfield(n: int | t.Callable[[t.Any], int] | None = None, default: _T | None = None, scale: float = 1) -> _T:
     if isinstance(n, int):
         if n < 0:
             raise ValueError("Bitfield length must be non-negative")
-        out = FixedLengthField(n, default)
+        out = FixedLengthField(n, default, scale)
     elif n is None:
         if default is not None and not isinstance(default, PackedBits):
             raise ValueError(
@@ -199,7 +200,7 @@ def bitfield(n: int | t.Callable[[t.Any], int] | None = None, default: _T | None
             )
         out = AutoLengthField(default)
     else:
-        out = VariableLengthField(n, default)
+        out = VariableLengthField(n, default, scale)
 
     return out  # type: ignore
 
@@ -298,6 +299,7 @@ class AutoLengthField(t.NamedTuple):
 class FixedLengthField(t.NamedTuple):
     n: int
     default: t.Any
+    scale: float
 
     def build_type_len_fn(self, field_type: t.Type[t.Any] | LiteralType) -> TypeLenFn:
         def inner(_: t.Any):
@@ -308,6 +310,7 @@ class FixedLengthField(t.NamedTuple):
 class VariableLengthField(t.NamedTuple):
     n_fn: t.Callable[[t.Any], int]
     default: t.Any
+    scale: float
 
     def build_type_len_fn(self, field_type: t.Type[t.Any] | LiteralType) -> TypeLenFn:
         def inner(incomplete: t.Any):
@@ -391,7 +394,14 @@ class PackedBits:
                 case None:
                     new_bits = Bits()
                 case _:
-                    new_bits = Bits.from_int(value, value_bit_len)
+                    if isinstance(field.bitfield, (VariableLengthField, FixedLengthField)):
+                        unscaled_value = value * field.bitfield.scale
+                    else:
+                        unscaled_value = value
+                    new_bits = Bits.from_int(
+                        round(unscaled_value),
+                        value_bit_len
+                    )
 
             if len(new_bits) != value_bit_len:
                 raise ValueError(
@@ -469,7 +479,14 @@ class PackedBits:
             elif issubclass(field_type_cnstr, types.NoneType):
                 value = field_type_cnstr()
             else:
-                value = field_type_cnstr(stream.read_int(value_bit_len))
+                if isinstance(field.bitfield, (VariableLengthField, FixedLengthField)):
+                    scaled_value = stream.read_int(
+                        value_bit_len
+                    ) / field.bitfield.scale
+                else:
+                    scaled_value = stream.read_int(value_bit_len)
+
+                value = field_type_cnstr(scaled_value)
 
             if isinstance(field_type, LiteralType):
                 if value != field_type.value:

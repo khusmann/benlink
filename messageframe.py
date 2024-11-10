@@ -145,7 +145,7 @@ class ReadStatusBody(PackedBits):
 
 
 class RadioStatusVoltage(PackedBits):
-    voltage: int = bitfield(16)
+    voltage: float = bitfield(16, scale=1000)
 
 
 class RadioStatusBatteryLevel(PackedBits):
