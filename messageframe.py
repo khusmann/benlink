@@ -30,13 +30,6 @@ class BandwidthType(IntEnum):
     WIDE = 1
 
 
-class ChannelSettingsDMR(PackedBits):
-    tx_color: int = bitfield(4)
-    rx_color: int = bitfield(4)
-    slot: int = bitfield(1)
-    _pad2: t.Literal[0] = bitfield(7)
-
-
 class ChannelSettings(PackedBits):
     tx_mod: ModulationType = bitfield(2)
     tx_freq: float = bitfield(30, scale=1e6)
@@ -58,13 +51,13 @@ class ChannelSettings(PackedBits):
     mute: bool = bitfield(1)
     _pad: t.Literal[0] = bitfield(4, default=0)
     name_str: bytes = bitfield(80)
-    # In the app, this is detected via support_dmr in
-    # device settings. ... I need to figure out how to
-    # pass context to union bitfields...
-    # Or, I guess I could just use bits available?
-    dmr: ChannelSettingsDMR | None = union_bitfield(
-        lambda x: None, default=None
-    )
+
+
+class ChannelSettingsDMR(ChannelSettings):
+    tx_color: int = bitfield(4)
+    rx_color: int = bitfield(4)
+    slot: int = bitfield(1)
+    _pad2: t.Literal[0] = bitfield(7)
 
 
 class ReadRFChBody(PackedBits):
@@ -74,7 +67,13 @@ class ReadRFChBody(PackedBits):
 class ReadRFChReplyBody(PackedBits):
     reply_status: ReplyStatus = bitfield(8)
     channel: int = bitfield(8)
-    channel_settings: ChannelSettings = bitfield()
+    # In the app, this is detected via support_dmr in
+    # device settings. ... I need to figure out how to
+    # pass context to union bitfields...
+    # Or, I guess I could just use bits available?
+    channel_settings: ChannelSettings | ChannelSettingsDMR = union_bitfield(
+        lambda _: ChannelSettings
+    )
 
 
 class WriteRFChBody(PackedBits):
