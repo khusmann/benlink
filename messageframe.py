@@ -16,7 +16,46 @@ class ReplyStatus(IntEnum):
     IN_PROGRESS = 7
 
 #################################################
-# READ_RF_CHANNEL
+# READ_RF_CHANNEL / WRITE_RF_CHANNEL
+
+
+class ModulationType(IntEnum):
+    FM = 0
+    AM = 1
+    DMR = 2
+
+
+class BandwidthType(IntEnum):
+    NARROW = 0
+    WIDE = 1
+
+
+class ChannelSettings(PackedBits):
+    tx_mod: ModulationType = bitfield(2)
+    tx_freq: float = bitfield(30, scale=1e6)
+    rx_mod: ModulationType = bitfield(2)
+    rx_freq: float = bitfield(30, scale=1e6)
+    tx_sub_audio: int = bitfield(16)
+    rx_sub_audio: int = bitfield(16)
+    scan: bool = bitfield(1)
+    tx_at_max_power: bool = bitfield(1)
+    talk_around: bool = bitfield(1)
+    bandwidth: BandwidthType = bitfield(1)
+    pre_de_emph_bypass: bool = bitfield(1)
+    sign: bool = bitfield(1)
+    tx_at_med_power: bool = bitfield(1)
+    tx_disable: bool = bitfield(1)
+    fixed_freq: bool = bitfield(1)
+    fixed_bandwith: bool = bitfield(1)
+    fixed_tx_power: bool = bitfield(1)
+    mute: bool = bitfield(1)
+    _pad: t.Literal[0] = bitfield(4, default=0)
+    name_str: bytes = bitfield(80)
+    # The following are only present when support_dmr = True
+    # tx_color: int = bitfield(4)
+    # rx_color: int = bitfield(4)
+    # slot: int = bitfield(1)
+    # _pad2: t.Literal[0] = bitfield(7)
 
 
 class ReadRFChBody(PackedBits):
@@ -26,7 +65,18 @@ class ReadRFChBody(PackedBits):
 class ReadRFChReplyBody(PackedBits):
     reply_status: ReplyStatus = bitfield(8)
     channel: int = bitfield(8)
-    info: bytes = bitfield(198)
+    channel_settings: ChannelSettings = bitfield()
+
+
+class WriteRFChBody(PackedBits):
+    channel: int = bitfield(8)
+    channel_settings: ChannelSettings = bitfield()
+
+
+class WriteRFChReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+    channel: int = bitfield(8)
+
 
 #################################################
 # GET_DEV_STATE_VAR
@@ -136,7 +186,7 @@ class DevInfo(PackedBits):
     support_dmr: bool = bitfield(1)
     channel_count: int = bitfield(8)
     freq_range_count: int = bitfield(4)
-    pad: t.Literal[0] = bitfield(4, default=0)
+    _pad: t.Literal[0] = bitfield(4, default=0)
 
 
 class GetDevInfoBody(PackedBits):
@@ -276,6 +326,8 @@ def body_disc(m: MessageFrame):
                     out = ReadStatusReplyBody if m.is_reply else ReadStatusBody
                 case FrameTypeBasic.READ_RF_CH:
                     out = ReadRFChReplyBody if m.is_reply else ReadRFChBody
+                case FrameTypeBasic.WRITE_RF_CH:
+                    out = WriteRFChReplyBody if m.is_reply else WriteRFChBody
                 case _:
                     out = bytes
         case FrameTypeGroup.EXTENDED:
@@ -293,6 +345,8 @@ MessageBody = t.Union[
     ReadStatusReplyBody,
     ReadRFChBody,
     ReadRFChReplyBody,
+    WriteRFChBody,
+    WriteRFChReplyBody,
 ]
 
 
