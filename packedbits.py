@@ -176,18 +176,24 @@ class AttrProxy(Mapping[str, t.Any]):
 
 
 @t.overload
-def bitfield(n: int | t.Callable[[t.Any], int]) -> t.Any: ...
+def bitfield() -> t.Any: ...
 
 
 @t.overload
-def bitfield(n: int | t.Callable[[t.Any], int], default: _T) -> _T: ...
+def bitfield(n: int | t.Callable[[t.Any], int] | None) -> t.Any: ...
 
 
-def bitfield(n: int | t.Callable[[t.Any], int], default: _T | None = None) -> _T:
+@t.overload
+def bitfield(n: int | t.Callable[[t.Any], int] | None, default: _T) -> _T: ...
+
+
+def bitfield(n: int | t.Callable[[t.Any], int] | None = None, default: _T | None = None) -> _T:
     if isinstance(n, int):
         if n < 0:
             raise ValueError("Bitfield length must be non-negative")
         out = FixedLengthField(n, default)
+    elif n is None:
+        out = FixedLengthField(None, default)
     else:
         out = VariableLengthField(n, default)
 
@@ -197,7 +203,36 @@ def bitfield(n: int | t.Callable[[t.Any], int], default: _T | None = None) -> _T
 _T = t.TypeVar("_T")
 
 
-def union_bitfield(discriminator: t.Callable[[t.Any], t.Tuple[t.Type[_T], int]], default: _T | None = None) -> _T:
+@t.overload
+def union_bitfield(
+    discriminator: t.Callable[[t.Any], t.Tuple[t.Type[_T], int]]
+) -> _T: ...
+
+
+@t.overload
+def union_bitfield(
+    discriminator: t.Callable[[t.Any], t.Tuple[t.Type[_T], int]],
+    default: _T
+) -> _T: ...
+
+
+@t.overload
+def union_bitfield(
+    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | t.Tuple[t.Type[_PackedBitsT] | t.Type[_T], int]],
+) -> _PackedBitsT | _T: ...
+
+
+@t.overload
+def union_bitfield(
+    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | t.Tuple[t.Type[_PackedBitsT] | t.Type[_T], int]],
+    default: _PackedBitsT | _T
+) -> _PackedBitsT | _T: ...
+
+
+def union_bitfield(
+    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | t.Tuple[t.Type[_T], int]],
+    default: _T | None = None
+) -> _PackedBitsT | _T:
     out = UnionField(discriminator, default)
     return out  # type: ignore
 
@@ -211,17 +246,37 @@ class LiteralType:
         self.type = type(value)
 
 
-TypeLenFn = t.Callable[[t.Any], t.Tuple[t.Type[t.Any] | LiteralType, int]]
+TypeLenFn = t.Callable[
+    [t.Any],
+    t.Type["PackedBits"] | t.Tuple[t.Type[t.Any] | LiteralType, int]
+]
 
 
 class FixedLengthField(t.NamedTuple):
-    n: int
+    n: int | None
     default: t.Any
 
     def build_type_len_fn(self, field_type: t.Type[t.Any] | LiteralType) -> TypeLenFn:
-        def inner(_: t.Any):
-            return (field_type, self.n)
-        return inner
+        if not isinstance(field_type, LiteralType) and issubclass(field_type, PackedBits) and self.n is None:
+            n = field_type._pb_n_bits  # type: ignore
+            if n is None:
+                raise ValueError(
+                    "Variable length field requires explicit bit length"
+                )
+
+            def inner_auto(_: t.Any):
+                return (field_type, n)
+            return inner_auto
+        else:
+            n = self.n
+            if n is None:
+                raise ValueError(
+                    "Expected a PackedBits type"
+                )
+
+            def inner(_: t.Any):
+                return (field_type, n)
+            return inner
 
 
 class VariableLengthField(t.NamedTuple):
@@ -235,7 +290,9 @@ class VariableLengthField(t.NamedTuple):
 
 
 class UnionField(t.NamedTuple):
-    type_len_fn: t.Callable[[t.Any], t.Tuple[t.Type[t.Any], int]]
+    type_len_fn: t.Callable[
+        [t.Any], t.Type[PackedBits] | t.Tuple[t.Type[t.Any], int]
+    ]
     default: t.Any
 
 
@@ -260,13 +317,23 @@ class PBField(t.NamedTuple):
 )
 class PackedBits:
     _pb_fields: t.List[PBField]
+    _pb_n_bits: int | None
 
     def to_bits(self) -> Bits:
         bits: t.List[bool] = []
 
         for field in self._pb_fields:
             value = getattr(self, field.name)
-            field_type, value_bit_len = field.type_len_fn(self)
+            type_len_result = field.type_len_fn(self)
+            if isinstance(type_len_result, tuple):
+                field_type, value_bit_len = type_len_result
+            else:
+                field_type = type_len_result
+                value_bit_len = self._pb_n_bits
+                if value_bit_len is None:
+                    raise ValueError(
+                        "Variable length field requires explicit bit length"
+                    )
 
             if isinstance(field_type, LiteralType):
                 if field_type.value != value:
@@ -318,7 +385,16 @@ class PackedBits:
         value_map: t.Mapping[str, t.Any] = {}
 
         for field in cls._pb_fields:
-            field_type, value_bit_len = field.type_len_fn(AttrProxy(value_map))
+            type_len_result = field.type_len_fn(AttrProxy(value_map))
+            if isinstance(type_len_result, tuple):
+                field_type, value_bit_len = type_len_result
+            else:
+                field_type = type_len_result
+                value_bit_len = field_type._pb_n_bits
+                if value_bit_len is None:
+                    raise ValueError(
+                        "Variable length field requires explicit bit length"
+                    )
 
             field_type_cnstr = (
                 field_type.type if isinstance(field_type, LiteralType)
@@ -408,6 +484,7 @@ class PackedBits:
 
     def __init_subclass__(cls):
         cls._pb_fields = []
+        cls._pb_n_bits = 0
 
         for name, field_type in t.get_type_hints(cls).items():
             if not name.startswith("_pb_"):
@@ -459,6 +536,11 @@ class PackedBits:
                             f"None field `{name}` must have zero bit length"
                         )
 
+                if isinstance(bitfield, FixedLengthField) and cls._pb_n_bits is not None and bitfield.n is not None:
+                    cls._pb_n_bits += bitfield.n
+                else:
+                    cls._pb_n_bits = None
+
                 cls._pb_fields.append(
                     PBField(
                         name,
@@ -467,6 +549,9 @@ class PackedBits:
                         type_len_fn,
                     )
                 )
+
+
+_PackedBitsT = t.TypeVar("_PackedBitsT", bound=PackedBits)
 
 
 def is_union_type(tp: t.Type[t.Any]) -> bool:

@@ -142,6 +142,16 @@ def test_nested_fields():
     assert Test.from_bytes(test.to_bytes()) == test
 
 
+def test_implicit_nested_fields():
+    class Test(PackedBits):
+        a: Inner = bitfield()
+        b: Inner = bitfield()
+
+    test = Test(a=Inner(a=1, b=2), b=Inner(a=3, b=4))
+    assert test.to_bytes() == b'\x12\x34'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
 def test_union_fields():
     def test_discriminator(incomplete: Test):
         if incomplete.a:
