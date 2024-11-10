@@ -4,6 +4,11 @@ import types
 from typing_extensions import dataclass_transform
 from collections.abc import Mapping
 
+# Missing features:
+# - Better management of _pb_fields behavior
+# - Support for context
+# - Support for auto bitfields for bytes and str that read the reamining bits
+
 
 class Bits(t.Tuple[bool, ...]):
     @t.overload
