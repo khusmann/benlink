@@ -233,10 +233,23 @@ def union_bitfield(
 ) -> _PackedBitsT | _T: ...
 
 
+@t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | t.Tuple[t.Type[_T], int]],
+    discriminator: t.Callable[[t.Any], None | t.Tuple[t.Type[None] | t.Type[_T], int]],
+) -> None | _T: ...
+
+
+@t.overload
+def union_bitfield(
+    discriminator: t.Callable[[t.Any], None | t.Tuple[t.Type[None] | t.Type[_T], int]],
+    default: None | _T
+) -> None | _T: ...
+
+
+def union_bitfield(
+    discriminator: t.Callable[[t.Any], None | t.Type[_PackedBitsT] | t.Tuple[t.Type[None] | t.Type[_T], int]],
     default: _T | None = None
-) -> _PackedBitsT | _T:
+) -> None | _PackedBitsT | _T:
     out = UnionField(discriminator, default)
     return out  # type: ignore
 
@@ -291,21 +304,25 @@ class VariableLengthField(t.NamedTuple):
 
 class UnionField(t.NamedTuple):
     discriminator: t.Callable[
-        [t.Any], t.Type[PackedBits] | t.Tuple[t.Type[t.Any], int]
+        [t.Any], None | t.Type[PackedBits] | t.Tuple[t.Type[t.Any], int]
     ]
     default: t.Any
 
     def build_type_len_fn(self) -> TypeLenFn:
         def inner(incomplete: t.Any):
             out = self.discriminator(incomplete)
-            if isinstance(out, tuple):
-                return out
-            n = out._pb_n_bits  # type: ignore
-            if n is None:
-                raise ValueError(
-                    "Union field requires a PackedBits with fixed bit length"
-                )
-            return (out, n)
+            match out:
+                case tuple():
+                    return out
+                case None:
+                    return (type(None), 0)
+                case _:
+                    n = out._pb_n_bits  # type: ignore
+                    if n is None:
+                        raise ValueError(
+                            "Union field requires a PackedBits with fixed bit length"
+                        )
+                    return (out, n)
         return inner
 
 

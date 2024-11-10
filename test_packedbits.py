@@ -55,6 +55,38 @@ def test_none_fields():
     assert Test.from_bytes(test.to_bytes()) == test
 
 
+def test_none_union():
+    class Test(PackedBits):
+        a: int = bitfield(8)
+        b: int | None = union_bitfield(
+            lambda x: (int, 8) if x.a == 2 else None
+        )
+
+    test = Test(a=1, b=None)
+    assert test.to_bytes() == b'\x01'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+    test = Test(a=2, b=9)
+    assert test.to_bytes() == b'\x02\x09'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
+def test_none_packedbits_union():
+    class Test(PackedBits):
+        a: int = bitfield(8)
+        b: Inner | None = union_bitfield(
+            lambda x: (Inner, 8) if x.a == 2 else None
+        )
+
+    test = Test(a=1, b=None)
+    assert test.to_bytes() == b'\x01'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+    test = Test(a=2, b=Inner(a=1, b=2))
+    assert test.to_bytes() == b'\x02\x12'
+    assert Test.from_bytes(test.to_bytes()) == test
+
+
 def test_none_exception():
     with pytest.raises(ValueError, match=re.escape("None field `a` must have zero bit length")):
         class Bad(PackedBits):
