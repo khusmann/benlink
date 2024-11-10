@@ -5,6 +5,133 @@ import typing as t
 from enum import IntEnum, IntFlag
 
 
+#################################################
+# GET_DEV_STATE_VAR
+
+
+class DevStateVar(IntEnum):
+    START = 0
+    RSSI_LOW_THRESHOLD = 1
+    RSSI_HIGH_THRESHOLD = 2
+    BATTERY_LOW_THRESHOLD = 3
+    BATTERY_HIGH_THRESHOLD = 4
+    DEVICE_STATE_CHANGED = 5
+    PIO_CHANGED = 6
+    DEBUG_MESSAGE = 7
+    BATTERY_CHARGED = 8
+    CHARGER_CONNECTION = 9
+    CAPSENSE_UPDATE = 10
+    USER_ACTION = 11
+    SPEECH_RECOGNITION = 12
+    AV_COMMAND = 13
+    REMOTE_BATTERY_LEVEL = 14
+    KEY = 15
+    DFU_STATE = 16
+    UART_RECEIVED_DATA = 17
+    VMU_PACKET = 18
+
+# TODO
+
+#################################################
+# READ_STATUS
+
+
+class ReadStatusType(IntEnum):
+    UNKNOWN = 0
+    BATTERY_LEVEL = 1
+    BATTERY_VOLTAGE = 2
+    RC_BATTERY_LEVEL = 3
+    BATTERY_LEVEL_AS_PERCENTAGE = 4
+
+
+class ReadStatusBody(PackedBits):
+    status_type: ReadStatusType = bitfield(16)
+
+
+class ReadStatusVoltage(PackedBits):
+    voltage: float = bitfield(16, scale=1000)
+
+
+class ReadStatusBatteryLevel(PackedBits):
+    level: int = bitfield(8)
+
+
+class ReadStatusBatteryLevelPercentage(PackedBits):
+    percentage: int = bitfield(8)
+
+
+class ReadStatusRCBatteryLevel(PackedBits):
+    level: int = bitfield(8)
+
+
+RadioStatus = t.Union[
+    ReadStatusVoltage,
+    ReadStatusBatteryLevel,
+    ReadStatusBatteryLevelPercentage,
+    ReadStatusRCBatteryLevel,
+]
+
+
+def radio_status_disc(m: ReadStatusBody):
+    match m.status_type:
+        case ReadStatusType.BATTERY_VOLTAGE:
+            return ReadStatusVoltage
+        case ReadStatusType.BATTERY_LEVEL:
+            return ReadStatusBatteryLevel
+        case ReadStatusType.BATTERY_LEVEL_AS_PERCENTAGE:
+            return ReadStatusBatteryLevelPercentage
+        case ReadStatusType.RC_BATTERY_LEVEL:
+            return ReadStatusRCBatteryLevel
+        case ReadStatusType.UNKNOWN:
+            raise ValueError("Unknown radio status type")
+
+
+class ReadStatusReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+    status_type: ReadStatusType = bitfield(16)
+    value: RadioStatus = union_bitfield(radio_status_disc)
+
+#################################################
+# GET_DEV_INFO
+
+
+class DevInfo(PackedBits):
+    vendor_id: int = bitfield(8)
+    product_id: int = bitfield(16)
+    hw_ver: int = bitfield(8)
+    soft_ver: int = bitfield(16)
+    support_radio: bool = bitfield(1)
+    support_medium_power: bool = bitfield(1)
+    fixed_loc_speaker_vol: bool = bitfield(1)
+    not_support_soft_power_ctrl: bool = bitfield(1)
+    have_no_speaker: bool = bitfield(1)
+    have_hm_speaker: bool = bitfield(1)
+    region_count: int = bitfield(6)
+    support_noaa: bool = bitfield(1)
+    gmrs: bool = bitfield(1)
+    support_vfo: bool = bitfield(1)
+    support_dmr: bool = bitfield(1)
+    channel_count: int = bitfield(8)
+    freq_range_count: int = bitfield(4)
+    pad: t.Literal[0] = bitfield(4, default=0)
+
+
+class GetDevInfoBody(PackedBits):
+    unknown: t.Literal[3] = bitfield(8, default=3)
+
+
+class GetDevInfoReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+    info: DevInfo | None = union_bitfield((
+        lambda x: DevInfo
+        if x.reply_status == ReplyStatus.SUCCESS
+        else None
+    ))
+
+#################################################
+# MessageFrame
+
+
 class FrameOptions(IntFlag):
     NONE = 0
     CHECKSUM = 1
@@ -99,28 +226,6 @@ class FrameTypeBasic(IntEnum):
     GET_PF_ACTIONS = 75
 
 
-class DevStateVar(IntEnum):
-    START = 0
-    RSSI_LOW_THRESHOLD = 1
-    RSSI_HIGH_THRESHOLD = 2
-    BATTERY_LOW_THRESHOLD = 3
-    BATTERY_HIGH_THRESHOLD = 4
-    DEVICE_STATE_CHANGED = 5
-    PIO_CHANGED = 6
-    DEBUG_MESSAGE = 7
-    BATTERY_CHARGED = 8
-    CHARGER_CONNECTION = 9
-    CAPSENSE_UPDATE = 10
-    USER_ACTION = 11
-    SPEECH_RECOGNITION = 12
-    AV_COMMAND = 13
-    REMOTE_BATTERY_LEVEL = 14
-    KEY = 15
-    DFU_STATE = 16
-    UART_RECEIVED_DATA = 17
-    VMU_PACKET = 18
-
-
 class ReplyStatus(IntEnum):
     SUCCESS = 0
     NOT_SUPPORTED = 1
@@ -130,96 +235,6 @@ class ReplyStatus(IntEnum):
     INVALID_PARAMETER = 5
     INCORRECT_STATE = 6
     IN_PROGRESS = 7
-
-
-class RadioStatusType(IntEnum):
-    UNKNOWN = 0
-    BATTERY_LEVEL = 1
-    BATTERY_VOLTAGE = 2
-    RC_BATTERY_LEVEL = 3
-    BATTERY_LEVEL_AS_PERCENTAGE = 4
-
-
-class ReadStatusBody(PackedBits):
-    status_type: RadioStatusType = bitfield(16)
-
-
-class RadioStatusVoltage(PackedBits):
-    voltage: float = bitfield(16, scale=1000)
-
-
-class RadioStatusBatteryLevel(PackedBits):
-    level: int = bitfield(8)
-
-
-class RadioStatusBatteryLevelPercentage(PackedBits):
-    percentage: int = bitfield(8)
-
-
-class RadioStatusRCBatteryLevel(PackedBits):
-    level: int = bitfield(8)
-
-
-RadioStatus = t.Union[
-    RadioStatusVoltage,
-    RadioStatusBatteryLevel,
-    RadioStatusBatteryLevelPercentage,
-    RadioStatusRCBatteryLevel,
-]
-
-
-def radio_status_disc(m: ReadStatusBody):
-    match m.status_type:
-        case RadioStatusType.BATTERY_VOLTAGE:
-            return RadioStatusVoltage
-        case RadioStatusType.BATTERY_LEVEL:
-            return RadioStatusBatteryLevel
-        case RadioStatusType.BATTERY_LEVEL_AS_PERCENTAGE:
-            return RadioStatusBatteryLevelPercentage
-        case RadioStatusType.RC_BATTERY_LEVEL:
-            return RadioStatusRCBatteryLevel
-        case RadioStatusType.UNKNOWN:
-            raise ValueError("Unknown radio status type")
-
-
-class ReadStatusReplyBody(PackedBits):
-    reply_status: ReplyStatus = bitfield(8)
-    status_type: RadioStatusType = bitfield(16)
-    value: RadioStatus = union_bitfield(radio_status_disc)
-
-
-class DevInfo(PackedBits):
-    vendor_id: int = bitfield(8)
-    product_id: int = bitfield(16)
-    hw_ver: int = bitfield(8)
-    soft_ver: int = bitfield(16)
-    support_radio: bool = bitfield(1)
-    support_medium_power: bool = bitfield(1)
-    fixed_loc_speaker_vol: bool = bitfield(1)
-    not_support_soft_power_ctrl: bool = bitfield(1)
-    have_no_speaker: bool = bitfield(1)
-    have_hm_speaker: bool = bitfield(1)
-    region_count: int = bitfield(6)
-    support_noaa: bool = bitfield(1)
-    gmrs: bool = bitfield(1)
-    support_vfo: bool = bitfield(1)
-    support_dmr: bool = bitfield(1)
-    channel_count: int = bitfield(8)
-    freq_range_count: int = bitfield(4)
-    pad: t.Literal[0] = bitfield(4, default=0)
-
-
-class GetDevInfoBody(PackedBits):
-    unknown: t.Literal[3] = bitfield(8, default=3)
-
-
-class GetDevInfoReplyBody(PackedBits):
-    reply_status: ReplyStatus = bitfield(8)
-    info: DevInfo | None = union_bitfield((
-        lambda x: DevInfo
-        if x.reply_status == ReplyStatus.SUCCESS
-        else None
-    ))
 
 
 def frame_type_disc(m: MessageFrame):
@@ -234,7 +249,7 @@ def checksum_disc(m: MessageFrame):
     if FrameOptions.CHECKSUM in m.options:
         return (int, 8)
     else:
-        return (type(None), 0)
+        return None
 
 
 def body_disc(m: MessageFrame):
