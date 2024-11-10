@@ -452,6 +452,11 @@ class PackedBits:
                         raise ValueError(
                             f"Field `{field.name}` has negative bit length ({value_bit_len})"
                         )
+                elif issubclass(field_type, PackedBits):
+                    if value_bit_len < 0:
+                        raise ValueError(
+                            f"Field `{field.name}` has negative bit length ({value_bit_len})"
+                        )
                 else:
                     if not value_bit_len > 0:
                         raise ValueError(

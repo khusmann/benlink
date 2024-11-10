@@ -16,6 +16,71 @@ class ReplyStatus(IntEnum):
     IN_PROGRESS = 7
 
 #################################################
+# READ_SETTINGS / WRITE_SETTINGS
+
+
+class RadioSettings(PackedBits):
+    channel_a_lower: int = bitfield(4)
+    channel_b_lower: int = bitfield(4)
+    scan: bool = bitfield(1)
+    aghfp_call_mode: int = bitfield(1)
+    double_channel: int = bitfield(2)
+    squelch_level: int = bitfield(4)
+    tail_elim: bool = bitfield(1)
+    auto_relay_en: bool = bitfield(1)
+    auto_power_on: bool = bitfield(1)
+    keep_aghfp_link: bool = bitfield(1)
+    mic_gain: int = bitfield(3)
+    tx_hold_time: int = bitfield(4)
+    tx_time_limit: int = bitfield(5)
+    local_speaker: int = bitfield(2)
+    bt_mic_gain: int = bitfield(3)
+    adaptive_response: bool = bitfield(1)
+    dis_tone: bool = bitfield(1)
+    power_saving_mode: bool = bitfield(1)
+    auto_power_off: int = bitfield(3)
+    auto_share_loc_ch: int = bitfield(5)
+    hm_speaker: int = bitfield(2)
+    positioning_system: int = bitfield(4)
+    time_offset: int = bitfield(6)
+    use_freq_range_2: bool = bitfield(1)
+    ptt_lock: bool = bitfield(1)
+    leading_sync_bit_en: bool = bitfield(1)
+    pairing_at_power_on: bool = bitfield(1)
+    screen_timeout: int = bitfield(5)
+    vfo_x: int = bitfield(2)
+    imperial_unit: bool = bitfield(1)
+    channel_a_upper: int = bitfield(4)
+    channel_b_upper: int = bitfield(4)
+    wx_mode: int = bitfield(2)
+    noaa_ch: int = bitfield(4)
+    vfol_tx_power_x: int = bitfield(2)
+    vfo2_tx_power_x: int = bitfield(2)
+    dis_digital_mute: bool = bitfield(1)
+    signaling_ecc_en: bool = bitfield(1)
+    ch_data_lock: bool = bitfield(1)
+    _pad: t.Literal[0] = bitfield(3)
+    vfo1_mod_freq_x: int = bitfield(32)
+    vfo2_mod_freq_x: int = bitfield(32)
+
+
+class ReadSettingsBody(PackedBits):
+    pass
+
+
+class ReadSettingsReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+    settings: RadioSettings = bitfield()
+
+
+class WriteSettingsBody(PackedBits):
+    settings: RadioSettings = bitfield()
+
+
+class WriteSettingsReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+
+#################################################
 # READ_RF_CHANNEL / WRITE_RF_CHANNEL
 
 
@@ -334,6 +399,10 @@ def body_disc(m: MessageFrame):
                     out = ReadRFChReplyBody if m.is_reply else ReadRFChBody
                 case FrameTypeBasic.WRITE_RF_CH:
                     out = WriteRFChReplyBody if m.is_reply else WriteRFChBody
+                case FrameTypeBasic.READ_SETTINGS:
+                    out = ReadSettingsReplyBody if m.is_reply else ReadSettingsBody
+                case FrameTypeBasic.WRITE_SETTINGS:
+                    out = WriteSettingsReplyBody if m.is_reply else WriteSettingsBody
                 case _:
                     out = bytes
         case FrameTypeGroup.EXTENDED:
@@ -353,6 +422,10 @@ MessageBody = t.Union[
     ReadRFChReplyBody,
     WriteRFChBody,
     WriteRFChReplyBody,
+    ReadSettingsBody,
+    ReadSettingsReplyBody,
+    WriteSettingsBody,
+    WriteSettingsReplyBody,
 ]
 
 
