@@ -32,9 +32,9 @@ class BandwidthType(IntEnum):
 
 class ChannelSettings(PackedBits):
     tx_mod: ModulationType = bitfield(2)
-    tx_freq: float = bitfield(30, scale=1e6)
+    tx_freq: int = bitfield(30)
     rx_mod: ModulationType = bitfield(2)
-    rx_freq: float = bitfield(30, scale=1e6)
+    rx_freq: int = bitfield(30)
     tx_sub_audio: int = bitfield(16)
     rx_sub_audio: int = bitfield(16)
     scan: bool = bitfield(1)
@@ -130,7 +130,7 @@ class ReadStatusBody(PackedBits):
 
 
 class ReadStatusVoltage(PackedBits):
-    voltage: float = bitfield(16, scale=1000)
+    voltage: int = bitfield(16)
 
 
 class ReadStatusBatteryLevel(PackedBits):
