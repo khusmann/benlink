@@ -239,17 +239,22 @@ def checksum_disc(m: MessageFrame):
 
 def body_disc(m: MessageFrame):
     n_bits = m.n_bytes_body * 8
-    match (m.type_group, m.is_reply, m.type):
-        case (FrameTypeGroup.BASIC, False, FrameTypeBasic.GET_DEV_INFO):
-            return (GetDevInfoBody, n_bits)
-        case (FrameTypeGroup.BASIC, True, FrameTypeBasic.GET_DEV_INFO):
-            return (GetDevInfoReplyBody, n_bits)
-        case (FrameTypeGroup.BASIC, False, FrameTypeBasic.READ_STATUS):
-            return (ReadStatusBody, n_bits)
-        case (FrameTypeGroup.BASIC, True, FrameTypeBasic.READ_STATUS):
-            return (ReadStatusReplyBody, n_bits)
-        case _:
-            return (bytes, n_bits)
+
+    match m.type_group:
+        case FrameTypeGroup.BASIC:
+            match m.type:
+                case FrameTypeBasic.GET_DEV_INFO:
+                    out = GetDevInfoReplyBody if m.is_reply else GetDevInfoBody
+                case FrameTypeBasic.READ_STATUS:
+                    out = ReadStatusReplyBody if m.is_reply else ReadStatusBody
+                case _:
+                    out = bytes
+        case FrameTypeGroup.EXTENDED:
+            match m.type:
+                case _:
+                    out = bytes
+
+    return (out, n_bits)
 
 
 MessageBody = t.Union[
