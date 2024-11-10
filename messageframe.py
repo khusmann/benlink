@@ -132,6 +132,62 @@ class ReplyStatus(IntEnum):
     IN_PROGRESS = 7
 
 
+class RadioStatusType(IntEnum):
+    UNKNOWN = 0
+    BATTERY_LEVEL = 1
+    BATTERY_VOLTAGE = 2
+    RC_BATTERY_LEVEL = 3
+    BATTERY_LEVEL_AS_PERCENTAGE = 4
+
+
+class ReadStatusBody(PackedBits):
+    status_type: RadioStatusType = bitfield(16)
+
+
+class RadioStatusVoltage(PackedBits):
+    voltage: int = bitfield(16)
+
+
+class RadioStatusBatteryLevel(PackedBits):
+    level: int = bitfield(8)
+
+
+class RadioStatusBatteryLevelPercentage(PackedBits):
+    percentage: int = bitfield(8)
+
+
+class RadioStatusRCBatteryLevel(PackedBits):
+    level: int = bitfield(8)
+
+
+RadioStatus = t.Union[
+    RadioStatusVoltage,
+    RadioStatusBatteryLevel,
+    RadioStatusBatteryLevelPercentage,
+    RadioStatusRCBatteryLevel,
+]
+
+
+def radio_status_disc(m: ReadStatusBody):
+    match m.status_type:
+        case RadioStatusType.BATTERY_VOLTAGE:
+            return RadioStatusVoltage
+        case RadioStatusType.BATTERY_LEVEL:
+            return RadioStatusBatteryLevel
+        case RadioStatusType.BATTERY_LEVEL_AS_PERCENTAGE:
+            return RadioStatusBatteryLevelPercentage
+        case RadioStatusType.RC_BATTERY_LEVEL:
+            return RadioStatusRCBatteryLevel
+        case RadioStatusType.UNKNOWN:
+            raise ValueError("Unknown radio status type")
+
+
+class ReadStatusReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+    status_type: RadioStatusType = bitfield(16)
+    value: RadioStatus = union_bitfield(radio_status_disc)
+
+
 class DevInfo(PackedBits):
     vendor_id: int = bitfield(8)
     product_id: int = bitfield(16)
@@ -188,6 +244,10 @@ def body_disc(m: MessageFrame):
             return (GetDevInfoBody, n_bits)
         case (FrameTypeGroup.BASIC, True, FrameTypeBasic.GET_DEV_INFO):
             return (GetDevInfoReplyBody, n_bits)
+        case (FrameTypeGroup.BASIC, False, FrameTypeBasic.READ_STATUS):
+            return (ReadStatusBody, n_bits)
+        case (FrameTypeGroup.BASIC, True, FrameTypeBasic.READ_STATUS):
+            return (ReadStatusReplyBody, n_bits)
         case _:
             return (bytes, n_bits)
 
@@ -195,6 +255,8 @@ def body_disc(m: MessageFrame):
 MessageBody = t.Union[
     GetDevInfoBody,
     GetDevInfoReplyBody,
+    ReadStatusBody,
+    ReadStatusReplyBody,
 ]
 
 
