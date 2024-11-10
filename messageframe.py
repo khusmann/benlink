@@ -160,10 +160,10 @@ class GetDevInfoBody(PackedBits):
 class GetDevInfoReplyBody(PackedBits):
     reply_status: ReplyStatus = bitfield(8)
     info: DevInfo | None = union_bitfield((
-        lambda x: (DevInfo, 80)
+        lambda x: DevInfo
         if x.reply_status == ReplyStatus.SUCCESS
-        else (type(None), 0))
-    )
+        else None
+    ))
 
 
 def frame_type_disc(m: MessageFrame):
@@ -182,14 +182,14 @@ def checksum_disc(m: MessageFrame):
 
 
 def body_disc(m: MessageFrame):
-    n_bytes = m.length * 8
+    n_bits = m.n_bytes_body * 8
     match (m.type_group, m.is_reply, m.type):
         case (FrameTypeGroup.BASIC, False, FrameTypeBasic.GET_DEV_INFO):
-            return (GetDevInfoBody, n_bytes)
+            return (GetDevInfoBody, n_bits)
         case (FrameTypeGroup.BASIC, True, FrameTypeBasic.GET_DEV_INFO):
-            return (GetDevInfoReplyBody, n_bytes)
+            return (GetDevInfoReplyBody, n_bits)
         case _:
-            return (bytes, n_bytes)
+            return (bytes, n_bits)
 
 
 MessageBody = t.Union[
@@ -201,7 +201,7 @@ MessageBody = t.Union[
 class MessageFrame(PackedBits):
     header: t.Literal[b'\xff\x01'] = bitfield(16, default=b'\xff\x01')
     options: FrameOptions = bitfield(8)
-    length: int = bitfield(8)
+    n_bytes_body: int = bitfield(8)
     type_group: FrameTypeGroup = bitfield(16)
     is_reply: bool = bitfield(1)
     type: FrameTypeBasic | FrameTypeExtended = union_bitfield(frame_type_disc)
