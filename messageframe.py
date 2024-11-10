@@ -150,6 +150,20 @@ class DevInfo(PackedBits):
     support_dmr: bool = bitfield(1)
     channel_count: int = bitfield(8)
     freq_range_count: int = bitfield(4)
+    pad: t.Literal[0] = bitfield(4, default=0)
+
+
+class GetDevInfoBody(PackedBits):
+    unknown: t.Literal[3] = bitfield(8, default=3)
+
+
+class GetDevInfoReplyBody(PackedBits):
+    reply_status: ReplyStatus = bitfield(8)
+    info: DevInfo | None = union_bitfield((
+        lambda x: (DevInfo, 80)
+        if x.reply_status == ReplyStatus.SUCCESS
+        else (type(None), 0))
+    )
 
 
 def frame_type_disc(m: MessageFrame):
@@ -167,6 +181,23 @@ def checksum_disc(m: MessageFrame):
         return (type(None), 0)
 
 
+def body_disc(m: MessageFrame):
+    n_bytes = m.length * 8
+    match (m.type_group, m.is_reply, m.type):
+        case (FrameTypeGroup.BASIC, False, FrameTypeBasic.GET_DEV_INFO):
+            return (GetDevInfoBody, n_bytes)
+        case (FrameTypeGroup.BASIC, True, FrameTypeBasic.GET_DEV_INFO):
+            return (GetDevInfoReplyBody, n_bytes)
+        case _:
+            return (bytes, n_bytes)
+
+
+MessageBody = t.Union[
+    GetDevInfoBody,
+    GetDevInfoReplyBody,
+]
+
+
 class MessageFrame(PackedBits):
     header: t.Literal[b'\xff\x01'] = bitfield(16, default=b'\xff\x01')
     options: FrameOptions = bitfield(8)
@@ -174,64 +205,5 @@ class MessageFrame(PackedBits):
     type_group: FrameTypeGroup = bitfield(16)
     is_reply: bool = bitfield(1)
     type: FrameTypeBasic | FrameTypeExtended = union_bitfield(frame_type_disc)
-    body: bytes = bitfield(lambda x: x.length * 8)
+    body: MessageBody | bytes = union_bitfield(body_disc)
     checksum: int | None = union_bitfield(checksum_disc, default=None)
-
-# class GetDevInfo(t.NamedTuple):
-#    body: bytes
-#    type_group: t.Literal[FrameTypeGroup.BASIC] = FrameTypeGroup.BASIC
-#    is_reply: t.Literal[False] = False
-#    type: t.Literal[FrameTypeBasic.GET_DEV_INFO] = FrameTypeBasic.GET_DEV_INFO
-#    checksum: None | int = None
-#
-#
-# ShortT = t.TypeVar("ShortT")
-#
-# ShortCut = t.ClassVar[t.Literal[ShortT]]
-#
-#
-# @dataclass(kw_only=True)
-# class GetDevInfoReplySuccessFrame:
-#    type_group: t.ClassVar[t.Literal[FrameTypeGroup.BASIC]]
-#    is_reply: t.ClassVar[t.Literal[True]]
-#    type:  t.ClassVar[t.Literal[FrameTypeBasic.GET_DEV_INFO]]
-#    reply_status: t.ClassVar[t.Literal[ReplyStatus.SUCCESS]]
-#    checksum: None | int = None
-#
-#
-# @dataclass()
-# class GetDevInfoReplySuccess(GetDevInfoReplySuccessFrame):
-#    info: DevInfo
-#
-#
-# class GetDevInfoReplyFailure(t.NamedTuple):
-#    reply_status: ReplyStatusFail
-#    type_group: t.Literal[FrameTypeGroup.BASIC] = FrameTypeGroup.BASIC
-#    is_reply: t.Literal[True] = True
-#    type: t.Literal[FrameTypeBasic.GET_DEV_INFO] = FrameTypeBasic.GET_DEV_INFO
-#    checksum: None | int = None
-#
-#
-# class GetDevStateVar(t.NamedTuple):
-#    body: bytes
-#    type_group = FrameTypeGroup.EXTENDED
-#    is_reply = False
-#    type = FrameTypeExtended.GET_DEV_STATE_VAR
-#    checksum: None | int = None
-#
-#
-# class GetDevStateVarReply(t.NamedTuple):
-#    body: bytes
-#    type_group: t.Literal[FrameTypeGroup.EXTENDED] = FrameTypeGroup.EXTENDED
-#    is_reply: t.Literal[True] = True
-#    type: t.Literal[FrameTypeExtended.GET_DEV_STATE_VAR] = FrameTypeExtended.GET_DEV_STATE_VAR
-#    checksum: None | int = None
-#
-#
-# MessageFrame = t.Union[
-#    GetDevInfo,
-#    GetDevInfoReplySuccess,
-#    GetDevInfoReplyFailure,
-#    GetDevStateVar,
-#    GetDevStateVarReply,
-# ]
