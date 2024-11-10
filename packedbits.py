@@ -478,6 +478,22 @@ class PackedBits:
             getattr(self, field.name) == getattr(other, field.name) for field in self._pb_fields
         ))
 
+    @staticmethod
+    def _build_type_len_fn(bitfield: Bitfield, field_type_constructor: t.Type[t.Any] | LiteralType) -> t.Tuple[TypeLenFn, int | None]:
+        match bitfield:
+            case UnionField():
+                return (bitfield.build_type_len_fn(), None)
+            case FixedLengthField():
+                return (bitfield.build_type_len_fn(field_type_constructor), bitfield.n)
+            case VariableLengthField():
+                return (bitfield.build_type_len_fn(field_type_constructor), None)
+            case AutoLengthField():
+                if not (isinstance(field_type_constructor, type) and issubclass(field_type_constructor, PackedBits)):
+                    raise TypeError(
+                        "Auto length field must be used with a PackedBits class"
+                    )
+                return (bitfield.build_type_len_fn(field_type_constructor), field_type_constructor._pb_n_bits)
+
     def __init_subclass__(cls):
         cls._pb_fields = []
         cls._pb_n_bits = 0
@@ -489,8 +505,16 @@ class PackedBits:
                         f"Expected bitfield for field `{name}`"
                     )
                 bitfield = getattr(cls, name)
+                if not isinstance(bitfield, Bitfield):
+                    raise TypeError(
+                        f"Expected bitfield for field `{name}`, got {bitfield}"
+                    )
 
                 if is_literal_type(field_type):
+                    if not isinstance(bitfield, FixedLengthField):
+                        raise TypeError(
+                            f"Expected fixed length field for literal field `{name}`"
+                        )
                     if len(t.get_args(field_type)) != 1:
                         raise TypeError(
                             f"Literal field `{name}` must have exactly one argument"
@@ -500,51 +524,26 @@ class PackedBits:
                 else:
                     field_type_constructor = field_type
 
-                match bitfield:
-                    case UnionField():
-                        if not is_union_type(field_type):
-                            raise TypeError(
-                                f"Expected union type for field `{name}`, got {field_type}"
-                            )
-                        if any((is_literal_type(tp) for tp in t.get_args(field_type))):
-                            raise TypeError(
-                                f"Union field `{name}` cannot contain literal types"
-                            )
-
-                        type_len_fn = bitfield.build_type_len_fn()
-                        n_bits = None
-                    case FixedLengthField() | VariableLengthField():
-                        if is_union_type(field_type):
-                            raise TypeError(
-                                f"Expected union_bitfield() for union field `{name}`"
-                            )
-
-                        type_len_fn = bitfield.build_type_len_fn(
-                            field_type_constructor
-                        )
-                        if isinstance(bitfield, FixedLengthField):
-                            n_bits = bitfield.n
-                        else:
-                            n_bits = None
-                    case AutoLengthField():
-                        if not (isinstance(field_type_constructor, type) and issubclass(field_type_constructor, PackedBits)):
-                            raise TypeError(
-                                f"Auto length field `{name}` must be a PackedBits class"
-                            )
-                        type_len_fn = bitfield.build_type_len_fn(
-                            field_type_constructor
-                        )
-                        n_bits = field_type_constructor._pb_n_bits
-                    case _:
+                if is_union_type(field_type):
+                    if not isinstance(bitfield, UnionField):
                         raise TypeError(
-                            f"Expected bitfield for field `{name}`, got {bitfield}"
+                            f"Expected union_bitfield() for union field `{name}`"
+                        )
+                    if any((is_literal_type(tp) for tp in t.get_args(field_type))):
+                        raise TypeError(
+                            f"Union field `{name}` cannot contain literal types"
                         )
 
-                if isinstance(bitfield, FixedLengthField) and field_type_constructor is types.NoneType:
-                    if bitfield.n != 0:
+                if field_type is types.NoneType:
+                    if not isinstance(bitfield, FixedLengthField) or bitfield.n != 0:
                         raise ValueError(
                             f"None field `{name}` must have zero bit length"
                         )
+
+                type_len_fn, n_bits = cls._build_type_len_fn(
+                    bitfield,
+                    field_type_constructor
+                )
 
                 if n_bits is not None and cls._pb_n_bits is not None:
                     cls. _pb_n_bits += n_bits
