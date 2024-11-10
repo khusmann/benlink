@@ -246,9 +246,22 @@ def union_bitfield(
 ) -> None | _T: ...
 
 
+@t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], None | t.Type[_PackedBitsT] | t.Tuple[t.Type[None] | t.Type[_T], int]],
-    default: _T | None = None
+    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | None | t.Tuple[t.Type[_PackedBitsT] | t.Type[None] | t.Type[_T], int]],
+) -> _PackedBitsT | None | _T: ...
+
+
+@t.overload
+def union_bitfield(
+    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | None | t.Tuple[t.Type[_PackedBitsT] | t.Type[None] | t.Type[_T], int]],
+    default: _PackedBitsT | None | _T
+) -> _PackedBitsT | None | _T: ...
+
+
+def union_bitfield(
+    discriminator: t.Callable[[t.Any], None | t.Type[_PackedBitsT] | t.Tuple[t.Type[_PackedBitsT] | t.Type[None] | t.Type[_T], int]],
+    default: _PackedBitsT | _T | None = None
 ) -> None | _PackedBitsT | _T:
     out = UnionField(discriminator, default)
     return out  # type: ignore
