@@ -406,17 +406,15 @@ class PackedBits:
     def from_bits(cls, bits: Bits):
         stream = BitStream(bits)
 
-        try:
-            out = cls.from_bitstream(stream)
-        except EOFError:
-            raise ValueError("Not enough bits to parse object")
+        out = cls.from_bitstream(stream, raise_value_error_on_eof=True)
 
         if stream.n_available():
             raise ValueError("Bits left over after parsing")
+
         return out
 
-    @classmethod
-    def from_bitstream(cls, stream: BitStream):
+    @ classmethod
+    def from_bitstream(cls, stream: BitStream, raise_value_error_on_eof: bool = False):
         value_map: t.Mapping[str, t.Any] = {}
 
         for field in cls._pb_fields:
@@ -447,6 +445,15 @@ class PackedBits:
                         raise ValueError(
                             f"Field `{field.name}` has non-positive bit length ({value_bit_len})"
                         )
+
+            if stream.n_available() < value_bit_len:
+                if raise_value_error_on_eof:
+                    raise ValueError(
+                        f"Not enough bits to parse field {field.name} as {field_type.__qualname__} with {value_bit_len} bits"
+                    )
+                else:
+                    raise EOFError
+
             if issubclass(field_type_cnstr, PackedBits):
                 value = field_type_cnstr.from_bits(
                     stream.read_bits(value_bit_len)
@@ -477,7 +484,7 @@ class PackedBits:
     def to_bytes(self) -> bytes:
         return self.to_bits().to_bytes()
 
-    @classmethod
+    @ classmethod
     def from_bytes(cls, data: bytes):
         return cls.from_bits(Bits.from_bytes(data))
 
@@ -508,7 +515,7 @@ class PackedBits:
             getattr(self, field.name) == getattr(other, field.name) for field in self._pb_fields
         ))
 
-    @staticmethod
+    @ staticmethod
     def _build_type_len_fn(bitfield: Bitfield, field_type_constructor: t.Type[t.Any] | LiteralType) -> t.Tuple[TypeLenFn, int | None]:
         match bitfield:
             case UnionField():
