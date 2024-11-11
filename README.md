@@ -133,3 +133,9 @@ Look for FirmwareUpdateFragment
 0x4a    SET_DEV_ID,
 0x4b    GET_PF_ACTIONS;
 ```
+
+## Interesting things
+
+It looks like the max message body length is 53 bytes (based on the HT_SEND_DATA
+code). The message header is 8 bytes, plus a possible checksum of 1 byte. So I
+wonder if the max message frame length is 62 bytes?
