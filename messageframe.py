@@ -53,13 +53,13 @@ class ReadBSSSettingsBody(PackedBits):
 class ReadBSSSettingsReplyBody(PackedBits):
     reply_status: ReplyStatus = bitfield(8)
     bss_settings: BSSSettings | BSSSettingsExt = union_bitfield(
-        lambda x: BSSSettingsExt  # TODO: Switch based on response size
+        lambda x, _: BSSSettingsExt  # TODO: Switch based on response size
     )
 
 
 class WriteBSSSettingsBody(PackedBits):
     bss_settings: BSSSettings | BSSSettingsExt = union_bitfield(
-        lambda x: BSSSettingsExt  # TODO: Switch based on response size
+        lambda x, _: BSSSettingsExt  # TODO: Switch based on response size
     )
 
 
@@ -86,16 +86,65 @@ class EventNotificationType(IntEnum):
     BSS_SETTINGS_CHANGED = 11
 
 
-class EventNotifcationBSSSettingsChanged(PackedBits):
-    pass
+class ChannelType(IntEnum):
+    OFF = 0
+    A = 1
+    B = 2
+
+
+class EventNotificationHTStatusChanged(PackedBits):
+    is_power_on: bool = bitfield(1)
+    is_in_tx: bool = bitfield(1)
+    is_sq: bool = bitfield(1)
+    is_in_rx: bool = bitfield(1)
+    double_channel: ChannelType = bitfield(2)
+    is_scan: bool = bitfield(1)
+    is_radio: bool = bitfield(1)
+    curr_ch_id_lower: int = bitfield(4)
+    is_gps_locked: bool = bitfield(1)
+    is_hfp_connected: bool = bitfield(1)
+    is_aoc_connected: bool = bitfield(1)
+    _pad: t.Literal[0] = bitfield(1)
+
+
+class EventNotificationHTStatusChangedExt(EventNotificationHTStatusChanged):
+    rssi: int = bitfield(4)  # scale: value * 100 / 15
+    curr_region: int = bitfield(6)
+    curr_channel_id_upper: int = bitfield(4)
+    _pad2: t.Literal[0] = bitfield(2)
+
+
+class EventNotificationUnknown(PackedBits):
+    data: bytes = bitfield(lambda _, n: n)
 
 
 class EventNotificationDataRxd(PackedBits):
-    pass
+    is_final_packet: bool = bitfield(1)
+    is_from_data_channel: bool = bitfield(1)
+    packet_id: int = bitfield(6)
+    data: bytes = bitfield(
+        lambda x, n: n - 1 if x.is_from_data_channel else n
+    )
+    data_channel_id: int | None = union_bitfield(
+        lambda x, _: (int, 8) if x.is_from_data_channel else None
+    )
+
+
+def event_notification_disc(m: EventNotificationBody, n_bits_available: int):
+    match m.event_type:
+        case EventNotificationType.HT_STATUS_CHANGED:
+            return EventNotificationHTStatusChangedExt
+        case EventNotificationType.DATA_RXD:
+            return (EventNotificationDataRxd, n_bits_available)
+        case _:
+            return (EventNotificationUnknown, n_bits_available)
 
 
 class EventNotificationBody(PackedBits):
     event_type: EventNotificationType = bitfield(8)
+    event: EventNotificationUnknown | EventNotificationDataRxd | EventNotificationHTStatusChangedExt = union_bitfield(
+        event_notification_disc
+    )
 
 #################################################
 # GET_PF
@@ -280,29 +329,29 @@ class ChannelSettingsDMR(ChannelSettings):
 
 
 class ReadRFChBody(PackedBits):
-    channel: int = bitfield(8)
+    channel_id: int = bitfield(8)
 
 
 class ReadRFChReplyBody(PackedBits):
     reply_status: ReplyStatus = bitfield(8)
-    channel: int = bitfield(8)
+    channel_id: int = bitfield(8)
     # In the app, this is detected via support_dmr in
     # device settings. ... I need to figure out how to
     # pass context to union bitfields...
     # Or, I guess I could just use bits available?
     channel_settings: ChannelSettings | ChannelSettingsDMR = union_bitfield(
-        lambda _: ChannelSettings
+        lambda _, __: ChannelSettings
     )
 
 
 class WriteRFChBody(PackedBits):
-    channel: int = bitfield(8)
+    channel_id: int = bitfield(8)
     channel_settings: ChannelSettings = bitfield()
 
 
 class WriteRFChReplyBody(PackedBits):
     reply_status: ReplyStatus = bitfield(8)
-    channel: int = bitfield(8)
+    channel_id: int = bitfield(8)
 
 
 #################################################
@@ -349,7 +398,7 @@ class ReadStatusBody(PackedBits):
 
 
 class ReadStatusVoltage(PackedBits):
-    voltage: int = bitfield(16)
+    voltage: int = bitfield(16)  # Scale: value / 1000
 
 
 class ReadStatusBatteryLevel(PackedBits):
@@ -372,7 +421,7 @@ RadioStatus = t.Union[
 ]
 
 
-def radio_status_disc(m: ReadStatusBody):
+def radio_status_disc(m: ReadStatusBody, _: int):
     match m.status_type:
         case ReadStatusType.BATTERY_VOLTAGE:
             return ReadStatusVoltage
@@ -423,7 +472,7 @@ class GetDevInfoBody(PackedBits):
 class GetDevInfoReplyBody(PackedBits):
     reply_status: ReplyStatus = bitfield(8)
     info: DevInfo | None = union_bitfield((
-        lambda x: DevInfo
+        lambda x, _: DevInfo
         if x.reply_status == ReplyStatus.SUCCESS
         else None
     ))
@@ -452,7 +501,7 @@ class FrameTypeExtended(IntEnum):
     UNKNOWN_05 = 16386
     GET_DEV_STATE_VAR = 16387
 
-    @classmethod
+    @ classmethod
     def _missing_(cls, value: object):
         print(f"Unknown value for FrameTypeExtended: {value}", file=sys.stderr)
         return cls.UNKNOWN
@@ -537,7 +586,7 @@ class FrameTypeBasic(IntEnum):
     GET_PF_ACTIONS = 75
 
 
-def frame_type_disc(m: MessageFrame):
+def frame_type_disc(m: MessageFrame, _: int):
     match m.type_group:
         case FrameTypeGroup.BASIC:
             return (FrameTypeBasic, 15)
@@ -545,14 +594,14 @@ def frame_type_disc(m: MessageFrame):
             return (FrameTypeExtended, 15)
 
 
-def checksum_disc(m: MessageFrame):
+def checksum_disc(m: MessageFrame, _: int):
     if FrameOptions.CHECKSUM in m.options:
         return (int, 8)
     else:
         return None
 
 
-def body_disc(m: MessageFrame):
+def body_disc(m: MessageFrame, _: int):
     match m.type_group:
         case FrameTypeGroup.BASIC:
             match m.type:
@@ -574,6 +623,10 @@ def body_disc(m: MessageFrame):
                     out = ReadBSSSettingsReplyBody if m.is_reply else ReadBSSSettingsBody
                 case FrameTypeBasic.WRITE_BSS_SETTINGS:
                     out = WriteBSSSettingsReplyBody if m.is_reply else WriteBSSSettingsBody
+                case FrameTypeBasic.EVENT_NOTIFICATION:
+                    if m.is_reply:
+                        raise ValueError("EventNotification cannot be a reply")
+                    out = EventNotificationBody
                 case _:
                     out = bytes
         case FrameTypeGroup.EXTENDED:
@@ -603,6 +656,7 @@ MessageBody = t.Union[
     ReadBSSSettingsReplyBody,
     WriteBSSSettingsBody,
     WriteBSSSettingsReplyBody,
+    EventNotificationBody,
 ]
 
 

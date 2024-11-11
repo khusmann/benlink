@@ -59,7 +59,7 @@ def test_none_union():
     class Test(PackedBits):
         a: int = bitfield(8)
         b: int | None = union_bitfield(
-            lambda x: (int, 8) if x.a == 2 else None
+            lambda x, _: (int, 8) if x.a == 2 else None
         )
 
     test = Test(a=1, b=None)
@@ -87,7 +87,7 @@ def test_none_packedbits_union():
     class Test(PackedBits):
         a: int = bitfield(8)
         b: Inner | None = union_bitfield(
-            lambda x: (Inner, 8) if x.a == 2 else None
+            lambda x, _: (Inner, 8) if x.a == 2 else None
         )
 
     test = Test(a=1, b=None)
@@ -128,7 +128,7 @@ def test_optional_fields():
     class Test(PackedBits):
         a: int = bitfield(8)
         b: t.Optional[int] = union_bitfield(
-            lambda x: (int, 8) if x.a == 2 else (type(None), 0)
+            lambda x, _: (int, 8) if x.a == 2 else (type(None), 0)
         )
 
     test = Test(a=1, b=None)
@@ -154,7 +154,7 @@ def test_bool_fields():
 def test_varlength_fields():
     class Test(PackedBits):
         a: int = bitfield(8)
-        b: int = bitfield(lambda self: self.a * 8)
+        b: int = bitfield(lambda self, _: self.a * 8)
         c: int = bitfield(8)
 
     test = Test(a=3, b=1251, c=3)
@@ -197,7 +197,7 @@ def test_implicit_nested_fields():
 
 
 def test_union_fields():
-    def test_discriminator(incomplete: Test):
+    def test_discriminator(incomplete: Test, _: int):
         if incomplete.a:
             return (Inner, 8)
         else:
@@ -255,7 +255,7 @@ def test_union_field_exception():
 
 def test_union_field_exception2():
     with pytest.raises(TypeError, match=re.escape("Union field `a` cannot contain literal types")):
-        def discriminator(_: Bad):
+        def discriminator(_: Bad, __: int):
             return (int, 8)
 
         class Bad(PackedBits):
@@ -296,7 +296,7 @@ def test_negative_bitfield():
 
 def test_negative_bitfield2():
     class Bad(PackedBits):
-        a: int = bitfield(lambda x: -1)
+        a: int = bitfield(lambda x, _: -1)
     with pytest.raises(ValueError, match=re.escape("Field `a` has non-positive bit length (-1)")):
         Bad.from_bytes(b'\x00')
 

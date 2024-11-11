@@ -5,7 +5,7 @@ from typing_extensions import dataclass_transform
 from collections.abc import Mapping
 
 # Missing features:
-# - Better management of _pb_fields behavior
+# - Better management of _pb_fields (different field objects should signify different field actions)
 # - Support for context
 # - Support for auto bitfields for bytes and str that read the reamining bits
 
@@ -182,7 +182,7 @@ class AttrProxy(Mapping[str, t.Any]):
 
 @t.overload
 def bitfield(
-    n: int | t.Callable[[t.Any], int] | None = None,
+    n: int | t.Callable[[t.Any, int], int] | None = None,
     default: None = None,
     scale: float = 1
 ) -> t.Any: ...
@@ -190,10 +190,10 @@ def bitfield(
 
 @t.overload
 def bitfield(
-    n: int | t.Callable[[t.Any], int] | None, default: _T, scale: float = 1) -> _T: ...
+    n: int | t.Callable[[t.Any, int], int] | None, default: _T, scale: float = 1) -> _T: ...
 
 
-def bitfield(n: int | t.Callable[[t.Any], int] | None = None, default: _T | None = None, scale: float = 1) -> _T:
+def bitfield(n: int | t.Callable[[t.Any, int], int] | None = None, default: _T | None = None, scale: float = 1) -> _T:
     if isinstance(n, int):
         if n < 0:
             raise ValueError("Bitfield length must be non-negative")
@@ -215,58 +215,58 @@ _T = t.TypeVar("_T")
 
 @t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], t.Tuple[t.Type[_T], int]]
+    discriminator: t.Callable[[t.Any, int], t.Tuple[t.Type[_T], int]]
 ) -> _T: ...
 
 
 @t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], t.Tuple[t.Type[_T], int]],
+    discriminator: t.Callable[[t.Any, int], t.Tuple[t.Type[_T], int]],
     default: _T
 ) -> _T: ...
 
 
 @t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | t.Tuple[t.Type[_PackedBitsT] | t.Type[_T], int]],
+    discriminator: t.Callable[[t.Any, int], t.Type[_PackedBitsT] | t.Tuple[t.Type[_PackedBitsT] | t.Type[_T], int]],
 ) -> _PackedBitsT | _T: ...
 
 
 @t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | t.Tuple[t.Type[_PackedBitsT] | t.Type[_T], int]],
+    discriminator: t.Callable[[t.Any, int], t.Type[_PackedBitsT] | t.Tuple[t.Type[_PackedBitsT] | t.Type[_T], int]],
     default: _PackedBitsT | _T
 ) -> _PackedBitsT | _T: ...
 
 
 @t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], None | t.Tuple[t.Type[None] | t.Type[_T], int]],
+    discriminator: t.Callable[[t.Any, int], None | t.Tuple[t.Type[None] | t.Type[_T], int]],
 ) -> None | _T: ...
 
 
 @t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], None | t.Tuple[t.Type[None] | t.Type[_T], int]],
+    discriminator: t.Callable[[t.Any, int], None | t.Tuple[t.Type[None] | t.Type[_T], int]],
     default: None | _T
 ) -> None | _T: ...
 
 
 @t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | None | t.Tuple[t.Type[_PackedBitsT] | t.Type[None] | t.Type[_T], int]],
+    discriminator: t.Callable[[t.Any, int], t.Type[_PackedBitsT] | None | t.Tuple[t.Type[_PackedBitsT] | t.Type[None] | t.Type[_T], int]],
 ) -> _PackedBitsT | None | _T: ...
 
 
 @t.overload
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], t.Type[_PackedBitsT] | None | t.Tuple[t.Type[_PackedBitsT] | t.Type[None] | t.Type[_T], int]],
+    discriminator: t.Callable[[t.Any, int], t.Type[_PackedBitsT] | None | t.Tuple[t.Type[_PackedBitsT] | t.Type[None] | t.Type[_T], int]],
     default: _PackedBitsT | None | _T
 ) -> _PackedBitsT | None | _T: ...
 
 
 def union_bitfield(
-    discriminator: t.Callable[[t.Any], None | t.Type[_PackedBitsT] | t.Tuple[t.Type[_PackedBitsT] | t.Type[None] | t.Type[_T], int]],
+    discriminator: t.Callable[[t.Any, int], None | t.Type[_PackedBitsT] | t.Tuple[t.Type[_PackedBitsT] | t.Type[None] | t.Type[_T], int]],
     default: _PackedBitsT | _T | None = None
 ) -> None | _PackedBitsT | _T:
     out = UnionField(discriminator, default)
@@ -282,7 +282,7 @@ class LiteralType:
         self.type = type(value)
 
 
-TypeLenFn = t.Callable[[t.Any], t.Tuple[t.Type[t.Any] | LiteralType, int]]
+TypeLenFn = t.Callable[[t.Any, int], t.Tuple[t.Type[t.Any] | LiteralType, int]]
 
 
 class AutoLengthField(t.NamedTuple):
@@ -296,7 +296,7 @@ class AutoLengthField(t.NamedTuple):
                 "Auto length field requires a PackedBits with fixed bit length"
             )
 
-        def inner(_: t.Any):
+        def inner(_: t.Any, __: int):
             return (field_type, n)
         return inner
 
@@ -307,31 +307,31 @@ class FixedLengthField(t.NamedTuple):
     scale: float
 
     def build_type_len_fn(self, field_type: t.Type[t.Any] | LiteralType) -> TypeLenFn:
-        def inner(_: t.Any):
+        def inner(_: t.Any, __: int):
             return (field_type, self.n)
         return inner
 
 
 class VariableLengthField(t.NamedTuple):
-    n_fn: t.Callable[[t.Any], int]
+    n_fn: t.Callable[[t.Any, int], int]
     default: t.Any
     scale: float
 
     def build_type_len_fn(self, field_type: t.Type[t.Any] | LiteralType) -> TypeLenFn:
-        def inner(incomplete: t.Any):
-            return (field_type, self.n_fn(incomplete))
+        def inner(incomplete: t.Any, remaining_bits: int):
+            return (field_type, self.n_fn(incomplete, remaining_bits))
         return inner
 
 
 class UnionField(t.NamedTuple):
     discriminator: t.Callable[
-        [t.Any], None | t.Type[PackedBits] | t.Tuple[t.Type[t.Any], int]
+        [t.Any, int], None | t.Type[PackedBits] | t.Tuple[t.Type[t.Any], int]
     ]
     default: t.Any
 
     def build_type_len_fn(self) -> TypeLenFn:
-        def inner(incomplete: t.Any):
-            out = self.discriminator(incomplete)
+        def inner(incomplete: t.Any, n_bits_remaining: int):
+            out = self.discriminator(incomplete, n_bits_remaining)
             match out:
                 case tuple():
                     return out
@@ -376,7 +376,7 @@ class PackedBits:
 
         for field in self._pb_fields:
             value = getattr(self, field.name)
-            field_type, value_bit_len = field.type_len_fn(self)
+            field_type, value_bit_len = field.type_len_fn(self, -1)
 
             if isinstance(field_type, LiteralType):
                 if field_type.value != value:
@@ -408,7 +408,7 @@ class PackedBits:
                         value_bit_len
                     )
 
-            if len(new_bits) != value_bit_len:
+            if value_bit_len >= 0 and len(new_bits) != value_bit_len:
                 raise ValueError(
                     f"Field `{field.name}` has incorrect bit length ({len(new_bits)})"
                 )
@@ -435,7 +435,9 @@ class PackedBits:
         value_map: t.Mapping[str, t.Any] = {}
 
         for field in cls._pb_fields:
-            field_type, value_bit_len = field.type_len_fn(AttrProxy(value_map))
+            field_type, value_bit_len = field.type_len_fn(
+                AttrProxy(value_map), stream.n_available()
+            )
 
             field_type_cnstr = (
                 field_type.type if isinstance(field_type, LiteralType)
