@@ -32,6 +32,7 @@ class MessageStream:
                 self._stream.seek(pos)
                 break
 
+        self._stream.rebase()
         return messages
 
 
