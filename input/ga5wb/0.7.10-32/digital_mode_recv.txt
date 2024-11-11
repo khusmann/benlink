@@ -1,0 +1,5 @@
+# Digital mode receive
+
+Receive message "DATA" from digital channel 29 (while on channel 28)
+
+Receive message "SAME" from channel 28 (while on channel 28)
