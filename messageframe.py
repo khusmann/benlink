@@ -104,29 +104,29 @@ class EventNotificationHTStatusChanged(PackedBits):
     is_gps_locked: bool = bitfield(1)
     is_hfp_connected: bool = bitfield(1)
     is_aoc_connected: bool = bitfield(1)
-    _pad: t.Literal[0] = bitfield(1)
+    _pad: t.Literal[0] = bitfield(1, default=0)
 
 
 class EventNotificationHTStatusChangedExt(EventNotificationHTStatusChanged):
     rssi: int = bitfield(4)  # scale: value * 100 / 15
     curr_region: int = bitfield(6)
     curr_channel_id_upper: int = bitfield(4)
-    _pad2: t.Literal[0] = bitfield(2)
+    _pad2: t.Literal[0] = bitfield(2, default=0)
 
 
 class EventNotificationUnknown(PackedBits):
     data: bytes = bitfield(lambda _, n: n)
 
 
-class EventNotificationDataRxd(PackedBits):
+class DataPacket(PackedBits):
     is_final_packet: bool = bitfield(1)
-    is_from_data_channel: bool = bitfield(1)
+    with_channel_id: bool = bitfield(1)
     packet_id: int = bitfield(6)
     data: bytes = bitfield(
-        lambda x, n: n - 1 if x.is_from_data_channel else n
+        lambda x, n: n - 1 if x.with_channel_id else n
     )
-    data_channel_id: int | None = union_bitfield(
-        lambda x, _: (int, 8) if x.is_from_data_channel else None
+    channel_id: int | None = union_bitfield(
+        lambda x, _: (int, 8) if x.with_channel_id else None
     )
 
 
@@ -135,14 +135,14 @@ def event_notification_disc(m: EventNotificationBody, n_bits_available: int):
         case EventNotificationType.HT_STATUS_CHANGED:
             return EventNotificationHTStatusChangedExt
         case EventNotificationType.DATA_RXD:
-            return (EventNotificationDataRxd, n_bits_available)
+            return (DataPacket, n_bits_available)
         case _:
             return (EventNotificationUnknown, n_bits_available)
 
 
 class EventNotificationBody(PackedBits):
     event_type: EventNotificationType = bitfield(8)
-    event: EventNotificationUnknown | EventNotificationDataRxd | EventNotificationHTStatusChangedExt = union_bitfield(
+    event: EventNotificationUnknown | DataPacket | EventNotificationHTStatusChangedExt = union_bitfield(
         event_notification_disc
     )
 
