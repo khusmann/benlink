@@ -24,13 +24,14 @@ class BSSSettings(PackedBits):
     time_to_live: int = bitfield(4)
     ptt_release_send_location: bool = bitfield(1)
     ptt_release_send_id_info: bool = bitfield(1)
+    # The below applies when bss is turned on
     ptt_release_send_bss_user_id: bool = bitfield(1)
     should_share_location: bool = bitfield(1)
     send_pwr_voltage: bool = bitfield(1)
     use_aprs_format: bool = bitfield(1)
     allow_position_check: bool = bitfield(1)
     _pad: t.Literal[0] = bitfield(1)
-    callsign_ssid: int = bitfield(4)
+    aprs_ssid: int = bitfield(4)
     _pad2: t.Literal[0] = bitfield(4)
     location_share_interval: int = bitfield(8)
     bss_user_id_lower: int = bitfield(32)
@@ -72,7 +73,7 @@ class WriteBSSSettingsReplyBody(PackedBits):
 class EventNotificationType(IntEnum):
     UNKNOWN = 0
     HT_STATUS_CHANGED = 1
-    DATA_RXD = 2
+    DATA_RXD = 2  # Received APRS or BSS Message
     NEW_INQUIRY_DATA = 3
     RESTORE_FACTORY_SETTINGS = 4
     HT_CH_CHANGED = 5
@@ -85,6 +86,10 @@ class EventNotificationType(IntEnum):
 
 
 class EventNotifcationBSSSettingsChanged(PackedBits):
+    pass
+
+
+class EventNotificationDataRxd(PackedBits):
     pass
 
 
@@ -185,6 +190,8 @@ class RadioSettings(PackedBits):
     dis_tone: bool = bitfield(1)
     power_saving_mode: bool = bitfield(1)
     auto_power_off: int = bitfield(3)
+    # Note: auto_share_loc_ch is 1 higher than the actual channel
+    # so that a 0 here means "current channel" and 1 is channel 0, etc.
     auto_share_loc_ch: int = bitfield(5)
     hm_speaker: int = bitfield(2)
     positioning_system: int = bitfield(4)
