@@ -3,6 +3,7 @@ from __future__ import annotations
 from packedbits import PackedBits, bitfield, union_bitfield
 import typing as t
 from enum import IntEnum, IntFlag
+import sys
 
 
 class ReplyStatus(IntEnum):
@@ -442,8 +443,19 @@ class FrameTypeGroup(IntEnum):
 
 
 class FrameTypeExtended(IntEnum):
+    UNKNOWN = 0
     GET_BT_SIGNAL = 769
+    UNKNOWN_01 = 1600
+    UNKNOWN_02 = 1601
+    UNKNOWN_03 = 1602
+    UNKNOWN_04 = 16385
+    UNKNOWN_05 = 16386
     GET_DEV_STATE_VAR = 16387
+
+    @classmethod
+    def _missing_(cls, value: object):
+        print(f"Unknown value for FrameTypeExtended: {value}", file=sys.stderr)
+        return cls.UNKNOWN
 
 
 class FrameTypeBasic(IntEnum):
