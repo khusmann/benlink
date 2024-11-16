@@ -8,6 +8,9 @@ from collections.abc import Mapping
 # - Better management of _pb_fields (different field objects should signify different field actions)
 # - Support for context
 # - Support for auto bitfields for bytes and str that read the reamining bits
+# - Change union_bitfield to dynamic_bitfield
+# - Remove n_fn from regular bitfields (use dynamic instead)
+# - Support array bitfields?
 
 
 class Bits(t.Tuple[bool, ...]):
@@ -376,6 +379,13 @@ class PackedBits:
 
         for field in self._pb_fields:
             value = getattr(self, field.name)
+            # Field should be:
+            # DynamicField | LiteralField | PackedBitsField | StrField | BytesField | NoneField | NumericField
+            # If it's a dynamic field, then convert into one of the above by passing the self object
+            # and the *value* to the type_len_fn. The resulting field should be one of the fixed types
+            # note that NumericField types that depend on the # of bits remaining cannot be converted
+            # back without ambiguity, because a given number doesn't have a particular size (whereas
+            # N bytes has N*8 bits)
             field_type, value_bit_len = field.type_len_fn(self, -1)
 
             if isinstance(field_type, LiteralType):
@@ -435,6 +445,11 @@ class PackedBits:
         value_map: t.Mapping[str, t.Any] = {}
 
         for field in cls._pb_fields:
+            # Field should be:
+            # DynamicField | LiteralField | PackedBitsField | StrField | BytesField | NoneField | NumericField
+            # If it's a dynamic field, then convert into one of the above by passing the incomplete
+            # object and the remaining bits left. The resulting field should be one of the fixed types
+
             field_type, value_bit_len = field.type_len_fn(
                 AttrProxy(value_map), stream.n_available()
             )
