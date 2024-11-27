@@ -110,7 +110,7 @@ class BFLit(t.Generic[_T]):
         self.default = default
 
 
-BFType = t.Union[BFBits, BFList[_T], BFMap[t.Any, _T], BFDyn[_T]]
+BFType = t.Union[BFBits, BFList[_T], BFMap[t.Any, _T], BFDyn[_T], BFLit[_T]]
 
 BFTypeArg = t.Type[_T] | _T
 
