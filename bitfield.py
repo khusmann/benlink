@@ -67,6 +67,9 @@ class BFBits:
         self.n = n
         self.default = default
 
+    def __repr__(self) -> str:
+        return f"BFBits({self.n})"
+
 
 class BFList(t.Generic[_T]):
     item: BFType[_T]
@@ -78,6 +81,9 @@ class BFList(t.Generic[_T]):
         self.n = n
         self.default = default
 
+    def __repr__(self) -> str:
+        return f"BFList({self.item!r}, {self.n})"
+
 
 class BFMap(t.Generic[_T, _P]):
     inner: BFType[_T]
@@ -88,6 +94,9 @@ class BFMap(t.Generic[_T, _P]):
         self.inner = inner
         self.vm = vm
         self.default = default
+
+    def __repr__(self) -> str:
+        return f"BFMap({self.inner!r})"
 
 
 class BFDyn(t.Generic[_T]):
@@ -102,6 +111,9 @@ class BFDyn(t.Generic[_T]):
         self.fn = fn
         self.default = default
 
+    def __repr__(self) -> str:
+        return f"BFDyn(<fn>)"
+
 
 class BFLit(t.Generic[_T]):
     field: BFType[t.Any]
@@ -110,6 +122,9 @@ class BFLit(t.Generic[_T]):
     def __init__(self, field: BFType[t.Any], default: _T):
         self.field = field
         self.default = default
+
+    def __repr__(self):
+        return f"BFLit({self.field!r})"
 
 
 BFType = t.Union[BFBits, BFList[_T], BFMap[t.Any, _T], BFDyn[_T], BFLit[_T]]
@@ -244,6 +259,8 @@ def bf_bitfield(
     )
 )
 class Bitfield:
+    _bf_fields: t.ClassVar[t.Dict[str, BFType[t.Any]]]
+
     @classmethod
     def from_bits(cls, bits: Bits) -> Bitfield:
         raise NotImplementedError
@@ -251,39 +268,85 @@ class Bitfield:
     def to_bits(self) -> Bits:
         raise NotImplementedError
 
+    def __init_subclass__(cls):
+        if not hasattr(cls, "_bf_fields"):
+            cls._bf_fields = {}
+
+        for name, type_hint in t.get_type_hints(cls).items():
+            if t.get_origin(type_hint) is t.ClassVar:
+                continue
+
+            value = getattr(cls, name) if hasattr(cls, name) else None
+
+            bf_field = distill_bitfield(name, type_hint, value)
+
+            cls._bf_fields[name] = bf_field
+
+
+def distill_bitfield(name: str, type_hint: t.Any, value: t.Any) -> BFType[t.Any]:
+    if isinstance(value, (BFBits, BFList, BFMap, BFDyn, BFLit)):
+        value = t.cast(BFType[t.Any], value)
+        return value
+
+    if t.get_origin(type_hint) is t.Literal:
+        args = t.get_args(type_hint)
+
+        if len(args) != 1:
+            raise TypeError(
+                f"field {name}: expected literal with one argument, got {args!r}")
+
+        match args[0]:
+            case bytes():
+                out = bf_bytes(len(args[0]))
+                return out  # type: ignore
+            case str():
+                out = bf_str(len(args[0].encode("utf-8")))
+                return out  # type: ignore
+            case _:
+                raise TypeError(
+                    f"field {name}: unsupported literal type {args[0]!r}")
+
+    if isinstance(type_hint, type) and issubclass(type_hint, Bitfield) and value is None:
+        out = bf_bitfield(type_hint, 9000)
+        return out  # type: ignore
+
+    if value is None:
+        raise TypeError(f"field {name}: missing field definition")
+    else:
+        raise TypeError(f"field {name}: invalid field definition")
+
 
 _BFT = t.TypeVar("_BFT", bound=Bitfield)
 
 
 class Bar(Bitfield):
     a: int = bf_int(5)
+    b: t.Literal[b'hello']
+    c: t.Literal[b'hello'] = b'hello'
 
-    _bits_reorder: t.ClassVar[t.Sequence[int]] = []
+# def foo(x: Foo, n: int) -> t.Literal[10] | list[float]:
+#    if n == 1:
+#        return bf_list(bf_map(bf_int(5), Scale(100)), 1)
+#    else:
+#        return bf_lit(bf_int(5), default=10)
 
 
-def foo(x: Foo, n: int) -> t.Literal[10] | list[float]:
-    if n == 1:
-        return bf_list(bf_map(bf_int(5), Scale(100)), 1)
-    else:
-        return bf_lit(bf_int(5), default=10)
-
-
-class Foo(Bitfield):
-    a: float = bf_map(bf_int(2), Scale(100))
-    _pad: t.Literal[0x5] = bf_lit(bf_int(3), default=0x5)
-    ff: Bar
-    ay: t.Literal[b'world'] = b'world'
-    ab: int = bf_int(10)
-    ac: int = bf_int(2)
-    zz: BarEnum = bf_int_enum(BarEnum, 2)
-    yy: bytes = bf_bytes(2)
-    ad: int = bf_int(3)
-    b: int | t.Literal["current"] = bf_map(bf_int(2), LocChMap())
-    c: t.Literal[10] | list[float] | Bar = bf_dyn(foo)
-    d: t.List[int] = bf_list(bf_int(10), 3)
-    e: t.List[Bar] = bf_list(Bar, 3)
-    f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
-    h: t.Literal["Hello"] = "Hello"
-    g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
-
-    _bits_reorder = [*range(0, 4), *range(20, 24)]
+# class Foo(Bitfield):
+#    a: float = bf_map(bf_int(2), Scale(100))
+#    _pad: t.Literal[0x5] = bf_lit(bf_int(3), default=0x5)
+#    ff: Bar
+#    ay: t.Literal[b'world'] = b'world'
+#    ab: int = bf_int(10)
+#    ac: int = bf_int(2)
+#    zz: BarEnum = bf_int_enum(BarEnum, 2)
+#    yy: bytes = bf_bytes(2)
+#    ad: int = bf_int(3)
+#    b: int | t.Literal["current"] = bf_map(bf_int(2), LocChMap())
+#    c: t.Literal[10] | list[float] | Bar = bf_dyn(foo)
+#    d: t.List[int] = bf_list(bf_int(10), 3)
+#    e: t.List[Bar] = bf_list(Bar, 3)
+#    f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
+#    h: t.Literal["Hello"] = "Hello"
+#    g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
+#
+#    _bits_reorder = [*range(0, 4), *range(20, 24)]
