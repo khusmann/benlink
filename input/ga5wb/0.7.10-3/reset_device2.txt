@@ -1,0 +1,13 @@
+# Reset device
+
+Try resetting device again
+
+Looks like reset occurs with 
+
+Command group = 10 (extended)
+
+Command = 1825
+
+Value (short) = 12290
+
+Then device replies with and event notification

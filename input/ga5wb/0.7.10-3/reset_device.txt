@@ -1,0 +1,17 @@
+# Reset device
+
+(oops, didn't clear btsnoop log)
+
+Change squelch level
+
+In general settings, hit "reset settings" (restore to default settings, channel data will be retained)
+
+Change Tx time limit to 90 seconds
+
+Reset settings again
+
+General settings -> Factory data reset
+
+Re-pair device
+
+Change channel
