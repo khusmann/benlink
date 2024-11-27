@@ -5,6 +5,8 @@ import typing as t
 
 from enum import IntEnum, IntFlag, Enum
 
+from bits import Bits
+
 
 class BarEnum(IntEnum):
     A = 1
@@ -55,12 +57,12 @@ def assert_bf_type(x: BFType[_T] | BFTypeArg[_T]) -> BFType[_T]:
 
 class BFBits:
     n: int
-    default: t.List[bool] | None
+    default: Bits | None
 
     def __init__(
         self,
         n: int,
-        default: t.List[bool] | None,
+        default: Bits | None,
     ):
         self.n = n
         self.default = default
@@ -115,7 +117,7 @@ BFType = t.Union[BFBits, BFList[_T], BFMap[t.Any, _T], BFDyn[_T], BFLit[_T]]
 BFTypeArg = t.Type[_T] | _T
 
 
-def bf_bits(n: int, *, default: t.List[bool] | None = None) -> t.List[bool]:
+def bf_bits(n: int, *, default: Bits | None = None) -> Bits:
     out = BFBits(n, default)
     return out  # type: ignore
 
@@ -127,11 +129,11 @@ def bf_map(field: BFType[_T] | BFTypeArg[_T], vm: ValueMapper[_T, _P], *, defaul
 
 def bf_int(n: int, *, default: int | None = None) -> int:
     class BitsAsInt:
-        def forward(self, x: t.List[bool]) -> int:
-            return sum(1 << i for i, bit in enumerate(x) if bit)
+        def forward(self, x: Bits) -> int:
+            return x.to_int()
 
-        def back(self, y: int) -> t.List[bool]:
-            return [(y >> i) & 1 == 1 for i in range(n)]
+        def back(self, y: int) -> Bits:
+            return Bits.from_int(y, n)
 
     return bf_map(bf_bits(n), BitsAsInt(), default=default)
 
@@ -167,22 +169,6 @@ _LT = t.TypeVar("_LT", bound=str | int | float | bytes | Enum)
 def bf_lit(field: BFType[_LT] | BFTypeArg[_LT], *, default: _P) -> _P:
     out = BFLit(assert_bf_type(field), default)
     return out  # type: ignore
-#    class AssertValue:
-#        def forward(self, x: _LT) -> _P:
-#            if type(x) != type(default) or x != default:
-#                raise ValueError(
-#                    f"expected literal value {default!r}, got {x!r}"
-#                )
-#            return x  # type: ignore
-#
-#        def back(self, y: _P) -> _LT:
-#            if type(y) != type(default) or y != default:
-#                raise ValueError(
-#                    f"expected literal value {default!r}, got {y!r}"
-#                )
-#            return y  # type: ignore
-#
-#    return bf_map(field, AssertValue(), default=default)
 
 
 def bf_bytes(n: int, *, default: bytes | None = None) -> bytes:
@@ -232,10 +218,10 @@ def bf_bitfield(
     default: _BFT | None = None
 ):
     class BitsAsBitfield:
-        def forward(self, x: t.List[bool]) -> _BFT:
+        def forward(self, x: Bits) -> _BFT:
             return cls.from_bits(x)
 
-        def back(self, y: _BFT) -> t.List[bool]:
+        def back(self, y: _BFT) -> Bits:
             return y.to_bits()
 
     return bf_map(bf_bits(n), BitsAsBitfield(), default=default)
@@ -259,10 +245,10 @@ def bf_bitfield(
 )
 class Bitfield:
     @classmethod
-    def from_bits(cls, bits: t.List[bool]) -> Bitfield:
+    def from_bits(cls, bits: Bits) -> Bitfield:
         raise NotImplementedError
 
-    def to_bits(self) -> t.List[bool]:
+    def to_bits(self) -> Bits:
         raise NotImplementedError
 
 
