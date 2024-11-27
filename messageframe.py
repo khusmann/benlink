@@ -500,6 +500,7 @@ class FrameTypeExtended(IntEnum):
     UNKNOWN_04 = 16385
     UNKNOWN_05 = 16386
     GET_DEV_STATE_VAR = 16387
+    DEV_REGISTRATION = 1825
 
     @ classmethod
     def _missing_(cls, value: object):
