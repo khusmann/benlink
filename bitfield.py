@@ -27,14 +27,14 @@ class ValueMapper(t.Protocol[_T, _P]):
 
 
 class Scale:
-    def __init__(self, by: int) -> None:
+    def __init__(self, by: float) -> None:
         self.by = by
 
     def forward(self, x: int):
-        return x / self.by
+        return x * self.by
 
     def back(self, y: float):
-        return round(y * self.by)
+        return round(y / self.by)
 
 
 class LocChMap:
@@ -375,7 +375,7 @@ class Baz(Bitfield):
 
 
 class Bar(Bitfield):
-    a: int = bf_int(5)
+    a: float = bf_map(bf_int(5), Scale(1 / 100))
     b: t.Literal['hello']
     c: t.Literal[b'hello'] = b'hello'
     d: Baz
