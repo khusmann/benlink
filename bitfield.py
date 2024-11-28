@@ -216,11 +216,29 @@ def bf_int_enum(enum: t.Type[_E], n: int, default: _E | None = None) -> BFTypeDi
     return bf_map(bf_int(n), IntAsEnum(), default=default)
 
 
+@t.overload
+def bf_list(
+    item: t.Type[_BitfieldT],
+    n: int,
+    *,
+    default: t.List[_BitfieldT] | None = None
+) -> BFTypeDisguised[t.List[_BitfieldT]]: ...
+
+
+@t.overload
 def bf_list(
     item: BFTypeDisguised[_T],
-    n: int, *,
+    n: int,
+    *,
     default: t.List[_T] | None = None
-) -> BFTypeDisguised[t.List[_T]]:
+) -> BFTypeDisguised[t.List[_T]]: ...
+
+
+def bf_list(
+    item: t.Type[_BitfieldT] | BFTypeDisguised[_T],
+    n: int, *,
+    default: t.List[_BitfieldT] | t.List[_T] | None = None
+) -> BFTypeDisguised[t.List[_BitfieldT]] | BFTypeDisguised[t.List[_T]]:
 
     if default is not None and len(default) != n:
         raise ValueError(f"expected list of length {n}, got {default!r}")
@@ -267,7 +285,7 @@ def bf_str(n: int, encoding: str = "utf-8", *, default: str | None = None) -> BF
 
 
 def bf_dyn(
-    fn: t.Callable[[t.Any, int], BFTypeDisguised[t.Any]],
+    fn: t.Callable[[t.Any, int], t.Type[_T] | BFTypeDisguised[_T]],
     default: _T | None = None
 ) -> BFTypeDisguised[_T]:
     return disguise(BFDyn(fn, default))
@@ -374,11 +392,25 @@ class Baz(Bitfield):
     b: int = bf_int(10)
 
 
+def foo(x: Bar, n: int):
+    if n == 1:
+        return None
+    else:
+        return bf_int(5)
+
+
+def bar(x: Bar, n: int):
+    return None
+
+
 class Bar(Bitfield):
     a: float = bf_map(bf_int(5), Scale(1 / 100))
     b: t.Literal['hello']
     c: t.Literal[b'hello'] = b'hello'
     d: Baz
+    e: t.List[Baz] = bf_list(Baz, 3)
+    f: int | None = bf_dyn(foo)
+    g: t.List[None] = bf_list(bf_dyn(bar), 3)
 
 # def foo(x: Foo, n: int) -> t.Literal[10] | list[float]:
 #    if n == 1:
