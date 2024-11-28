@@ -392,7 +392,7 @@ class Baz(Bitfield):
     b: int = bf_int(10)
 
 
-def foo(x: Bar, n: int):
+def foo2(x: Bar, n: int):
     if n == 1:
         return None
     else:
@@ -409,32 +409,31 @@ class Bar(Bitfield):
     c: t.Literal[b'hello'] = b'hello'
     d: Baz
     e: t.List[Baz] = bf_list(Baz, 3)
-    f: int | None = bf_dyn(foo)
+    f: int | None = bf_dyn(foo2)
     g: t.List[None] = bf_list(bf_dyn(bar), 3)
 
-# def foo(x: Foo, n: int) -> t.Literal[10] | list[float]:
-#    if n == 1:
-#        return bf_list(bf_map(bf_int(5), Scale(100)), 1)
-#    else:
-#        return bf_lit(bf_int(5), default=10)
+
+def foo(x: Foo, n: int) -> t.Literal[10] | list[float]:
+    if n == 1:
+        return bf_list(bf_map(bf_int(5), Scale(100)), 1)
+    else:
+        return bf_lit(bf_int(5), default=10)
 
 
-# class Foo(Bitfield):
-#    a: float = bf_map(bf_int(2), Scale(100))
-#    _pad: t.Literal[0x5] = bf_lit(bf_int(3), default=0x5)
-#    ff: Bar
-#    ay: t.Literal[b'world'] = b'world'
-#    ab: int = bf_int(10)
-#    ac: int = bf_int(2)
-#    zz: BarEnum = bf_int_enum(BarEnum, 2)
-#    yy: bytes = bf_bytes(2)
-#    ad: int = bf_int(3)
-#    b: int | t.Literal["current"] = bf_map(bf_int(2), LocChMap())
-#    c: t.Literal[10] | list[float] | Bar = bf_dyn(foo)
-#    d: t.List[int] = bf_list(bf_int(10), 3)
-#    e: t.List[Bar] = bf_list(Bar, 3)
-#    f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
-#    h: t.Literal["Hello"] = "Hello"
-#    g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
-#
-#    _bits_reorder = [*range(0, 4), *range(20, 24)]
+class Foo(Bitfield):
+    a: float = bf_map(bf_int(2), Scale(1 / 100))
+    _pad: t.Literal[0x5] = bf_lit(bf_int(3), default=0x5)
+    ff: Baz
+    ay: t.Literal[b'world'] = b'world'
+    ab: int = bf_int(10)
+    ac: int = bf_int(2)
+    zz: BarEnum = bf_int_enum(BarEnum, 2)
+    yy: bytes = bf_bytes(2)
+    ad: int = bf_int(3)
+    b: int | t.Literal["current"] = bf_map(bf_int(2), LocChMap())
+    c: t.Literal[10] | list[float] | Baz = bf_dyn(foo)
+    d: t.List[int] = bf_list(bf_int(10), 3)
+    e: t.List[Baz] = bf_list(Baz, 3)
+    f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
+    h: t.Literal["Hello"] = "Hello"
+    g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
