@@ -154,7 +154,14 @@ def bf_int(n: int, *, default: int | None = None) -> int:
 
 
 def bf_bool(*, default: bool | None = None) -> bool:
-    return bf_int(1, default=default) == 1
+    class IntAsBool:
+        def forward(self, x: int) -> bool:
+            return x == 1
+
+        def back(self, y: bool) -> int:
+            return 1 if y else 0
+
+    return bf_map(bf_int(1), IntAsBool(), default=default)
 
 
 _E = t.TypeVar("_E", bound=IntEnum | IntFlag)
