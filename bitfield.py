@@ -60,6 +60,9 @@ class BFBits:
     def __repr__(self) -> str:
         return f"BFBits({self.n})"
 
+    def length(self):
+        return self.n
+
 
 class BFList:
     item: BFType
@@ -74,6 +77,10 @@ class BFList:
     def __repr__(self) -> str:
         return f"BFList({self.item!r}, {self.n})"
 
+    def length(self) -> int | None:
+        len = self.item.length()
+        return None if len is None else self.n * len
+
 
 class BFMap:
     inner: BFType
@@ -87,6 +94,9 @@ class BFMap:
 
     def __repr__(self) -> str:
         return f"BFMap({self.inner!r})"
+
+    def length(self) -> int | None:
+        return self.inner.length()
 
 
 class BFDyn:
@@ -104,6 +114,9 @@ class BFDyn:
     def __repr__(self) -> str:
         return f"BFDyn(<fn>)"
 
+    def length(self):
+        return None
+
 
 class BFLit:
     field: BFType
@@ -116,10 +129,16 @@ class BFLit:
     def __repr__(self):
         return f"BFLit({self.field!r}, default={self.default!r})"
 
+    def length(self) -> int | None:
+        return self.field.length()
+
 
 class BFNone:
     def __repr__(self):
         return "BFNone()"
+
+    def length(self):
+        return 0
 
 
 BFType = t.Union[BFBits, BFList, BFMap, BFDyn, BFLit, BFNone]
@@ -136,7 +155,10 @@ def undisguise(x: BFTypeDisguised[t.Any]) -> BFType:
         return x
 
     if isinstance(x, type) and issubclass(x, Bitfield):
-        return undisguise(bf_bitfield(x, 9000))  # TODO: put actual length
+        field_length = x.length()
+        if field_length is None:
+            raise ValueError("cannot infer length for dynamic Bitfield")
+        return undisguise(bf_bitfield(x, field_length))
 
     if isinstance(x, bytes):
         return undisguise(bf_lit(bf_bytes(len(x)), default=x))
@@ -256,16 +278,16 @@ def bf_none(*, default: None = None) -> BFTypeDisguised[None]:
 
 
 def bf_bitfield(
-    cls: t.Type[_BFT],
+    cls: t.Type[_BitfieldT],
     n: int,
     *,
-    default: _BFT | None = None
+    default: _BitfieldT | None = None
 ):
     class BitsAsBitfield:
-        def forward(self, x: Bits) -> _BFT:
+        def forward(self, x: Bits) -> _BitfieldT:
             return cls.from_bits(x)
 
-        def back(self, y: _BFT) -> Bits:
+        def back(self, y: _BitfieldT) -> Bits:
             return y.to_bits()
 
     return bf_map(bf_bits(n), BitsAsBitfield(), default=default)
@@ -290,7 +312,17 @@ def bf_bitfield(
 class Bitfield:
     _bf_fields: t.ClassVar[t.Dict[str, BFType]]
 
-    @ classmethod
+    @classmethod
+    def length(cls) -> int | None:
+        acc = 0
+        for field in cls._bf_fields.values():
+            field_len = field.length()
+            if field_len is None:
+                return None
+            acc += field_len
+        return acc
+
+    @classmethod
     def from_bits(cls, bits: Bits) -> Bitfield:
         raise NotImplementedError
 
@@ -334,11 +366,12 @@ def distill_field_def(type_hint: t.Any, value: t.Any) -> BFType:
     return undisguise(value)
 
 
-_BFT = t.TypeVar("_BFT", bound=Bitfield)
+_BitfieldT = t.TypeVar("_BitfieldT", bound=Bitfield)
 
 
 class Baz(Bitfield):
     a: int = bf_int(3)
+    b: int = bf_int(10)
 
 
 class Bar(Bitfield):
