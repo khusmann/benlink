@@ -45,11 +45,11 @@ class LocChMap:
         return 0 if y == "current" else y + 1
 
 
-def assert_bf_type(x: BFType[_T] | BFTypeArg[_T]) -> BFType[_T]:
+def assert_bf_type(x: BFType[_T] | BFTypeDisguised[_T]) -> BFType[_T]:
     if isinstance(x, type) and issubclass(x, Bitfield):
         # TODO
         x = bf_bitfield(x, 9000)  # type: ignore
-    if not isinstance(x, (BFBits, BFList, BFMap, BFDyn)):
+    if not isinstance(x, (BFBits, BFList, BFMap, BFDyn, BFLit)):
         raise TypeError(f"field must be a field type, got {x!r}")
     x = t.cast(BFType[_T], x)
     return x
@@ -100,12 +100,12 @@ class BFMap(t.Generic[_T, _P]):
 
 
 class BFDyn(t.Generic[_T]):
-    fn: t.Callable[[t.Any, int], BFType[_T] | BFTypeArg[_T]]
+    fn: t.Callable[[t.Any, int], BFType[_T] | BFTypeDisguised[_T]]
     default: _T | None
 
     def __init__(
         self,
-        fn: t.Callable[[t.Any, int], BFType[_T] | BFTypeArg[_T]],
+        fn: t.Callable[[t.Any, int], BFType[_T] | BFTypeDisguised[_T]],
         default: _T | None,
     ):
         self.fn = fn
@@ -129,7 +129,7 @@ class BFLit(t.Generic[_T]):
 
 BFType = t.Union[BFBits, BFList[_T], BFMap[t.Any, _T], BFDyn[_T], BFLit[_T]]
 
-BFTypeArg = t.Type[_T] | _T
+BFTypeDisguised = t.Type[_T] | _T
 
 
 def bf_bits(n: int, *, default: Bits | None = None) -> Bits:
@@ -137,7 +137,7 @@ def bf_bits(n: int, *, default: Bits | None = None) -> Bits:
     return out  # type: ignore
 
 
-def bf_map(field: BFType[_T] | BFTypeArg[_T], vm: ValueMapper[_T, _P], *, default: _P | None = None) -> _P:
+def bf_map(field: BFType[_T] | BFTypeDisguised[_T], vm: ValueMapper[_T, _P], *, default: _P | None = None) -> _P:
     out = BFMap[_T, _P](assert_bf_type(field), vm, default)
     return out  # type: ignore
 
@@ -178,7 +178,7 @@ def bf_int_enum(enum: t.Type[_E], n: int, default: _E | None = None) -> _E:
     return bf_map(bf_int(n), IntAsEnum(), default=default)
 
 
-def bf_list(item: BFType[_T] | BFTypeArg[_T], n: int, *, default: t.List[_T] | None = None) -> t.List[_T]:
+def bf_list(item: BFType[_T] | BFTypeDisguised[_T], n: int, *, default: t.List[_T] | None = None) -> t.List[_T]:
     if default is not None and len(default) != n:
         raise ValueError(f"expected list of length {n}, got {default!r}")
     out = BFList[_T](assert_bf_type(item), n, default)
@@ -188,7 +188,7 @@ def bf_list(item: BFType[_T] | BFTypeArg[_T], n: int, *, default: t.List[_T] | N
 _LT = t.TypeVar("_LT", bound=str | int | float | bytes | Enum)
 
 
-def bf_lit(field: BFType[_LT] | BFTypeArg[_LT], *, default: _P) -> _P:
+def bf_lit(field: BFType[_LT] | BFTypeDisguised[_LT], *, default: _P) -> _P:
     out = BFLit(assert_bf_type(field), default)
     return out  # type: ignore
 
@@ -226,7 +226,7 @@ def bf_str(n: int, encoding: str = "utf-8", *, default: str | None = None) -> st
 
 
 def bf_dyn(
-    fn: t.Callable[[t.Any, int], BFType[_T] | BFTypeArg[_T]],
+    fn: t.Callable[[t.Any, int], BFType[_T] | BFTypeDisguised[_T]],
     default: _T | None = None
 ) -> _T:
     out = BFDyn(fn, default)
