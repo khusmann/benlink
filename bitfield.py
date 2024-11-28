@@ -45,16 +45,6 @@ class LocChMap:
         return 0 if y == "current" else y + 1
 
 
-def assert_bf_type(x: BFType[_T] | BFTypeDisguised[_T]) -> BFType[_T]:
-    if isinstance(x, type) and issubclass(x, Bitfield):
-        # TODO
-        x = bf_bitfield(x, 9000)  # type: ignore
-    if not isinstance(x, (BFBits, BFList, BFMap, BFDyn, BFLit)):
-        raise TypeError(f"field must be a field type, got {x!r}")
-    x = t.cast(BFType[_T], x)
-    return x
-
-
 class BFBits:
     n: int
     default: Bits | None
@@ -71,12 +61,12 @@ class BFBits:
         return f"BFBits({self.n})"
 
 
-class BFList(t.Generic[_T]):
-    item: BFType[_T]
+class BFList:
+    item: BFType
     n: int
-    default: t.List[_T] | None
+    default: t.List[t.Any] | None
 
-    def __init__(self, item: BFType[_T], n: int, default: t.List[_T] | None):
+    def __init__(self, item: BFType, n: int, default: t.List[t.Any] | None):
         self.item = item
         self.n = n
         self.default = default
@@ -85,12 +75,12 @@ class BFList(t.Generic[_T]):
         return f"BFList({self.item!r}, {self.n})"
 
 
-class BFMap(t.Generic[_T, _P]):
-    inner: BFType[_T]
-    vm: ValueMapper[_T, _P]
-    default: _P | None
+class BFMap:
+    inner: BFType
+    vm: ValueMapper[t.Any, t.Any]
+    default: t.Any | None
 
-    def __init__(self, inner: BFType[_T], vm: ValueMapper[_T, _P], default: _P | None):
+    def __init__(self, inner: BFType, vm: ValueMapper[t.Any, _P], default: _P | None):
         self.inner = inner
         self.vm = vm
         self.default = default
@@ -99,13 +89,13 @@ class BFMap(t.Generic[_T, _P]):
         return f"BFMap({self.inner!r})"
 
 
-class BFDyn(t.Generic[_T]):
-    fn: t.Callable[[t.Any, int], BFType[_T] | BFTypeDisguised[_T]]
-    default: _T | None
+class BFDyn:
+    fn: t.Callable[[t.Any, int], BFTypeDisguised[t.Any]]
+    default: t.Any | None
 
     def __init__(
         self,
-        fn: t.Callable[[t.Any, int], BFType[_T] | BFTypeDisguised[_T]],
+        fn: t.Callable[[t.Any, int], BFTypeDisguised[_T]],
         default: _T | None,
     ):
         self.fn = fn
@@ -115,34 +105,60 @@ class BFDyn(t.Generic[_T]):
         return f"BFDyn(<fn>)"
 
 
-class BFLit(t.Generic[_T]):
-    field: BFType[t.Any]
-    default: _T
+class BFLit:
+    field: BFType
+    default: t.Any
 
-    def __init__(self, field: BFType[t.Any], default: _T):
+    def __init__(self, field: BFType, default: t.Any):
         self.field = field
         self.default = default
 
     def __repr__(self):
-        return f"BFLit({self.field!r})"
+        return f"BFLit({self.field!r}, default={self.default!r})"
 
 
-BFType = t.Union[BFBits, BFList[_T], BFMap[t.Any, _T], BFDyn[_T], BFLit[_T]]
-
-BFTypeDisguised = t.Type[_T] | _T
-
-
-def bf_bits(n: int, *, default: Bits | None = None) -> Bits:
-    out = BFBits(n, default)
-    return out  # type: ignore
+class BFNone:
+    def __repr__(self):
+        return "BFNone()"
 
 
-def bf_map(field: BFType[_T] | BFTypeDisguised[_T], vm: ValueMapper[_T, _P], *, default: _P | None = None) -> _P:
-    out = BFMap[_T, _P](assert_bf_type(field), vm, default)
-    return out  # type: ignore
+BFType = t.Union[BFBits, BFList, BFMap, BFDyn, BFLit, BFNone]
+
+BFTypeDisguised = t.Annotated[_T, "BFTypeDisguised"]
 
 
-def bf_int(n: int, *, default: int | None = None) -> int:
+def disguise(x: BFType) -> BFTypeDisguised[t.Any]:
+    return x  # type: ignore
+
+
+def undisguise(x: BFTypeDisguised[t.Any]) -> BFType:
+    if isinstance(x, BFType):
+        return x
+
+    if isinstance(x, type) and issubclass(x, Bitfield):
+        return undisguise(bf_bitfield(x, 9000))  # TODO: put actual length
+
+    if isinstance(x, bytes):
+        return undisguise(bf_lit(bf_bytes(len(x)), default=x))
+
+    if isinstance(x, str):
+        return undisguise(bf_lit(bf_str(len(x.encode("utf-8"))), default=x))
+
+    if x is None:
+        return undisguise(bf_none())
+
+    raise TypeError(f"expected a bitfield type, got {x!r}")
+
+
+def bf_bits(n: int, *, default: Bits | None = None) -> BFTypeDisguised[Bits]:
+    return disguise(BFBits(n, default))
+
+
+def bf_map(field: BFTypeDisguised[_T], vm: ValueMapper[_T, _P], *, default: _P | None = None) -> BFTypeDisguised[_P]:
+    return disguise(BFMap(undisguise(field), vm, default))
+
+
+def bf_int(n: int, *, default: int | None = None) -> BFTypeDisguised[int]:
     class BitsAsInt:
         def forward(self, x: Bits) -> int:
             return x.to_int()
@@ -153,7 +169,7 @@ def bf_int(n: int, *, default: int | None = None) -> int:
     return bf_map(bf_bits(n), BitsAsInt(), default=default)
 
 
-def bf_bool(*, default: bool | None = None) -> bool:
+def bf_bool(*, default: bool | None = None) -> BFTypeDisguised[bool]:
     class IntAsBool:
         def forward(self, x: int) -> bool:
             return x == 1
@@ -167,7 +183,7 @@ def bf_bool(*, default: bool | None = None) -> bool:
 _E = t.TypeVar("_E", bound=IntEnum | IntFlag)
 
 
-def bf_int_enum(enum: t.Type[_E], n: int, default: _E | None = None) -> _E:
+def bf_int_enum(enum: t.Type[_E], n: int, default: _E | None = None) -> BFTypeDisguised[_E]:
     class IntAsEnum:
         def forward(self, x: int) -> _E:
             return enum(x)
@@ -178,22 +194,25 @@ def bf_int_enum(enum: t.Type[_E], n: int, default: _E | None = None) -> _E:
     return bf_map(bf_int(n), IntAsEnum(), default=default)
 
 
-def bf_list(item: BFType[_T] | BFTypeDisguised[_T], n: int, *, default: t.List[_T] | None = None) -> t.List[_T]:
+def bf_list(
+    item: BFTypeDisguised[_T],
+    n: int, *,
+    default: t.List[_T] | None = None
+) -> BFTypeDisguised[t.List[_T]]:
+
     if default is not None and len(default) != n:
         raise ValueError(f"expected list of length {n}, got {default!r}")
-    out = BFList[_T](assert_bf_type(item), n, default)
-    return out  # type: ignore
+    return disguise(BFList(undisguise(item), n, default))
 
 
 _LT = t.TypeVar("_LT", bound=str | int | float | bytes | Enum)
 
 
-def bf_lit(field: BFType[_LT] | BFTypeDisguised[_LT], *, default: _P) -> _P:
-    out = BFLit(assert_bf_type(field), default)
-    return out  # type: ignore
+def bf_lit(field: BFTypeDisguised[_LT], *, default: _P) -> BFTypeDisguised[_P]:
+    return disguise(BFLit(undisguise(field), default))
 
 
-def bf_bytes(n: int, *, default: bytes | None = None) -> bytes:
+def bf_bytes(n: int, *, default: bytes | None = None) -> BFTypeDisguised[bytes]:
     if default is not None and len(default) != n:
         raise ValueError(f"expected bytes of length {n}, got {default!r}")
 
@@ -207,7 +226,7 @@ def bf_bytes(n: int, *, default: bytes | None = None) -> bytes:
     return bf_map(bf_list(bf_int(8), n), ListAsBytes(), default=default)
 
 
-def bf_str(n: int, encoding: str = "utf-8", *, default: str | None = None) -> str:
+def bf_str(n: int, encoding: str = "utf-8", *, default: str | None = None) -> BFTypeDisguised[str]:
     if default is not None:
         byte_len = len(default.encode(encoding))
         if byte_len != n:
@@ -226,11 +245,14 @@ def bf_str(n: int, encoding: str = "utf-8", *, default: str | None = None) -> st
 
 
 def bf_dyn(
-    fn: t.Callable[[t.Any, int], BFType[_T] | BFTypeDisguised[_T]],
+    fn: t.Callable[[t.Any, int], BFTypeDisguised[t.Any]],
     default: _T | None = None
-) -> _T:
-    out = BFDyn(fn, default)
-    return out  # type: ignore
+) -> BFTypeDisguised[_T]:
+    return disguise(BFDyn(fn, default))
+
+
+def bf_none(*, default: None = None) -> BFTypeDisguised[None]:
+    return disguise(BFNone())
 
 
 def bf_bitfield(
@@ -266,9 +288,9 @@ def bf_bitfield(
     )
 )
 class Bitfield:
-    _bf_fields: t.ClassVar[t.Dict[str, BFType[t.Any]]]
+    _bf_fields: t.ClassVar[t.Dict[str, BFType]]
 
-    @classmethod
+    @ classmethod
     def from_bits(cls, bits: Bits) -> Bitfield:
         raise NotImplementedError
 
@@ -285,51 +307,45 @@ class Bitfield:
 
             value = getattr(cls, name) if hasattr(cls, name) else None
 
-            bf_field = distill_bitfield(name, type_hint, value)
+            try:
+                bf_field = distill_field_def(type_hint, value)
+            except TypeError as e:
+                raise TypeError(
+                    f"error in field {name!r} of {cls.__name__!r}: {e}"
+                )
 
             cls._bf_fields[name] = bf_field
 
 
-def distill_bitfield(name: str, type_hint: t.Any, value: t.Any) -> BFType[t.Any]:
-    if isinstance(value, (BFBits, BFList, BFMap, BFDyn, BFLit)):
-        value = t.cast(BFType[t.Any], value)
-        return value
+def distill_field_def(type_hint: t.Any, value: t.Any) -> BFType:
+    if value is None and type_hint is not type(None):
+        if isinstance(type_hint, type) and issubclass(type_hint, Bitfield):
+            return undisguise(type_hint)
 
-    if t.get_origin(type_hint) is t.Literal:
-        args = t.get_args(type_hint)
+        if t.get_origin(type_hint) is t.Literal:
+            args = t.get_args(type_hint)
 
-        if len(args) != 1:
-            raise TypeError(
-                f"field {name}: expected literal with one argument, got {args!r}")
-
-        match args[0]:
-            case bytes():
-                out = bf_bytes(len(args[0]))
-                return out  # type: ignore
-            case str():
-                out = bf_str(len(args[0].encode("utf-8")))
-                return out  # type: ignore
-            case _:
+            if len(args) != 1:
                 raise TypeError(
-                    f"field {name}: unsupported literal type {args[0]!r}")
+                    f"expected literal with one argument, got {args!r}")
 
-    if isinstance(type_hint, type) and issubclass(type_hint, Bitfield) and value is None:
-        out = bf_bitfield(type_hint, 9000)
-        return out  # type: ignore
+            return undisguise(args[0])
 
-    if value is None:
-        raise TypeError(f"field {name}: missing field definition")
-    else:
-        raise TypeError(f"field {name}: invalid field definition")
+    return undisguise(value)
 
 
 _BFT = t.TypeVar("_BFT", bound=Bitfield)
 
 
+class Baz(Bitfield):
+    a: int = bf_int(3)
+
+
 class Bar(Bitfield):
     a: int = bf_int(5)
-    b: t.Literal[b'hello']
+    b: t.Literal['hello']
     c: t.Literal[b'hello'] = b'hello'
+    d: Baz
 
 # def foo(x: Foo, n: int) -> t.Literal[10] | list[float]:
 #    if n == 1:
