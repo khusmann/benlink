@@ -14,8 +14,19 @@ class BarEnum(IntEnum):
     C = 3
 
 
+class NotProvided:
+    pass
+
+
+NOT_PROVIDED = NotProvided()
+
+
 _T = t.TypeVar("_T")
 _P = t.TypeVar("_P")
+
+
+def is_provided(x: _T | NotProvided) -> t.TypeGuard[_T]:
+    return x is not NOT_PROVIDED
 
 
 class ValueMapper(t.Protocol[_T, _P]):
@@ -47,12 +58,12 @@ class LocChMap:
 
 class BFBits:
     n: int
-    default: Bits | None
+    default: Bits | NotProvided
 
     def __init__(
         self,
         n: int,
-        default: Bits | None,
+        default: Bits | NotProvided,
     ):
         self.n = n
         self.default = default
@@ -70,9 +81,9 @@ class BFBits:
 class BFList:
     item: BFType
     n: int
-    default: t.List[t.Any] | None
+    default: t.List[t.Any] | NotProvided
 
-    def __init__(self, item: BFType, n: int, default: t.List[t.Any] | None):
+    def __init__(self, item: BFType, n: int, default: t.List[t.Any] | NotProvided):
         self.item = item
         self.n = n
         self.default = default
@@ -85,15 +96,15 @@ class BFList:
         return None if len is None else self.n * len
 
     def has_children_with_default(self) -> bool:
-        return self.item.default is not None or self.item.has_children_with_default()
+        return is_provided(self.item.default) or self.item.has_children_with_default()
 
 
 class BFMap:
     inner: BFType
     vm: ValueMapper[t.Any, t.Any]
-    default: t.Any | None
+    default: t.Any | NotProvided
 
-    def __init__(self, inner: BFType, vm: ValueMapper[t.Any, _P], default: _P | None):
+    def __init__(self, inner: BFType, vm: ValueMapper[t.Any, _P], default: _P | NotProvided):
         self.inner = inner
         self.vm = vm
         self.default = default
@@ -105,17 +116,17 @@ class BFMap:
         return self.inner.length()
 
     def has_children_with_default(self) -> bool:
-        return self.inner.default is not None or self.inner.has_children_with_default()
+        return is_provided(self.inner.default) or self.inner.has_children_with_default()
 
 
 class BFDyn:
     fn: t.Callable[[t.Any, int], BFTypeDisguised[t.Any]]
-    default: t.Any | None
+    default: t.Any | NotProvided
 
     def __init__(
         self,
         fn: t.Callable[[t.Any, int], BFTypeDisguised[_T]],
-        default: _T | None,
+        default: _T | NotProvided,
     ):
         self.fn = fn
         self.default = default
@@ -145,11 +156,14 @@ class BFLit:
         return self.field.length()
 
     def has_children_with_default(self) -> bool:
-        return self.field.default is not None or self.field.has_children_with_default()
+        return is_provided(self.field.default) or self.field.has_children_with_default()
 
 
 class BFNone:
-    default: None = None
+    default: None | NotProvided
+
+    def __init__(self, *, default: None | NotProvided) -> None:
+        self.default = default
 
     def __repr__(self):
         return "BFNone()"
@@ -192,15 +206,27 @@ def undisguise(x: BFTypeDisguised[t.Any]) -> BFType:
     raise TypeError(f"expected a bitfield type, got {x!r}")
 
 
-def bf_bits(n: int, *, default: Bits | None = None) -> BFTypeDisguised[Bits]:
+def bf_bits(n: int, *, default: Bits | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[Bits]:
     return disguise(BFBits(n, default))
 
 
-def bf_map(field: BFTypeDisguised[_T], vm: ValueMapper[_T, _P], *, default: _P | None = None) -> BFTypeDisguised[_P]:
+def bf_map(
+    field: BFTypeDisguised[_T],
+    vm: ValueMapper[_T, _P], *,
+    default: _P | NotProvided = NOT_PROVIDED
+) -> BFTypeDisguised[_P]:
     return disguise(BFMap(undisguise(field), vm, default))
 
 
-def bf_int(n: int, *, default: int | None = None) -> BFTypeDisguised[int]:
+@t.overload
+def bf_int(n: int, *, default: int) -> BFTypeDisguised[int]: ...
+
+
+@t.overload
+def bf_int(n: int) -> BFTypeDisguised[int]: ...
+
+
+def bf_int(n: int, *, default: int | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[int]:
     class BitsAsInt:
         def forward(self, x: Bits) -> int:
             return x.to_int()
@@ -211,7 +237,7 @@ def bf_int(n: int, *, default: int | None = None) -> BFTypeDisguised[int]:
     return bf_map(bf_bits(n), BitsAsInt(), default=default)
 
 
-def bf_bool(*, default: bool | None = None) -> BFTypeDisguised[bool]:
+def bf_bool(*, default: bool | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[bool]:
     class IntAsBool:
         def forward(self, x: int) -> bool:
             return x == 1
@@ -225,7 +251,7 @@ def bf_bool(*, default: bool | None = None) -> BFTypeDisguised[bool]:
 _E = t.TypeVar("_E", bound=IntEnum | IntFlag)
 
 
-def bf_int_enum(enum: t.Type[_E], n: int, default: _E | None = None) -> BFTypeDisguised[_E]:
+def bf_int_enum(enum: t.Type[_E], n: int, default: _E | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[_E]:
     class IntAsEnum:
         def forward(self, x: int) -> _E:
             return enum(x)
@@ -236,31 +262,13 @@ def bf_int_enum(enum: t.Type[_E], n: int, default: _E | None = None) -> BFTypeDi
     return bf_map(bf_int(n), IntAsEnum(), default=default)
 
 
-@t.overload
 def bf_list(
-    item: t.Type[_BitfieldT],
-    n: int,
-    *,
-    default: t.List[_BitfieldT] | None = None
-) -> BFTypeDisguised[t.List[_BitfieldT]]: ...
-
-
-@t.overload
-def bf_list(
-    item: BFTypeDisguised[_T],
-    n: int,
-    *,
-    default: t.List[_T] | None = None
-) -> BFTypeDisguised[t.List[_T]]: ...
-
-
-def bf_list(
-    item: t.Type[_BitfieldT] | BFTypeDisguised[_T],
+    item: t.Type[_T] | BFTypeDisguised[_T],
     n: int, *,
-    default: t.List[_BitfieldT] | t.List[_T] | None = None
-) -> BFTypeDisguised[t.List[_BitfieldT]] | BFTypeDisguised[t.List[_T]]:
+    default: t.List[_T] | NotProvided = NOT_PROVIDED
+) -> BFTypeDisguised[t.List[_T]]:
 
-    if default is not None and len(default) != n:
+    if is_provided(default) and len(default) != n:
         raise ValueError(
             f"expected default list of length {n}, got {len(default)} ({default!r})"
         )
@@ -274,8 +282,8 @@ def bf_lit(field: BFTypeDisguised[_LT], *, default: _P) -> BFTypeDisguised[_P]:
     return disguise(BFLit(undisguise(field), default))
 
 
-def bf_bytes(n: int, *, default: bytes | None = None) -> BFTypeDisguised[bytes]:
-    if default is not None and len(default) != n:
+def bf_bytes(n: int, *, default: bytes | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[bytes]:
+    if is_provided(default) and len(default) != n:
         raise ValueError(
             f"expected default bytes of length {n} bytes, got {len(default)} bytes ({default!r})"
         )
@@ -290,8 +298,8 @@ def bf_bytes(n: int, *, default: bytes | None = None) -> BFTypeDisguised[bytes]:
     return bf_map(bf_list(bf_int(8), n), ListAsBytes(), default=default)
 
 
-def bf_str(n: int, encoding: str = "utf-8", *, default: str | None = None) -> BFTypeDisguised[str]:
-    if default is not None:
+def bf_str(n: int, encoding: str = "utf-8", *, default: str | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[str]:
+    if is_provided(default):
         byte_len = len(default.encode(encoding))
         if byte_len != n:
             raise ValueError(
@@ -310,20 +318,20 @@ def bf_str(n: int, encoding: str = "utf-8", *, default: str | None = None) -> BF
 
 def bf_dyn(
     fn: t.Callable[[t.Any, int], t.Type[_T] | BFTypeDisguised[_T]],
-    default: _T | None = None
+    default: _T | NotProvided = NOT_PROVIDED
 ) -> BFTypeDisguised[_T]:
     return disguise(BFDyn(fn, default))
 
 
-def bf_none(*, default: None = None) -> BFTypeDisguised[None]:
-    return disguise(BFNone())
+def bf_none(*, default: None | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[None]:
+    return disguise(BFNone(default=default))
 
 
 def bf_bitfield(
     cls: t.Type[_BitfieldT],
     n: int,
     *,
-    default: _BitfieldT | None = None
+    default: _BitfieldT | NotProvided = NOT_PROVIDED
 ):
     class BitsAsBitfield:
         def forward(self, x: Bits) -> _BitfieldT:
@@ -356,10 +364,13 @@ class Bitfield:
 
     def __init__(self, **kwargs: t.Any):
         for name, field in self._bf_fields.items():
-            value = kwargs.get(name)
+            value = kwargs.get(name, NOT_PROVIDED)
 
-            if value is None:
-                field.default
+            if not is_provided(value):
+                if is_provided(field.default):
+                    value = field.default
+                else:
+                    raise ValueError(f"missing value for field {name!r}")
 
             setattr(self, name, value)
 
@@ -398,7 +409,7 @@ class Bitfield:
             if t.get_origin(type_hint) is t.ClassVar:
                 continue
 
-            value = getattr(cls, name) if hasattr(cls, name) else None
+            value = getattr(cls, name) if hasattr(cls, name) else NOT_PROVIDED
 
             try:
                 bf_field = distill_field(type_hint, value)
@@ -416,7 +427,7 @@ class Bitfield:
 
 
 def distill_field(type_hint: t.Any, value: t.Any) -> BFType:
-    if value is None and type_hint is not type(None):
+    if value is NOT_PROVIDED:
         if isinstance(type_hint, type) and issubclass(type_hint, Bitfield):
             return undisguise(type_hint)
 
