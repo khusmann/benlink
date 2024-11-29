@@ -275,10 +275,10 @@ def bf_list(
     return disguise(BFList(undisguise(item), n, default))
 
 
-_LT = t.TypeVar("_LT", bound=str | int | float | bytes | Enum)
+_LiteralT = t.TypeVar("_LiteralT", bound=str | int | float | bytes | Enum)
 
 
-def bf_lit(field: BFTypeDisguised[_LT], *, default: _P) -> BFTypeDisguised[_P]:
+def bf_lit(field: BFTypeDisguised[_LiteralT], *, default: _P) -> BFTypeDisguised[_P]:
     return disguise(BFLit(undisguise(field), default))
 
 
