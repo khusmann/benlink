@@ -241,7 +241,9 @@ def bf_list(
 ) -> BFTypeDisguised[t.List[_BitfieldT]] | BFTypeDisguised[t.List[_T]]:
 
     if default is not None and len(default) != n:
-        raise ValueError(f"expected list of length {n}, got {default!r}")
+        raise ValueError(
+            f"expected default list of length {n}, got {len(default)} ({default!r})"
+        )
     return disguise(BFList(undisguise(item), n, default))
 
 
@@ -254,7 +256,9 @@ def bf_lit(field: BFTypeDisguised[_LT], *, default: _P) -> BFTypeDisguised[_P]:
 
 def bf_bytes(n: int, *, default: bytes | None = None) -> BFTypeDisguised[bytes]:
     if default is not None and len(default) != n:
-        raise ValueError(f"expected bytes of length {n}, got {default!r}")
+        raise ValueError(
+            f"expected default bytes of length {n} bytes, got {len(default)} bytes ({default!r})"
+        )
 
     class ListAsBytes:
         def forward(self, x: t.List[int]) -> bytes:
@@ -271,7 +275,7 @@ def bf_str(n: int, encoding: str = "utf-8", *, default: str | None = None) -> BF
         byte_len = len(default.encode(encoding))
         if byte_len != n:
             raise ValueError(
-                f"expected default string of length {n} bytes, got {byte_len} bytes"
+                f"expected default string of length {n} bytes, got {byte_len} bytes ({default!r})"
             )
 
     class BytesAsStr:
@@ -377,9 +381,12 @@ def distill_field_def(type_hint: t.Any, value: t.Any) -> BFType:
 
             if len(args) != 1:
                 raise TypeError(
-                    f"expected literal with one argument, got {args!r}")
+                    f"literal must have exactly one argument"
+                )
 
             return undisguise(args[0])
+
+        raise TypeError(f"missing field definition")
 
     return undisguise(value)
 
