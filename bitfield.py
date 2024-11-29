@@ -354,6 +354,25 @@ def bf_bitfield(
 class Bitfield:
     _bf_fields: t.ClassVar[t.Dict[str, BFType]]
 
+    def __init__(self, **kwargs: t.Any):
+        for name, field in self._bf_fields.items():
+            value = kwargs.get(name)
+
+            if value is None:
+                field.default
+
+            setattr(self, name, value)
+
+    def __repr__(self) -> str:
+        return "".join((
+            self.__class__.__qualname__,
+            "(",
+            ', '.join(
+                f'{name}={getattr(self, name)!r}' for name in self._bf_fields
+            ),
+            ")",
+        ))
+
     @classmethod
     def length(cls) -> int | None:
         acc = 0
