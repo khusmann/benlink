@@ -382,7 +382,7 @@ class Bitfield:
             value = getattr(cls, name) if hasattr(cls, name) else None
 
             try:
-                bf_field = distill_field_def(type_hint, value)
+                bf_field = distill_field(type_hint, value)
             except TypeError as e:
                 raise TypeError(
                     f"error in field {name!r} of {cls.__name__!r}: {e}"
@@ -396,7 +396,7 @@ class Bitfield:
             cls._bf_fields[name] = bf_field
 
 
-def distill_field_def(type_hint: t.Any, value: t.Any) -> BFType:
+def distill_field(type_hint: t.Any, value: t.Any) -> BFType:
     if value is None and type_hint is not type(None):
         if isinstance(type_hint, type) and issubclass(type_hint, Bitfield):
             return undisguise(type_hint)
