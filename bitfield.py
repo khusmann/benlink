@@ -63,6 +63,9 @@ class BFBits:
     def length(self):
         return self.n
 
+    def has_children_with_default(self):
+        return False
+
 
 class BFList:
     item: BFType
@@ -81,6 +84,9 @@ class BFList:
         len = self.item.length()
         return None if len is None else self.n * len
 
+    def has_children_with_default(self) -> bool:
+        return self.item.default is not None or self.item.has_children_with_default()
+
 
 class BFMap:
     inner: BFType
@@ -97,6 +103,9 @@ class BFMap:
 
     def length(self) -> int | None:
         return self.inner.length()
+
+    def has_children_with_default(self) -> bool:
+        return self.inner.default is not None or self.inner.has_children_with_default()
 
 
 class BFDyn:
@@ -117,6 +126,9 @@ class BFDyn:
     def length(self):
         return None
 
+    def has_children_with_default(self):
+        return False
+
 
 class BFLit:
     field: BFType
@@ -132,13 +144,21 @@ class BFLit:
     def length(self) -> int | None:
         return self.field.length()
 
+    def has_children_with_default(self) -> bool:
+        return self.field.default is not None or self.field.has_children_with_default()
+
 
 class BFNone:
+    default: None = None
+
     def __repr__(self):
         return "BFNone()"
 
     def length(self):
         return 0
+
+    def has_children_with_default(self):
+        return False
 
 
 BFType = t.Union[BFBits, BFList, BFMap, BFDyn, BFLit, BFNone]
@@ -366,6 +386,11 @@ class Bitfield:
             except TypeError as e:
                 raise TypeError(
                     f"error in field {name!r} of {cls.__name__!r}: {e}"
+                )
+
+            if bf_field.has_children_with_default():
+                raise ValueError(
+                    f"field {name!r} of {cls.__name__!r} has defaults set in nested field definitions"
                 )
 
             cls._bf_fields[name] = bf_field

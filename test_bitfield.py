@@ -67,3 +67,10 @@ def test_lit_field_err():
         class Fail(Bitfield):
             a: t.Literal[1, 2]
         print(Fail)
+
+
+def test_default_children_err():
+    with pytest.raises(ValueError, match=re.escape("field 'a' of 'Fail' has defaults set in nested field definitions")):
+        class Fail(Bitfield):
+            a: t.List[int] = bf_list(bf_int(4, default=10), 4)
+        print(Fail)
