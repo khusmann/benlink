@@ -185,6 +185,15 @@ class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
 
     def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
         field = type(value) if isinstance(value, Bitfield) else value
+        #
+        # TODO support lists of these types?
+        #
+        if not isinstance(field, (Bitfield, str, bytes)) and field is not None:
+            raise TypeError(
+                f"dynamic fields that use discriminators with 'n bits remaining' "
+                f"can only be used with Bitfield, str, bytes, or None values "
+                f"(or lists of these types); {field!r} is not supported"
+            )
         return undisguise(field).to_bits(value, proxy, context)
 
 
@@ -266,7 +275,7 @@ def undisguise(x: BFTypeDisguised[t.Any]) -> BFType:
     if isinstance(x, type) and issubclass(x, Bitfield):
         field_length = x.length()
         if field_length is None:
-            raise ValueError("cannot infer length for dynamic Bitfield")
+            raise TypeError("cannot infer length for dynamic Bitfield")
         return undisguise(bf_bitfield(x, field_length))
 
     if isinstance(x, bytes):
@@ -278,7 +287,7 @@ def undisguise(x: BFTypeDisguised[t.Any]) -> BFType:
     if x is None:
         return undisguise(bf_none())
 
-    raise TypeError(f"expected a bitfield type, got {x!r}")
+    raise TypeError(f"expected a field type, got {x!r}")
 
 
 def bf_bits(n: int, *, default: Bits | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[Bits]:

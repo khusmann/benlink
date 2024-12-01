@@ -115,7 +115,7 @@ def test_default_len_err():
 
 
 def test_incorrect_field_types():
-    with pytest.raises(TypeError, match=re.escape("error in field 'a' of 'Fail1': expected a bitfield type, got 1")):
+    with pytest.raises(TypeError, match=re.escape("error in field 'a' of 'Fail1': expected a field type, got 1")):
         class Fail1(Bitfield):
             a: int = 1
         print(Fail1)
@@ -131,7 +131,7 @@ class DynFoo(Bitfield):
 
 
 def test_dyn_infer_err():
-    with pytest.raises(ValueError, match=re.escape("cannot infer length for dynamic Bitfield")):
+    with pytest.raises(TypeError, match=re.escape("error in field 'a' of 'Fail': cannot infer length for dynamic Bitfield")):
         class Fail(Bitfield):
             a: DynFoo
         print(Fail)
