@@ -308,7 +308,7 @@ def bf_bool(*, default: bool | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[bo
 _E = t.TypeVar("_E", bound=IntEnum | IntFlag)
 
 
-def bf_int_enum(enum: t.Type[_E], n: int, default: _E | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[_E]:
+def bf_int_enum(enum: t.Type[_E], n: int, *, default: _E | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[_E]:
     class IntAsEnum:
         def forward(self, x: int) -> _E:
             return enum(x)
