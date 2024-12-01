@@ -72,10 +72,10 @@ class BFBits:
     def has_children_with_default(self):
         return False
 
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
         return stream.read_bits(self.n)
 
-    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
         if len(value) != self.n:
             raise ValueError(f"expected {self.n} bits, got {len(value)}")
         return Bits(value)
@@ -101,13 +101,13 @@ class BFList:
     def has_children_with_default(self) -> bool:
         return is_provided(self.item.default) or self.item.has_children_with_default()
 
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
         return [self.item.from_bitstream(stream, proxy, context) for _ in range(self.n)]
 
-    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
         if len(value) != self.n:
             raise ValueError(f"expected {self.n} items, got {len(value)}")
-        return sum([self.item.to_bits(item, proxy, context) for item in value], Bits())
+        return sum([self.item.to_bits(item, parent, context) for item in value], Bits())
 
 
 class BFMap:
@@ -129,11 +129,11 @@ class BFMap:
     def has_children_with_default(self) -> bool:
         return is_provided(self.inner.default) or self.inner.has_children_with_default()
 
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
         return self.vm.forward(self.inner.from_bitstream(stream, proxy, context))
 
-    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
-        return self.inner.to_bits(self.vm.back(value), proxy, context)
+    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
+        return self.inner.to_bits(self.vm.back(value), parent, context)
 
 
 _Params = t.ParamSpec("_Params")
@@ -162,28 +162,28 @@ class BFDyn(t.Generic[_Params]):
 
 
 class BFDynSelf(BFDyn[t.Any]):
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
         return undisguise(self.fn(proxy)).from_bitstream(stream, proxy, context)
 
-    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
-        return undisguise(self.fn(proxy)).to_bits(value, proxy, context)
+    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
+        return undisguise(self.fn(parent)).to_bits(value, parent, context)
 
 
 class BFDynSelfCtx(BFDyn[t.Any, t.Any]):
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
         return undisguise(self.fn(proxy, context)).from_bitstream(stream, proxy, context)
 
-    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
-        return undisguise(self.fn(proxy, context)).to_bits(value, proxy, context)
+    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
+        return undisguise(self.fn(parent, context)).to_bits(value, parent, context)
 
 
 class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
         return undisguise(
             self.fn(proxy, context, stream.remaining())
         ).from_bitstream(stream, proxy, context)
 
-    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
         field = type(value) if isinstance(value, Bitfield) else value
         #
         # TODO support lists of these types?
@@ -194,7 +194,7 @@ class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
                 f"can only be used with Bitfield, str, bytes, or None values. "
                 f"{field!r} is not supported"
             )
-        return undisguise(field).to_bits(value, proxy, context)
+        return undisguise(field).to_bits(value, parent, context)
 
 
 class BFLit:
@@ -214,16 +214,16 @@ class BFLit:
     def has_children_with_default(self) -> bool:
         return is_provided(self.field.default) or self.field.has_children_with_default()
 
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
         value = self.field.from_bitstream(stream, proxy, context)
         if value != self.default:
             raise ValueError(f"expected {self.default!r}, got {value!r}")
         return value
 
-    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
         if value != self.default:
             raise ValueError(f"expected {self.default!r}, got {value!r}")
-        return self.field.to_bits(value, proxy, context)
+        return self.field.to_bits(value, parent, context)
 
 
 class BFBitfield:
@@ -245,10 +245,10 @@ class BFBitfield:
     def has_children_with_default(self):
         return False
 
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> Bitfield:
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> Bitfield:
         return self.field.from_bits(stream.read_bits(self.n), context)
 
-    def to_bits(self, value: Bitfield, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+    def to_bits(self, value: Bitfield, parent: Bitfield, context: t.Any) -> Bits:
         out = value.to_bits(context)
         if len(out) != self.n:
             raise ValueError(f"expected {self.n} bits, got {len(out)}")
@@ -270,10 +270,10 @@ class BFNone:
     def has_children_with_default(self):
         return False
 
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
         return None
 
-    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
         if value is not None:
             raise ValueError(f"expected None, got {value!r}")
         return Bits()
