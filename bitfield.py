@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing_extensions import dataclass_transform
+from dataclasses import dataclass
 import typing as t
 import inspect
 
@@ -50,119 +51,61 @@ class LocChMap:
     def back(self, y: int | t.Literal["current"]):
         return 0 if y == "current" else y + 1
 
-# TODO: use pattern matching instead of member fns
-# (for field_length(), has_children_with_default(), from_bitstream(), to_bits())
 
-
+@dataclass()
 class BFBits:
     n: int
     default: Bits | NotProvided
 
-    def __init__(
-        self,
-        n: int,
-        default: Bits | NotProvided,
-    ):
-        self.n = n
-        self.default = default
 
-    def __repr__(self) -> str:
-        return f"BFBits({self.n})"
-
-
+@dataclass()
 class BFList:
     inner: BFType
     n: int
     default: t.List[t.Any] | NotProvided
 
-    def __init__(self, item: BFType, n: int, default: t.List[t.Any] | NotProvided):
-        self.inner = item
-        self.n = n
-        self.default = default
 
-    def __repr__(self) -> str:
-        return f"BFList({self.inner!r}, {self.n})"
-
-
+@dataclass()
 class BFMap:
     inner: BFType
     vm: ValueMapper[t.Any, t.Any]
     default: t.Any | NotProvided
 
-    def __init__(self, inner: BFType, vm: ValueMapper[t.Any, _P], default: _P | NotProvided):
-        self.inner = inner
-        self.vm = vm
-        self.default = default
 
-    def __repr__(self) -> str:
-        return f"BFMap({self.inner!r})"
-
-
-_Params = t.ParamSpec("_Params")
-
-
-class BFDyn(t.Generic[_Params]):
-    fn: t.Callable[_Params, BFTypeDisguised[t.Any]]
+@dataclass()
+class BFDynSelf:
+    fn: t.Callable[[t.Any], BFTypeDisguised[t.Any]]
     default: t.Any | NotProvided
 
-    def __init__(
-        self,
-        fn: t.Callable[_Params, BFTypeDisguised[_T]],
-        default: _T | NotProvided,
-    ):
-        self.fn = fn
-        self.default = default
 
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(<fn>)"
+@dataclass()
+class BFDynSelfCtx:
+    fn: t.Callable[[t.Any, t.Any], BFTypeDisguised[t.Any]]
+    default: t.Any | NotProvided
 
 
-class BFDynSelf(BFDyn[t.Any]):
-    pass
+@dataclass()
+class BFDynSelfCtxN:
+    fn: t.Callable[[t.Any, t.Any, int], BFTypeDisguised[t.Any]]
+    default: t.Any | NotProvided
 
 
-class BFDynSelfCtx(BFDyn[t.Any, t.Any]):
-    pass
-
-
-class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
-    pass
-
-
+@dataclass()
 class BFLit:
     inner: BFType
     default: t.Any
 
-    def __init__(self, field: BFType, default: t.Any):
-        self.inner = field
-        self.default = default
 
-    def __repr__(self):
-        return f"BFLit({self.inner!r}, default={self.default!r})"
-
-
+@dataclass()
 class BFBitfield:
     inner: t.Type[Bitfield]
     n: int
     default: Bitfield | NotProvided
 
-    def __init__(self, field: t.Type[Bitfield], n: int, default: Bitfield | NotProvided):
-        self.inner = field
-        self.n = n
-        self.default = default
 
-    def __repr__(self):
-        return f"BFBitfield({self.inner!r})"
-
-
+@dataclass()
 class BFNone:
     default: None | NotProvided
-
-    def __init__(self, *, default: None | NotProvided) -> None:
-        self.default = default
-
-    def __repr__(self):
-        return "BFNone()"
 
 
 BFType = t.Union[
@@ -332,11 +275,11 @@ def bf_map(
     return disguise(BFMap(undisguise(field), vm, default))
 
 
-@ t.overload
+@t.overload
 def bf_int(n: int, *, default: int) -> BFTypeDisguised[int]: ...
 
 
-@ t.overload
+@t.overload
 def bf_int(n: int) -> BFTypeDisguised[int]: ...
 
 
