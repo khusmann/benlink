@@ -226,6 +226,35 @@ class BFLit:
         return self.field.to_bits(value, proxy, context)
 
 
+class BFBitfield:
+    field: t.Type[Bitfield]
+    n: int
+    default: Bitfield | NotProvided
+
+    def __init__(self, field: t.Type[Bitfield], n: int, default: Bitfield | NotProvided):
+        self.field = field
+        self.n = n
+        self.default = default
+
+    def __repr__(self):
+        return f"BFBitfield({self.field!r})"
+
+    def length(self):
+        return self.field.length()
+
+    def has_children_with_default(self):
+        return False
+
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> Bitfield:
+        return self.field.from_bits(stream.read_bits(self.n), context)
+
+    def to_bits(self, value: Bitfield, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+        out = value.to_bits(context)
+        if len(out) != self.n:
+            raise ValueError(f"expected {self.n} bits, got {len(out)}")
+        return out
+
+
 class BFNone:
     default: None | NotProvided
 
@@ -258,7 +287,8 @@ BFType = t.Union[
     BFDynSelfCtx,
     BFDynSelfCtxN,
     BFLit,
-    BFNone
+    BFNone,
+    BFBitfield,
 ]
 
 BFTypeDisguised = t.Annotated[_T, "BFTypeDisguised"]
@@ -441,14 +471,7 @@ def bf_bitfield(
     *,
     default: _BitfieldT | NotProvided = NOT_PROVIDED
 ):
-    class BitsAsBitfield:
-        def forward(self, x: Bits) -> _BitfieldT:
-            return cls.from_bits(x)
-
-        def back(self, y: _BitfieldT) -> Bits:
-            return y.to_bits()
-
-    return bf_map(bf_bits(n), BitsAsBitfield(), default=default)
+    return disguise(BFBitfield(cls, n, default=default))
 
 
 @dataclass_transform(
