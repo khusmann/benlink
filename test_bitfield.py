@@ -4,6 +4,8 @@ import typing as t
 import pytest
 import re
 
+from enum import IntEnum
+
 from bitfield import (
     Bitfield,
     bf_str,
@@ -11,7 +13,80 @@ from bitfield import (
     bf_list,
     bf_int,
     bf_dyn,
+    bf_map,
+    bf_lit,
+    bf_int_enum,
+    Scale
 )
+
+
+def test_basic():
+    class Work(Bitfield):
+        a: int = bf_int(4)
+        b: t.List[int] = bf_list(bf_int(3), 4)
+        c: str = bf_str(3)
+        d: bytes = bf_bytes(4)
+
+    work = Work(a=1, b=[1, 2, 3, 4], c="abc", d=b"abcd")
+    assert work.to_bytes() == b'\x12\x9cabcabcd'
+    assert Work.from_bytes(work.to_bytes()) == work
+
+
+class BarEnum(IntEnum):
+    A = 1
+    B = 2
+    C = 3
+
+
+def foo(x: Foo, _: t.Any) -> t.Literal[10] | list[float]:
+    if x.ab == 1:
+        return bf_list(bf_map(bf_int(5), Scale(100)), 1)
+    else:
+        return bf_lit(bf_int(5), default=10)
+
+
+class Baz(Bitfield):
+    a: int = bf_int(3)
+    b: int = bf_int(10)
+
+
+class Foo(Bitfield):
+    a: float = bf_map(bf_int(2), Scale(1 / 2))
+    _pad: t.Literal[0x5] = bf_lit(bf_int(3), default=0x5)
+    ff: Baz
+    ay: t.Literal[b'world'] = b'world'
+    ab: int = bf_int(10)
+    ac: int = bf_int(2)
+    zz: BarEnum = bf_int_enum(BarEnum, 2)
+    yy: bytes = bf_bytes(2)
+    ad: int = bf_int(3)
+    c: t.Literal[10] | list[float] | Baz = bf_dyn(foo)
+    d: t.List[int] = bf_list(bf_int(10), 3)
+    e: t.List[Baz] = bf_list(Baz, 3)
+    f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
+    h: t.Literal["Hello"] = "Hello"
+    g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
+    xx: int = bf_int(1)
+
+
+def test_kitchen_sink():
+    f = Foo(
+        a=0.5,
+        ff=Baz(a=1, b=2),
+        ab=0x3ff,
+        ac=3,
+        zz=BarEnum.B,
+        yy=b'hi',
+        ad=3,
+        c=10,
+        d=[1, 2, 3],
+        e=[Baz(a=1, b=2), Baz(a=3, b=4), Baz(a=5, b=6)],
+        g=[[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        xx=1,
+    )
+
+    assert f.to_bytes() == b'i\x00\x9d\xdb\xdc\x9b\x19?\xfehij\x00@ \x0c\x80L\x04\xa02C+cczC+ccx\x02\x01\x00` \n\x03\x00\xe0@\x13'
+    assert Foo.from_bytes(f.to_bytes()) == f
 
 
 def test_default_len_err():

@@ -9,12 +9,6 @@ from enum import IntEnum, IntFlag, Enum
 from bits import Bits, BitStream, AttrProxy
 
 
-class BarEnum(IntEnum):
-    A = 1
-    B = 2
-    C = 3
-
-
 class NotProvided:
     pass
 
@@ -190,7 +184,8 @@ class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
         ).from_bitstream(stream, proxy, context)
 
     def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
-        return undisguise(value).to_bits(value, proxy, context)
+        field = type(value) if isinstance(value, Bitfield) else value
+        return undisguise(field).to_bits(value, proxy, context)
 
 
 class BFLit:
@@ -488,6 +483,14 @@ class Bitfield:
             ")",
         ))
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+
+        return all((
+            getattr(self, name) == getattr(other, name) for name in self._bf_fields
+        ))
+
     @classmethod
     def length(cls) -> int | None:
         acc = 0
@@ -497,6 +500,10 @@ class Bitfield:
                 return None
             acc += field_len
         return acc
+
+    @classmethod
+    def from_bytes(cls, data: bytes, context: t.Any = None) -> Bitfield:
+        return cls.from_bits(Bits.from_bytes(data), context)
 
     @classmethod
     def from_bits(cls, bits: Bits, context: t.Any = None) -> Bitfield:
@@ -549,6 +556,9 @@ class Bitfield:
                 )
         return acc
 
+    def to_bytes(self, context: t.Any = None) -> bytes:
+        return self.to_bits(context).to_bytes()
+
     def __init_subclass__(cls):
         if not hasattr(cls, "_bf_fields"):
             cls._bf_fields = {}
@@ -595,55 +605,3 @@ def distill_field(type_hint: t.Any, value: t.Any) -> BFType:
 
 
 _BitfieldT = t.TypeVar("_BitfieldT", bound=Bitfield)
-
-
-class Baz(Bitfield):
-    a: int = bf_int(3)
-    b: int = bf_int(10)
-
-
-def foo2(x: Bar, n: int):
-    if n == 1:
-        return None
-    else:
-        return bf_int(5)
-
-
-def bar(x: Bar, n: int):
-    return None
-
-
-class Bar(Bitfield):
-    a: float = bf_map(bf_int(5), Scale(1 / 100))
-    b: t.Literal['hello']
-    c: t.Literal[b'hello'] = b'hello'
-    d: Baz
-    e: t.List[Baz] = bf_list(Baz, 3)
-    f: int | None = bf_dyn(foo2)
-    g: t.List[None] = bf_list(bf_dyn(bar), 3)
-
-
-def foo(x: Foo, n: int) -> t.Literal[10] | list[float]:
-    if n == 1:
-        return bf_list(bf_map(bf_int(5), Scale(100)), 1)
-    else:
-        return bf_lit(bf_int(5), default=10)
-
-
-class Foo(Bitfield):
-    a: float = bf_map(bf_int(2), Scale(1 / 100))
-    _pad: t.Literal[0x5] = bf_lit(bf_int(3), default=0x5)
-    ff: Baz
-    ay: t.Literal[b'world'] = b'world'
-    ab: int = bf_int(10)
-    ac: int = bf_int(2)
-    zz: BarEnum = bf_int_enum(BarEnum, 2)
-    yy: bytes = bf_bytes(2)
-    ad: int = bf_int(3)
-    b: int | t.Literal["current"] = bf_map(bf_int(2), LocChMap())
-    c: t.Literal[10] | list[float] | Baz = bf_dyn(foo)
-    d: t.List[int] = bf_list(bf_int(10), 3)
-    e: t.List[Baz] = bf_list(Baz, 3)
-    f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
-    h: t.Literal["Hello"] = "Hello"
-    g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
