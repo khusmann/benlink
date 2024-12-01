@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing_extensions import dataclass_transform
-from dataclasses import dataclass
 import typing as t
 import inspect
 
@@ -52,59 +51,50 @@ class LocChMap:
         return 0 if y == "current" else y + 1
 
 
-@dataclass()
-class BFBits:
+class BFBits(t.NamedTuple):
     n: int
     default: Bits | NotProvided
 
 
-@dataclass()
-class BFList:
+class BFList(t.NamedTuple):
     inner: BFType
     n: int
     default: t.List[t.Any] | NotProvided
 
 
-@dataclass()
-class BFMap:
+class BFMap(t.NamedTuple):
     inner: BFType
     vm: ValueMapper[t.Any, t.Any]
     default: t.Any | NotProvided
 
 
-@dataclass()
-class BFDynSelf:
+class BFDynSelf(t.NamedTuple):
     fn: t.Callable[[t.Any], BFTypeDisguised[t.Any]]
     default: t.Any | NotProvided
 
 
-@dataclass()
-class BFDynSelfCtx:
+class BFDynSelfCtx(t.NamedTuple):
     fn: t.Callable[[t.Any, t.Any], BFTypeDisguised[t.Any]]
     default: t.Any | NotProvided
 
 
-@dataclass()
-class BFDynSelfCtxN:
+class BFDynSelfCtxN(t.NamedTuple):
     fn: t.Callable[[t.Any, t.Any, int], BFTypeDisguised[t.Any]]
     default: t.Any | NotProvided
 
 
-@dataclass()
-class BFLit:
+class BFLit(t.NamedTuple):
     inner: BFType
     default: t.Any
 
 
-@dataclass()
-class BFBitfield:
+class BFBitfield(t.NamedTuple):
     inner: t.Type[Bitfield]
     n: int
     default: Bitfield | NotProvided
 
 
-@dataclass()
-class BFNone:
+class BFNone(t.NamedTuple):
     default: None | NotProvided
 
 
