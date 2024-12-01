@@ -191,8 +191,8 @@ class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
         if not isinstance(field, (Bitfield, str, bytes)) and field is not None:
             raise TypeError(
                 f"dynamic fields that use discriminators with 'n bits remaining' "
-                f"can only be used with Bitfield, str, bytes, or None values "
-                f"(or lists of these types); {field!r} is not supported"
+                f"can only be used with Bitfield, str, bytes, or None values. "
+                f"{field!r} is not supported"
             )
         return undisguise(field).to_bits(value, proxy, context)
 
