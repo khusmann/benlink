@@ -69,9 +69,6 @@ class BFBits:
     def __repr__(self) -> str:
         return f"BFBits({self.n})"
 
-    def length(self):
-        return self.n
-
     def has_children_with_default(self):
         return False
 
@@ -85,32 +82,28 @@ class BFBits:
 
 
 class BFList:
-    item: BFType
+    inner: BFType
     n: int
     default: t.List[t.Any] | NotProvided
 
     def __init__(self, item: BFType, n: int, default: t.List[t.Any] | NotProvided):
-        self.item = item
+        self.inner = item
         self.n = n
         self.default = default
 
     def __repr__(self) -> str:
-        return f"BFList({self.item!r}, {self.n})"
-
-    def length(self) -> int | None:
-        len = self.item.length()
-        return None if len is None else self.n * len
+        return f"BFList({self.inner!r}, {self.n})"
 
     def has_children_with_default(self) -> bool:
-        return is_provided(self.item.default) or self.item.has_children_with_default()
+        return is_provided(self.inner.default) or self.inner.has_children_with_default()
 
     def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        return [self.item.from_bitstream(stream, proxy, context) for _ in range(self.n)]
+        return [self.inner.from_bitstream(stream, proxy, context) for _ in range(self.n)]
 
     def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
         if len(value) != self.n:
             raise ValueError(f"expected {self.n} items, got {len(value)}")
-        return sum([self.item.to_bits(item, parent, context) for item in value], Bits())
+        return sum([self.inner.to_bits(item, parent, context) for item in value], Bits())
 
 
 class BFMap:
@@ -125,9 +118,6 @@ class BFMap:
 
     def __repr__(self) -> str:
         return f"BFMap({self.inner!r})"
-
-    def length(self) -> int | None:
-        return self.inner.length()
 
     def has_children_with_default(self) -> bool:
         return is_provided(self.inner.default) or self.inner.has_children_with_default()
@@ -156,9 +146,6 @@ class BFDyn(t.Generic[_Params]):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(<fn>)"
-
-    def length(self):
-        return None
 
     def has_children_with_default(self):
         return False
@@ -201,24 +188,21 @@ class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
 
 
 class BFLit:
-    field: BFType
+    inner: BFType
     default: t.Any
 
     def __init__(self, field: BFType, default: t.Any):
-        self.field = field
+        self.inner = field
         self.default = default
 
     def __repr__(self):
-        return f"BFLit({self.field!r}, default={self.default!r})"
-
-    def length(self) -> int | None:
-        return self.field.length()
+        return f"BFLit({self.inner!r}, default={self.default!r})"
 
     def has_children_with_default(self) -> bool:
-        return is_provided(self.field.default) or self.field.has_children_with_default()
+        return is_provided(self.inner.default) or self.inner.has_children_with_default()
 
     def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        value = self.field.from_bitstream(stream, proxy, context)
+        value = self.inner.from_bitstream(stream, proxy, context)
         if value != self.default:
             raise ValueError(f"expected {self.default!r}, got {value!r}")
         return value
@@ -226,30 +210,27 @@ class BFLit:
     def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
         if value != self.default:
             raise ValueError(f"expected {self.default!r}, got {value!r}")
-        return self.field.to_bits(value, parent, context)
+        return self.inner.to_bits(value, parent, context)
 
 
 class BFBitfield:
-    field: t.Type[Bitfield]
+    inner: t.Type[Bitfield]
     n: int
     default: Bitfield | NotProvided
 
     def __init__(self, field: t.Type[Bitfield], n: int, default: Bitfield | NotProvided):
-        self.field = field
+        self.inner = field
         self.n = n
         self.default = default
 
     def __repr__(self):
-        return f"BFBitfield({self.field!r})"
-
-    def length(self):
-        return self.field.length()
+        return f"BFBitfield({self.inner!r})"
 
     def has_children_with_default(self):
         return False
 
     def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> Bitfield:
-        return self.field.from_bits(stream.read_bits(self.n), context)
+        return self.inner.from_bits(stream.read_bits(self.n), context)
 
     def to_bits(self, value: Bitfield, parent: Bitfield, context: t.Any) -> Bits:
         out = value.to_bits(context)
@@ -266,9 +247,6 @@ class BFNone:
 
     def __repr__(self):
         return "BFNone()"
-
-    def length(self):
-        return 0
 
     def has_children_with_default(self):
         return False
@@ -293,6 +271,22 @@ BFType = t.Union[
     BFNone,
     BFBitfield,
 ]
+
+
+def bftype_length(bftype: BFType) -> int | None:
+    match bftype:
+        case BFBits(n=n) | BFBitfield(n=n):
+            return n
+        case BFList(inner=inner, n=n):
+            item_len = bftype_length(inner)
+            return None if item_len is None else n * item_len
+        case BFMap(inner=inner) | BFLit(inner=inner):
+            return bftype_length(inner)
+        case BFNone():
+            return 0
+        case BFDynSelf() | BFDynSelfCtx() | BFDynSelfCtxN():
+            return None
+
 
 BFTypeDisguised = t.Annotated[_T, "BFTypeDisguised"]
 
@@ -530,7 +524,7 @@ class Bitfield:
     def length(cls) -> int | None:
         acc = 0
         for field in cls._bf_fields.values():
-            field_len = field.length()
+            field_len = bftype_length(field)
             if field_len is None:
                 return None
             acc += field_len
