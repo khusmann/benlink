@@ -19,10 +19,10 @@ class MessageStream:
 
         messages: t.List[MessageFrame] = []
 
-        while self._stream.n_available():
+        while self._stream.remaining():
             if self._stream.peek_bytes(1) != b"\xff":
                 print("Warning: skipping unknown data", file=sys.stderr)
-                while self._stream.n_available() and self._stream.peek_bytes(1) != b"\xff":
+                while self._stream.remaining() and self._stream.peek_bytes(1) != b"\xff":
                     self._stream.read_bytes(1)
 
             pos = self._stream.tell()

@@ -85,13 +85,13 @@ class BitStream:
     def is_byte_aligned(self) -> bool:
         return self._pos % 8 == 0
 
-    def n_available(self) -> int:
+    def remaining(self) -> int:
         return len(self._bits) - self._pos
 
     def _assert_advance(self, n_bits: int) -> None:
         if n_bits < 0:
             raise ValueError("Number of bits to advance must be non-negative")
-        if n_bits > self.n_available():
+        if n_bits > self.remaining():
             raise EOFError
 
     def advance(self, n_bits: int) -> None:

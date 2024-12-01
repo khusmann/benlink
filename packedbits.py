@@ -264,9 +264,9 @@ class PackedBits:
 
         out = cls.from_bitstream(stream, raise_value_error_on_eof=True)
 
-        if stream.n_available():
+        if stream.remaining():
             raise ValueError(
-                f"Bits left over after parsing ({stream.n_available()})"
+                f"Bits left over after parsing ({stream.remaining()})"
             )
 
         return out
@@ -282,7 +282,7 @@ class PackedBits:
             # object and the remaining bits left. The resulting field should be one of the fixed types
 
             field_type, value_bit_len = field.type_len_fn(
-                AttrProxy(value_map), stream.n_available()
+                AttrProxy(value_map), stream.remaining()
             )
 
             field_type_cnstr = (
@@ -316,7 +316,7 @@ class PackedBits:
                             f"Field `{field.name}` has non-positive bit length ({value_bit_len})"
                         )
 
-            if stream.n_available() < value_bit_len:
+            if stream.remaining() < value_bit_len:
                 if raise_value_error_on_eof:
                     raise ValueError(
                         f"Not enough bits to parse field {field.name} as {field_type.__qualname__} with {value_bit_len} bits"

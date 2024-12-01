@@ -186,7 +186,7 @@ class BFDynSelfCtx(BFDyn[t.Any, t.Any]):
 class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
     def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
         return undisguise(
-            self.fn(proxy, context, stream.n_available())
+            self.fn(proxy, context, stream.remaining())
         ).from_bitstream(stream, proxy, context)
 
     def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
@@ -504,9 +504,9 @@ class Bitfield:
 
         out = cls.from_bitstream(stream, context)
 
-        if stream.n_available():
+        if stream.remaining():
             raise ValueError(
-                f"Bits left over after parsing ({stream.n_available()})"
+                f"Bits left over after parsing ({stream.remaining()})"
             )
 
         return out
