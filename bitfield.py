@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing_extensions import dataclass_transform
 import typing as t
+import inspect
 
 from enum import IntEnum, IntFlag, Enum
 
@@ -119,26 +120,41 @@ class BFMap:
         return is_provided(self.inner.default) or self.inner.has_children_with_default()
 
 
-class BFDyn:
-    fn: t.Callable[[t.Any, int], BFTypeDisguised[t.Any]]
+_Params = t.ParamSpec("_Params")
+
+
+class BFDyn(t.Generic[_Params]):
+    fn: t.Callable[_Params, BFTypeDisguised[t.Any]]
     default: t.Any | NotProvided
 
     def __init__(
         self,
-        fn: t.Callable[[t.Any, int], BFTypeDisguised[_T]],
+        fn: t.Callable[_Params, BFTypeDisguised[_T]],
         default: _T | NotProvided,
     ):
         self.fn = fn
         self.default = default
 
     def __repr__(self) -> str:
-        return f"BFDyn(<fn>)"
+        return f"{self.__class__.__name__}(<fn>)"
 
     def length(self):
         return None
 
     def has_children_with_default(self):
         return False
+
+
+class BFDynSelf(BFDyn[t.Any]):
+    pass
+
+
+class BFDynSelfCtx(BFDyn[t.Any, t.Any]):
+    pass
+
+
+class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
+    pass
 
 
 class BFLit:
@@ -175,7 +191,16 @@ class BFNone:
         return False
 
 
-BFType = t.Union[BFBits, BFList, BFMap, BFDyn, BFLit, BFNone]
+BFType = t.Union[
+    BFBits,
+    BFList,
+    BFMap,
+    BFDynSelf,
+    BFDynSelfCtx,
+    BFDynSelfCtxN,
+    BFLit,
+    BFNone
+]
 
 BFTypeDisguised = t.Annotated[_T, "BFTypeDisguised"]
 
@@ -317,10 +342,34 @@ def bf_str(n: int, encoding: str = "utf-8", *, default: str | NotProvided = NOT_
 
 
 def bf_dyn(
-    fn: t.Callable[[t.Any, int], t.Type[_T] | BFTypeDisguised[_T]],
+    fn: t.Callable[[t.Any], t.Type[_T] | BFTypeDisguised[_T]] |
+        t.Callable[[t.Any, t.Any], t.Type[_T] | BFTypeDisguised[_T]] |
+        t.Callable[[t.Any, t.Any, int], t.Type[_T] | BFTypeDisguised[_T]],
     default: _T | NotProvided = NOT_PROVIDED
 ) -> BFTypeDisguised[_T]:
-    return disguise(BFDyn(fn, default))
+    n_params = len(inspect.signature(fn).parameters)
+    match n_params:
+        case 1:
+            fn = t.cast(
+                t.Callable[[t.Any], t.Type[_T] | BFTypeDisguised[_T]],
+                fn
+            )
+            return disguise(BFDynSelf(fn, default))
+        case 2:
+            fn = t.cast(
+                t.Callable[[t.Any, t.Any], t.Type[_T] | BFTypeDisguised[_T]],
+                fn
+            )
+            return disguise(BFDynSelfCtx(fn, default))
+        case 3:
+            fn = t.cast(
+                t.Callable[
+                    [t.Any, t.Any, int], t.Type[_T] | BFTypeDisguised[_T]
+                ], fn
+            )
+            return disguise(BFDynSelfCtxN(fn, default))
+        case _:
+            raise ValueError(f"unsupported number of parameters: {n_params}")
 
 
 def bf_none(*, default: None | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[None]:
@@ -376,7 +425,7 @@ class Bitfield:
 
     def __repr__(self) -> str:
         return "".join((
-            self.__class__.__qualname__,
+            self.__class__.__name__,
             "(",
             ', '.join(
                 f'{name}={getattr(self, name)!r}' for name in self._bf_fields
@@ -395,10 +444,10 @@ class Bitfield:
         return acc
 
     @classmethod
-    def from_bits(cls, bits: Bits) -> Bitfield:
+    def from_bits(cls, bits: Bits, context: t.Any | None = None) -> Bitfield:
         raise NotImplementedError
 
-    def to_bits(self) -> Bits:
+    def to_bits(self, context: t.Any | None = None) -> Bits:
         raise NotImplementedError
 
     def __init_subclass__(cls):
