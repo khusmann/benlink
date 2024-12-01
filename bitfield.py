@@ -11,7 +11,7 @@ from bits import Bits, BitStream, AttrProxy
 
 
 class NotProvided:
-    pass
+    def __repr__(self): return "<NotProvided>"
 
 
 NOT_PROVIDED = NotProvided()
