@@ -69,14 +69,6 @@ class BFBits:
     def __repr__(self) -> str:
         return f"BFBits({self.n})"
 
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        return stream.read_bits(self.n)
-
-    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
-        if len(value) != self.n:
-            raise ValueError(f"expected {self.n} bits, got {len(value)}")
-        return Bits(value)
-
 
 class BFList:
     inner: BFType
@@ -91,14 +83,6 @@ class BFList:
     def __repr__(self) -> str:
         return f"BFList({self.inner!r}, {self.n})"
 
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        return [self.inner.from_bitstream(stream, proxy, context) for _ in range(self.n)]
-
-    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
-        if len(value) != self.n:
-            raise ValueError(f"expected {self.n} items, got {len(value)}")
-        return sum([self.inner.to_bits(item, parent, context) for item in value], Bits())
-
 
 class BFMap:
     inner: BFType
@@ -112,12 +96,6 @@ class BFMap:
 
     def __repr__(self) -> str:
         return f"BFMap({self.inner!r})"
-
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        return self.vm.forward(self.inner.from_bitstream(stream, proxy, context))
-
-    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
-        return self.inner.to_bits(self.vm.back(value), parent, context)
 
 
 _Params = t.ParamSpec("_Params")
@@ -140,39 +118,15 @@ class BFDyn(t.Generic[_Params]):
 
 
 class BFDynSelf(BFDyn[t.Any]):
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        return undisguise(self.fn(proxy)).from_bitstream(stream, proxy, context)
-
-    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
-        return undisguise(self.fn(parent)).to_bits(value, parent, context)
+    pass
 
 
 class BFDynSelfCtx(BFDyn[t.Any, t.Any]):
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        return undisguise(self.fn(proxy, context)).from_bitstream(stream, proxy, context)
-
-    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
-        return undisguise(self.fn(parent, context)).to_bits(value, parent, context)
+    pass
 
 
 class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        return undisguise(
-            self.fn(proxy, context, stream.remaining())
-        ).from_bitstream(stream, proxy, context)
-
-    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
-        field = type(value) if isinstance(value, Bitfield) else value
-        #
-        # TODO support lists of these types?
-        #
-        if not isinstance(field, (Bitfield, str, bytes)) and field is not None:
-            raise TypeError(
-                f"dynamic fields that use discriminators with 'n bits remaining' "
-                f"can only be used with Bitfield, str, bytes, or None values. "
-                f"{field!r} is not supported"
-            )
-        return undisguise(field).to_bits(value, parent, context)
+    pass
 
 
 class BFLit:
@@ -185,17 +139,6 @@ class BFLit:
 
     def __repr__(self):
         return f"BFLit({self.inner!r}, default={self.default!r})"
-
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        value = self.inner.from_bitstream(stream, proxy, context)
-        if value != self.default:
-            raise ValueError(f"expected {self.default!r}, got {value!r}")
-        return value
-
-    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
-        if value != self.default:
-            raise ValueError(f"expected {self.default!r}, got {value!r}")
-        return self.inner.to_bits(value, parent, context)
 
 
 class BFBitfield:
@@ -211,15 +154,6 @@ class BFBitfield:
     def __repr__(self):
         return f"BFBitfield({self.inner!r})"
 
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> Bitfield:
-        return self.inner.from_bits(stream.read_bits(self.n), context)
-
-    def to_bits(self, value: Bitfield, parent: Bitfield, context: t.Any) -> Bits:
-        out = value.to_bits(context)
-        if len(out) != self.n:
-            raise ValueError(f"expected {self.n} bits, got {len(out)}")
-        return out
-
 
 class BFNone:
     default: None | NotProvided
@@ -229,14 +163,6 @@ class BFNone:
 
     def __repr__(self):
         return "BFNone()"
-
-    def from_bitstream(self, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
-        return None
-
-    def to_bits(self, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
-        if value is not None:
-            raise ValueError(f"expected None, got {value!r}")
-        return Bits()
 
 
 BFType = t.Union[
@@ -256,13 +182,17 @@ def bftype_length(bftype: BFType) -> int | None:
     match bftype:
         case BFBits(n=n) | BFBitfield(n=n):
             return n
+
         case BFList(inner=inner, n=n):
             item_len = bftype_length(inner)
             return None if item_len is None else n * item_len
+
         case BFMap(inner=inner) | BFLit(inner=inner):
             return bftype_length(inner)
+
         case BFNone():
             return 0
+
         case BFDynSelf() | BFDynSelfCtx() | BFDynSelfCtxN():
             return None
 
@@ -271,8 +201,94 @@ def bftype_has_children_with_default(bftype: BFType) -> bool:
     match bftype:
         case BFBits() | BFBitfield() | BFNone() | BFDynSelf() | BFDynSelfCtx() | BFDynSelfCtxN():
             return False
+
         case BFList(inner=inner) | BFMap(inner=inner) | BFLit(inner=inner):
             return is_provided(inner.default) or bftype_has_children_with_default(inner)
+
+
+def bftype_from_bitstream(bftype: BFType, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
+    match bftype:
+        case BFBits(n=n):
+            return stream.read_bits(n)
+
+        case BFList(inner=inner, n=n):
+            return [bftype_from_bitstream(inner, stream, proxy, context) for _ in range(n)]
+
+        case BFMap(inner=inner, vm=vm):
+            return vm.forward(bftype_from_bitstream(inner, stream, proxy, context))
+
+        case BFDynSelf(fn=fn):
+            return bftype_from_bitstream(undisguise(fn(proxy)), stream, proxy, context)
+
+        case BFDynSelfCtx(fn=fn):
+            return bftype_from_bitstream(undisguise(fn(proxy, context)), stream, proxy, context)
+
+        case BFDynSelfCtxN(fn=fn):
+            return bftype_from_bitstream(undisguise(fn(proxy, context, stream.remaining())), stream, proxy, context)
+
+        case BFLit(inner=inner, default=default):
+            value = bftype_from_bitstream(inner, stream, proxy, context)
+            if value != default:
+                raise ValueError(f"expected {default!r}, got {value!r}")
+            return value
+
+        case BFNone():
+            return None
+
+        case BFBitfield(inner=inner, n=n):
+            return inner.from_bits(stream.read_bits(n), context)
+
+
+def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
+    match bftype:
+        case BFBits(n=n):
+            if len(value) != n:
+                raise ValueError(f"expected {n} bits, got {len(value)}")
+            return Bits(value)
+
+        case BFList(inner=inner, n=n):
+            if len(value) != n:
+                raise ValueError(f"expected {n} items, got {len(value)}")
+            return sum([bftype_to_bits(inner, item, parent, context) for item in value], Bits())
+
+        case BFMap(inner=inner, vm=vm):
+            return bftype_to_bits(inner, vm.back(value), parent, context)
+
+        case BFDynSelf(fn=fn):
+            return bftype_to_bits(undisguise(fn(parent)), value, parent, context)
+
+        case BFDynSelfCtx(fn=fn):
+            return bftype_to_bits(undisguise(fn(parent, context)), value, parent, context)
+
+        case BFDynSelfCtxN(fn=fn):
+            field = type(value) if isinstance(value, Bitfield) else value
+            if not isinstance(field, (Bitfield, str, bytes)) and field is not None:
+                raise TypeError(
+                    f"dynamic fields that use discriminators with 'n bits remaining' "
+                    f"can only be used with Bitfield, str, bytes, or None values. "
+                    f"{field!r} is not supported"
+                )
+            return bftype_to_bits(undisguise(field), value, parent, context)
+
+        case BFLit(inner=inner, default=default):
+            if value != default:
+                raise ValueError(f"expected {default!r}, got {value!r}")
+            return bftype_to_bits(inner, value, parent, context)
+
+        case BFNone():
+            if value is not None:
+                raise ValueError(f"expected None, got {value!r}")
+            return Bits()
+
+        case BFBitfield(inner=inner, n=n):
+            if not isinstance(value, Bitfield):
+                raise TypeError(
+                    f"expected Bitfield, got {type(value).__name__}"
+                )
+            out = value.to_bits(context)
+            if len(out) != n:
+                raise ValueError(f"expected {n} bits, got {len(out)}")
+            return out
 
 
 BFTypeDisguised = t.Annotated[_T, "BFTypeDisguised"]
@@ -316,11 +332,11 @@ def bf_map(
     return disguise(BFMap(undisguise(field), vm, default))
 
 
-@t.overload
+@ t.overload
 def bf_int(n: int, *, default: int) -> BFTypeDisguised[int]: ...
 
 
-@t.overload
+@ t.overload
 def bf_int(n: int) -> BFTypeDisguised[int]: ...
 
 
@@ -544,8 +560,8 @@ class Bitfield:
 
         for name, field in cls._bf_fields.items():
             try:
-                value = field.from_bitstream(
-                    stream, proxy, context
+                value = bftype_from_bitstream(
+                    field, stream, proxy, context
                 )
             except ValueError as e:
                 raise ValueError(
@@ -565,7 +581,7 @@ class Bitfield:
         for name, field in self._bf_fields.items():
             value = getattr(self, name)
             try:
-                acc += field.to_bits(value, self, context)
+                acc += bftype_to_bits(field, value, self, context)
             except ValueError as e:
                 raise ValueError(
                     f"error in field {name!r} of {self.__class__.__name__!r}: {e}"
