@@ -50,6 +50,9 @@ class LocChMap:
     def back(self, y: int | t.Literal["current"]):
         return 0 if y == "current" else y + 1
 
+# TODO: use pattern matching instead of member fns
+# (for field_length(), has_children_with_default(), from_bitstream(), to_bits())
+
 
 class BFBits:
     n: int
