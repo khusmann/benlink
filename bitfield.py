@@ -6,7 +6,7 @@ import inspect
 
 from enum import IntEnum, IntFlag, Enum
 
-from bits import Bits
+from bits import Bits, BitStream, AttrProxy
 
 
 class BarEnum(IntEnum):
@@ -78,6 +78,14 @@ class BFBits:
     def has_children_with_default(self):
         return False
 
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+        return stream.read_bits(self.n)
+
+    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+        if len(value) != self.n:
+            raise ValueError(f"expected {self.n} bits, got {len(value)}")
+        return Bits(value)
+
 
 class BFList:
     item: BFType
@@ -99,6 +107,14 @@ class BFList:
     def has_children_with_default(self) -> bool:
         return is_provided(self.item.default) or self.item.has_children_with_default()
 
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+        return [self.item.from_bitstream(stream, proxy, context) for _ in range(self.n)]
+
+    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+        if len(value) != self.n:
+            raise ValueError(f"expected {self.n} items, got {len(value)}")
+        return sum([self.item.to_bits(item, proxy, context) for item in value], Bits())
+
 
 class BFMap:
     inner: BFType
@@ -118,6 +134,12 @@ class BFMap:
 
     def has_children_with_default(self) -> bool:
         return is_provided(self.inner.default) or self.inner.has_children_with_default()
+
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+        return self.vm.forward(self.inner.from_bitstream(stream, proxy, context))
+
+    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+        return self.inner.to_bits(self.vm.back(value), proxy, context)
 
 
 _Params = t.ParamSpec("_Params")
@@ -146,15 +168,29 @@ class BFDyn(t.Generic[_Params]):
 
 
 class BFDynSelf(BFDyn[t.Any]):
-    pass
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+        return undisguise(self.fn(proxy)).from_bitstream(stream, proxy, context)
+
+    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+        return undisguise(self.fn(proxy)).to_bits(value, proxy, context)
 
 
 class BFDynSelfCtx(BFDyn[t.Any, t.Any]):
-    pass
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+        return undisguise(self.fn(proxy, context)).from_bitstream(stream, proxy, context)
+
+    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+        return undisguise(self.fn(proxy, context)).to_bits(value, proxy, context)
 
 
 class BFDynSelfCtxN(BFDyn[t.Any, t.Any, int]):
-    pass
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+        return undisguise(
+            self.fn(proxy, context, stream.n_available())
+        ).from_bitstream(stream, proxy, context)
+
+    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+        return undisguise(value).to_bits(value, proxy, context)
 
 
 class BFLit:
@@ -174,6 +210,17 @@ class BFLit:
     def has_children_with_default(self) -> bool:
         return is_provided(self.field.default) or self.field.has_children_with_default()
 
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+        value = self.field.from_bitstream(stream, proxy, context)
+        if value != self.default:
+            raise ValueError(f"expected {self.default!r}, got {value!r}")
+        return value
+
+    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+        if value != self.default:
+            raise ValueError(f"expected {self.default!r}, got {value!r}")
+        return self.field.to_bits(value, proxy, context)
+
 
 class BFNone:
     default: None | NotProvided
@@ -189,6 +236,14 @@ class BFNone:
 
     def has_children_with_default(self):
         return False
+
+    def from_bitstream(self, stream: BitStream, proxy: AttrProxy | Bitfield, context: t.Any) -> t.Any:
+        return None
+
+    def to_bits(self, value: t.Any, proxy: AttrProxy | Bitfield, context: t.Any) -> Bits:
+        if value is not None:
+            raise ValueError(f"expected None, got {value!r}")
+        return Bits()
 
 
 BFType = t.Union[
@@ -444,11 +499,55 @@ class Bitfield:
         return acc
 
     @classmethod
-    def from_bits(cls, bits: Bits, context: t.Any | None = None) -> Bitfield:
-        raise NotImplementedError
+    def from_bits(cls, bits: Bits, context: t.Any = None) -> Bitfield:
+        stream = BitStream(bits)
 
-    def to_bits(self, context: t.Any | None = None) -> Bits:
-        raise NotImplementedError
+        out = cls.from_bitstream(stream, context)
+
+        if stream.n_available():
+            raise ValueError(
+                f"Bits left over after parsing ({stream.n_available()})"
+            )
+
+        return out
+
+    @classmethod
+    def from_bitstream(
+        cls,
+        stream: BitStream,
+        context: t.Any = None
+    ):
+        proxy: AttrProxy = AttrProxy({})
+
+        for name, field in cls._bf_fields.items():
+            try:
+                value = field.from_bitstream(
+                    stream, proxy, context
+                )
+            except ValueError as e:
+                raise ValueError(
+                    f"error in field {name!r} of {cls.__name__!r}: {e}"
+                )
+            except EOFError as e:
+                raise EOFError(
+                    f"error in field {name!r} of {cls.__name__!r}: {e}"
+                )
+
+            proxy[name] = value
+
+        return cls(**proxy)
+
+    def to_bits(self, context: t.Any = None) -> Bits:
+        acc: Bits = Bits()
+        for name, field in self._bf_fields.items():
+            value = getattr(self, name)
+            try:
+                acc += field.to_bits(value, self, context)
+            except ValueError as e:
+                raise ValueError(
+                    f"error in field {name!r} of {self.__class__.__name__!r}: {e}"
+                )
+        return acc
 
     def __init_subclass__(cls):
         if not hasattr(cls, "_bf_fields"):

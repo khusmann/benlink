@@ -147,13 +147,16 @@ class BitStream:
 
 
 class AttrProxy(t.Mapping[str, t.Any]):
-    _data: t.Mapping[str, t.Any]
+    _data: t.Dict[str, t.Any]
 
-    def __init__(self, data: t.Mapping[str, t.Any]) -> None:
-        self._data = data
+    def __init__(self, data: t.Mapping[str, t.Any] = {}) -> None:
+        self._data = dict(data)
 
     def __getitem__(self, key: str):
         return self._data[key]
+
+    def __setitem__(self, key: str, value: t.Any):
+        self._data[key] = value
 
     def __iter__(self):
         return iter(self._data)
