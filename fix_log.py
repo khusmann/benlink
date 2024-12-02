@@ -23,7 +23,7 @@ class MessageStream:
             if self._stream.peek_bytes(1) != b"\xff":
                 print("Warning: skipping unknown data", file=sys.stderr)
                 while self._stream.remaining() and self._stream.peek_bytes(1) != b"\xff":
-                    _, self.stream = self._stream.take_bytes(1)
+                    _, self._stream = self._stream.take_bytes(1)
 
             try:
                 value, self._stream = MessageFrame.from_bitstream(self._stream)
