@@ -120,6 +120,9 @@ class BitStream:
             self._bits[self._pos:] + other,
         )
 
+    def extend_bytes(self, data: bytes):
+        return self.extend(Bits.from_bytes(data))
+
     def reorder(self, order: t.Sequence[int]):
         if not order:
             return self
