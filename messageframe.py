@@ -372,8 +372,12 @@ class SubAudioMap:
             case None:
                 return 0
             case DCS(n=n):
+                if n >= 6700 or n <= 0:
+                    raise ValueError(f"Invalid DCS value: {n}")
                 return n
             case _:
+                if y < 67 or y > 254.1:
+                    raise ValueError(f"Invalid subaudio value: {y}")
                 return round(y*100)
 
 
