@@ -2,6 +2,25 @@ from __future__ import annotations
 import typing as t
 
 
+def reorder_pairs(order: t.Sequence[int], size: int):
+    if not all(i < size for i in order) or not all(i > 0 for i in order):
+        raise ValueError(
+            f"some indices in the reordering are out-of-bounds"
+        )
+
+    order_set = frozenset(order)
+
+    if len(order_set) != len(order):
+        raise ValueError(
+            f"duplicate indices in reordering"
+        )
+
+    return zip(
+        range(size),
+        (*order, *(i for i in range(size) if i not in order_set))
+    )
+
+
 class Bits(t.Tuple[bool, ...]):
     @t.overload
     def __getitem__(self, index: t.SupportsIndex) -> bool:
@@ -22,6 +41,22 @@ class Bits(t.Tuple[bool, ...]):
     def __repr__(self) -> str:
         str_bits = "".join(str(int(bit)) for bit in self)
         return f"0b{str_bits}"
+
+    def reorder(self, order: t.Sequence[int]):
+        if not order:
+            return self
+
+        pairs = reorder_pairs(order, len(self))
+
+        return Bits(self[i] for _, i in pairs)
+
+    def unreorder(self, order: t.Sequence[int]):
+        if not order:
+            return self
+
+        pairs = sorted(reorder_pairs(order, len(self)), key=lambda x: x[1])
+
+        return Bits(self[i] for i, _ in pairs)
 
     @classmethod
     def from_str(cls, data: str) -> Bits:

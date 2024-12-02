@@ -6,6 +6,8 @@ import re
 
 from enum import IntEnum
 
+from bits import Bits
+
 from bitfield import (
     Bitfield,
     bf_str,
@@ -149,3 +151,11 @@ def test_default_children_err():
         class Fail(Bitfield):
             a: t.List[int] = bf_list(bf_int(4, default=10), 4)
         print(Fail)
+
+
+def test_bit_reorder():
+    b = Bits([True, False, True, True, False, False])
+    order = [1, 3, 5]
+
+    assert b.reorder(order) == (False, True, False, True, True, False)
+    assert b.reorder(order).unreorder(order) == b
