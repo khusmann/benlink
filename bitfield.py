@@ -509,12 +509,8 @@ class Bitfield:
                 value, stream = bftype_from_bitstream(
                     field, stream, proxy, context
                 )
-            except ValueError as e:
-                raise ValueError(
-                    f"error in field {name!r} of {cls.__name__!r}: {e}"
-                )
-            except EOFError as e:
-                raise EOFError(
+            except Exception as e:
+                raise type(e)(
                     f"error in field {name!r} of {cls.__name__!r}: {e}"
                 )
 
@@ -528,8 +524,8 @@ class Bitfield:
             value = getattr(self, name)
             try:
                 acc += bftype_to_bits(field, value, self, context)
-            except ValueError as e:
-                raise ValueError(
+            except Exception as e:
+                raise type(e)(
                     f"error in field {name!r} of {self.__class__.__name__!r}: {e}"
                 )
         return acc
@@ -549,14 +545,14 @@ class Bitfield:
 
             try:
                 bf_field = distill_field(type_hint, value)
-            except TypeError as e:
-                raise TypeError(
-                    f"error in field {name!r} of {cls.__name__!r}: {e}"
-                )
 
-            if bftype_has_children_with_default(bf_field):
-                raise ValueError(
-                    f"field {name!r} of {cls.__name__!r} has defaults set in nested field definitions"
+                if bftype_has_children_with_default(bf_field):
+                    raise ValueError(
+                        f"inner field definitions cannot have defaults set (except literal fields)"
+                    )
+            except Exception as e:
+                raise type(e)(
+                    f"error in field {name!r} of {cls.__name__!r}: {e}"
                 )
 
             cls._bf_fields[name] = bf_field

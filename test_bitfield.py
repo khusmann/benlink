@@ -145,7 +145,7 @@ def test_lit_field_err():
 
 
 def test_default_children_err():
-    with pytest.raises(ValueError, match=re.escape("field 'a' of 'Fail' has defaults set in nested field definitions")):
+    with pytest.raises(ValueError, match=re.escape("error in field 'a' of 'Fail': inner field definitions cannot have defaults set (except literal fields)")):
         class Fail(Bitfield):
             a: t.List[int] = bf_list(bf_int(4, default=10), 4)
         print(Fail)
