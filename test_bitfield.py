@@ -34,6 +34,18 @@ def test_basic():
     assert Work.from_bytes(work.to_bytes()) == work
 
 
+def test_str_field():
+    class Work(Bitfield):
+        a: str = bf_str(8)
+
+    work = Work(a="hello")
+    assert work.to_bytes() == b'hello\x00\x00\x00'
+    assert Work.from_bytes(work.to_bytes()) == work
+
+    with pytest.raises(ValueError):
+        Work(a="123456789").to_bytes()
+
+
 def test_basic_context():
     class TestCtx(t.NamedTuple):
         a: int
@@ -153,7 +165,7 @@ def test_default_len_err():
 
     assert Work.length() == 11*8 + 3*4
 
-    with pytest.raises(ValueError, match=re.escape("expected default string of length 3 bytes, got 4 bytes ('ทt')")):
+    with pytest.raises(ValueError, match=re.escape("expected default string of maximum length 3 bytes, got 4 bytes ('ทt')")):
         class Fail1(Bitfield):
             a: str = bf_str(3, default="ทt")
         print(Fail1)

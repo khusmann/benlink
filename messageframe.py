@@ -6,6 +6,7 @@ from bitfield import (
     bf_dyn,
     bf_bool,
     bf_bytes,
+    bf_str,
     bf_lit_int,
     bf_map,
     bf_list,
@@ -48,8 +49,8 @@ class BSSSettings(Bitfield):
     bss_user_id: int = bf_int(32)
     ptt_release_id_info: bytes = bf_bytes(12)
     beacon_message: bytes = bf_bytes(18)
-    aprs_symbol: bytes = bf_bytes(2)
-    aprs_callsign: bytes = bf_bytes(6)
+    aprs_symbol: str = bf_str(2)
+    aprs_callsign: str = bf_str(6)
 
 
 class BSSSettingsExt(Bitfield):

@@ -356,17 +356,17 @@ def bf_bytes(n: int, *, default: bytes | NotProvided = NOT_PROVIDED) -> BFTypeDi
 def bf_str(n: int, encoding: str = "utf-8", *, default: str | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[str]:
     if is_provided(default):
         byte_len = len(default.encode(encoding))
-        if byte_len != n:
+        if byte_len > n:
             raise ValueError(
-                f"expected default string of length {n} bytes, got {byte_len} bytes ({default!r})"
+                f"expected default string of maximum length {n} bytes, got {byte_len} bytes ({default!r})"
             )
 
     class BytesAsStr:
         def forward(self, x: bytes) -> str:
-            return x.decode(encoding)
+            return x.decode(encoding).rstrip("\0")
 
         def back(self, y: str) -> bytes:
-            return y.encode(encoding)
+            return y.ljust(n, "\0").encode(encoding)
 
     return bf_map(bf_bytes(n), BytesAsStr(), default=default)
 
