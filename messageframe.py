@@ -8,6 +8,7 @@ from bitfield import (
     bf_bytes,
     bf_lit_int,
     bf_map,
+    bf_list,
     bf_bitfield,
     Scale,
 )
@@ -25,6 +26,153 @@ class ReplyStatus(IntEnum):
     INVALID_PARAMETER = 5
     INCORRECT_STATE = 6
     IN_PROGRESS = 7
+
+#################################################
+# EVENT_NOTIFICATION
+
+
+class EventNotificationType(IntEnum):
+    UNKNOWN = 0
+    HT_STATUS_CHANGED = 1
+    DATA_RXD = 2  # Received APRS or BSS Message
+    NEW_INQUIRY_DATA = 3
+    RESTORE_FACTORY_SETTINGS = 4
+    HT_CH_CHANGED = 5
+    HT_SETTINGS_CHANGED = 6
+    RINGING_STOPPED = 7
+    RADIO_STATUS_CHANGED = 8
+    USER_ACTION = 9
+    SYSTEM_EVENT = 10
+    BSS_SETTINGS_CHANGED = 11
+
+
+class ChannelType(IntEnum):
+    OFF = 0
+    A = 1
+    B = 2
+
+
+class EventNotificationHTStatusChanged(Bitfield):
+    is_power_on: bool
+    is_in_tx: bool
+    is_sq: bool
+    is_in_rx: bool
+    double_channel: ChannelType = bf_int_enum(ChannelType, 2)
+    is_scan: bool
+    is_radio: bool
+    curr_ch_id_lower: int = bf_int(4)
+    is_gps_locked: bool
+    is_hfp_connected: bool
+    is_aoc_connected: bool
+    _pad: t.Literal[0] = bf_lit_int(1, default=0)
+
+
+class EventNotificationHTStatusChangedExt(EventNotificationHTStatusChanged):
+    rssi: float = bf_map(bf_int(4), Scale(100 / 15))
+    curr_region: int = bf_int(6)
+    curr_channel_id_upper: int = bf_int(4)
+    _pad2: t.Literal[0] = bf_lit_int(2, default=0)
+
+
+class EventNotificationUnknown(Bitfield):
+    data: bytes = bf_dyn(lambda _, __, n: bf_bytes(n // 8))
+
+
+class DataPacket(Bitfield):
+    is_final_packet: bool
+    with_channel_id: bool
+    packet_id: int = bf_int(6)
+    data: bytes = bf_dyn(
+        lambda x, n: bf_bytes((n - 1 if x.with_channel_id else n) // 8)
+    )
+    channel_id: int | None = bf_dyn(
+        lambda x: bf_int(8) if x.with_channel_id else None
+    )
+
+
+def event_notification_disc(m: EventNotificationBody, _: None, n: int):
+    match m.event_type:
+        case EventNotificationType.HT_STATUS_CHANGED:
+            if n == EventNotificationHTStatusChanged.length():
+                return EventNotificationHTStatusChanged
+            if n == EventNotificationHTStatusChangedExt.length():
+                return EventNotificationHTStatusChangedExt
+            raise ValueError(
+                f"Unknown size for HT_STATUS_CHANGED event ({n})"
+            )
+        case EventNotificationType.DATA_RXD:
+            return bf_bitfield(DataPacket, n)
+        case _:
+            return bf_bitfield(EventNotificationUnknown, n)
+
+
+class EventNotificationBody(Bitfield):
+    event_type: EventNotificationType = bf_int_enum(EventNotificationType, 8)
+    event: EventNotificationUnknown | DataPacket | EventNotificationHTStatusChanged | EventNotificationHTStatusChangedExt = bf_dyn(
+        event_notification_disc
+    )
+
+#################################################
+# GET_PF
+
+
+class PFActionType(IntEnum):
+    INVALID = 0
+    SHORT = 1
+    LONG = 2
+    VERY_LONG = 3
+    DOUBLE = 4
+    REPEAT = 5
+    LOW_TO_HIGH = 6
+    HIGH_TO_LOW = 7
+    SHORT_SINGLE = 8
+    LONG_RELEASE = 9
+    VERY_LONG_RELEASE = 10
+    VERY_VERY_LONG = 11
+    VERY_VERY_LONG_RELEASE = 12
+    TRIPLE = 13
+
+
+class PFEffectType(IntEnum):
+    DISABLE = 0
+    ALARM = 1
+    ALARM_AND_MUTE = 2
+    TOGGLE_OFFLINE = 3
+    TOGGLE_RADIO_TX = 4
+    TOGGLE_TX_POWER = 5
+    TOGGLE_FM = 6
+    PREV_CHANNEL = 7
+    NEXT_CHANNEL = 8
+    T_CALL = 9
+    PREV_REGION = 10
+    NEXT_REGION = 11
+    TOGGLE_CH_SCAN = 12
+    MAIN_PTT = 13
+    SUB_PTT = 14
+    TOGGLE_MONITOR = 15
+    BT_PAIRING = 16
+    TOGGLE_DOUBLE_CH = 17
+    TOGGLE_AB_CH = 18
+    SEND_LOCATION = 19
+    ONE_CLICK_LINK = 20
+    VOL_DOWN = 21
+    VOL_UP = 22
+    TOGGLE_MUTE = 23
+
+
+class PFSetting(Bitfield):
+    button_id: int = bf_int(4)
+    action: PFActionType = bf_int_enum(PFActionType, 4)
+    effect: PFEffectType = bf_int_enum(PFEffectType, 8)
+
+
+class GetPFBody(Bitfield):
+    pass
+
+
+class GetPFReplyBody(Bitfield):
+    reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
+    pf: t.List[PFSetting] = bf_list(PFSetting, 8)
 
 
 #################################################
@@ -474,16 +622,16 @@ def body_disc(m: MessageFrame):
                     out = ReadSettingsReplyBody if m.is_reply else ReadSettingsBody
                 case FrameTypeBasic.WRITE_SETTINGS:
                     out = WriteSettingsReplyBody if m.is_reply else WriteSettingsBody
-#                case FrameTypeBasic.GET_PF:
-#                    out = GetPFReplyBody if m.is_reply else GetPFBody
+                case FrameTypeBasic.GET_PF:
+                    out = GetPFReplyBody if m.is_reply else GetPFBody
 #                case FrameTypeBasic.READ_BSS_SETTINGS:
 #                    out = ReadBSSSettingsReplyBody if m.is_reply else ReadBSSSettingsBody
 #                case FrameTypeBasic.WRITE_BSS_SETTINGS:
 #                    out = WriteBSSSettingsReplyBody if m.is_reply else WriteBSSSettingsBody
-#                case FrameTypeBasic.EVENT_NOTIFICATION:
-#                    if m.is_reply:
-#                        raise ValueError("EventNotification cannot be a reply")
-#                    out = EventNotificationBody
+                case FrameTypeBasic.EVENT_NOTIFICATION:
+                    if m.is_reply:
+                        raise ValueError("EventNotification cannot be a reply")
+                    out = EventNotificationBody
                 case _:
                     return bf_bytes(m.n_bytes_body)
         case FrameTypeGroup.EXTENDED:
@@ -507,13 +655,13 @@ MessageBody = t.Union[
     ReadSettingsReplyBody,
     WriteSettingsBody,
     WriteSettingsReplyBody,
-    # GetPFBody,
-    # GetPFReplyBody,
+    GetPFBody,
+    GetPFReplyBody,
     # ReadBSSSettingsBody,
     # ReadBSSSettingsReplyBody,
     # WriteBSSSettingsBody,
     # WriteBSSSettingsReplyBody,
-    # EventNotificationBody,
+    EventNotificationBody,
 ]
 
 
