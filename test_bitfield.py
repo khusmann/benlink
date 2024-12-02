@@ -39,10 +39,10 @@ def test_basic_context():
         a: int
 
     def ctx_disc(x: BFWithCtx):
-        if x.bitfield_context is None:
+        if x.dyn_opts is None:
             return None
 
-        if x.bitfield_context.a == 10:
+        if x.dyn_opts.a == 10:
             return bf_int(8)
 
     class BFWithCtx(Bitfield[TestCtx]):
