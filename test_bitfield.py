@@ -34,6 +34,20 @@ def test_basic():
     assert Work.from_bytes(work.to_bytes()) == work
 
 
+def test_basic_reorder():
+    class Work(Bitfield):
+        a: int = bf_int(4)
+        b: t.List[int] = bf_list(bf_int(3), 4)
+        c: str = bf_str(3)
+        d: bytes = bf_bytes(4)
+
+        _reorder = [*range(56, 56+16)]
+
+    work = Work(a=1, b=[1, 2, 3, 4], c="abc", d=b"abcd")
+    assert work.to_bytes() == b'abcabcd\x12\x9c'
+    assert Work.from_bytes(work.to_bytes()) == work
+
+
 class BarEnum(IntEnum):
     A = 1
     B = 2

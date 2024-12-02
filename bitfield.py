@@ -438,6 +438,7 @@ def bf_bitfield(
 )
 class Bitfield:
     _bf_fields: t.ClassVar[t.Dict[str, BFType]]
+    _reorder: t.ClassVar[t.Sequence[int]] = []
 
     def __init__(self, **kwargs: t.Any):
         for name, field in self._bf_fields.items():
@@ -504,6 +505,8 @@ class Bitfield:
     ):
         proxy: AttrProxy = AttrProxy({})
 
+        stream = stream.reorder(cls._reorder)
+
         for name, field in cls._bf_fields.items():
             try:
                 value, stream = bftype_from_bitstream(
@@ -520,6 +523,7 @@ class Bitfield:
 
     def to_bits(self, context: t.Any = None) -> Bits:
         acc: Bits = Bits()
+
         for name, field in self._bf_fields.items():
             value = getattr(self, name)
             try:
@@ -528,7 +532,8 @@ class Bitfield:
                 raise type(e)(
                     f"error in field {name!r} of {self.__class__.__name__!r}: {e}"
                 )
-        return acc
+
+        return acc.unreorder(self._reorder)
 
     def to_bytes(self, context: t.Any = None) -> bytes:
         return self.to_bits(context).to_bytes()

@@ -120,6 +120,13 @@ class BitStream:
             self._bits[self._pos:] + other,
         )
 
+    def reorder(self, order: t.Sequence[int]):
+        if not order:
+            return self
+
+        rebased = self._bits[self._pos:]
+        return BitStream(rebased.reorder(order))
+
 
 class BitStreamOld:
     _bits: Bits
