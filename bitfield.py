@@ -531,6 +531,8 @@ class Bitfield:
     def __init_subclass__(cls):
         if not hasattr(cls, "_bf_fields"):
             cls._bf_fields = {}
+        else:
+            cls._bf_fields = cls._bf_fields.copy()
 
         for name, type_hint in t.get_type_hints(cls).items():
             if t.get_origin(type_hint) is t.ClassVar:
