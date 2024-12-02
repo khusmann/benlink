@@ -406,7 +406,7 @@ def bf_bitfield(
     n: int,
     *,
     default: _BitfieldT | NotProvided = NOT_PROVIDED
-):
+) -> BFTypeDisguised[_BitfieldT]:
     return disguise(BFBitfield(cls, n, default=default))
 
 
