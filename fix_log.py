@@ -4,18 +4,18 @@ import csv
 import sys
 import typing as t
 
-from messageframeOld import MessageFrame
-from packedbits import BitStreamOld
+from messageframe import MessageFrame
+from bits import BitStream
 
 
 class MessageStream:
-    _stream: BitStreamOld
+    _stream: BitStream
 
     def __init__(self):
-        self._stream = BitStreamOld()
+        self._stream = BitStream()
 
     def update(self, data: bytes) -> t.List[MessageFrame]:
-        self._stream.extend_bytes(data)
+        self._stream = self._stream.extend_bytes(data)
 
         messages: t.List[MessageFrame] = []
 
@@ -23,16 +23,14 @@ class MessageStream:
             if self._stream.peek_bytes(1) != b"\xff":
                 print("Warning: skipping unknown data", file=sys.stderr)
                 while self._stream.remaining() and self._stream.peek_bytes(1) != b"\xff":
-                    self._stream.read_bytes(1)
+                    _, self.stream = self._stream.take_bytes(1)
 
-            pos = self._stream.tell()
             try:
-                messages.append(MessageFrame.from_bitstream(self._stream))
+                value, self._stream = MessageFrame.from_bitstream(self._stream)
+                messages.append(value)
             except EOFError:
-                self._stream.seek(pos)
                 break
 
-        self._stream.rebase()
         return messages
 
 

@@ -109,7 +109,20 @@ class BitStream:
         if n > self.remaining():
             raise EOFError
 
-        return self._bits[self._pos:n+self._pos], BitStream(self._bits, self._pos+n)
+        return Bits(self._bits[self._pos:n+self._pos]), BitStream(self._bits, self._pos+n)
+
+    def take_bytes(self, n: int):
+        value, stream = self.take(n*8)
+        return value.to_bytes(), stream
+
+    def peek(self, n: int = 1):
+        if n > self.remaining():
+            raise EOFError
+
+        return self._bits[self._pos:n+self._pos]
+
+    def peek_bytes(self, n: int):
+        return self.peek(n*8).to_bytes()
 
     def __repr__(self) -> str:
         str_bits = "".join(str(int(bit)) for bit in self._bits[self._pos:])

@@ -147,7 +147,6 @@ def bftype_from_bitstream(bftype: BFType, stream: BitStream, proxy: AttrProxy, c
         case BFList(inner=inner, n=n):
             acc: t.List[t.Any] = []
             for _ in range(n):
-                print(stream)
                 item, stream = bftype_from_bitstream(
                     inner, stream, proxy, context
                 )
