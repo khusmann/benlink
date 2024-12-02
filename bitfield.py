@@ -491,7 +491,7 @@ class Bitfield:
 
         if stream.remaining():
             raise ValueError(
-                f"Bits left over after parsing ({stream.remaining()})"
+                f"Bits left over after parsing {cls.__name__} ({stream.remaining()})"
             )
 
         return out
