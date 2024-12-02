@@ -119,13 +119,34 @@ class BandwidthType(IntEnum):
     WIDE = 1
 
 
+class DCS(t.NamedTuple):
+    n: int
+
+
+class SubAudioMap:
+    def forward(self, x: int):
+        if x == 0:
+            return None
+
+        return DCS(x) if x < 6700 else x / 100
+
+    def back(self, y: DCS | float | None):
+        match y:
+            case None:
+                return 0
+            case DCS(n=n):
+                return n
+            case _:
+                return round(y*100)
+
+
 class ChannelSettings(Bitfield):
     tx_mod: ModulationType = bf_int_enum(ModulationType, 2)
     tx_freq: float = bf_map(bf_int(30), Scale(1e-6))
     rx_mod: ModulationType = bf_int_enum(ModulationType, 2)
     rx_freq: float = bf_map(bf_int(30), Scale(1e-6))
-    tx_sub_audio: int = bf_int(16)
-    rx_sub_audio: int = bf_int(16)
+    tx_sub_audio: float | DCS | None = bf_map(bf_int(16), SubAudioMap())
+    rx_sub_audio: float | DCS | None = bf_map(bf_int(16), SubAudioMap())
     scan: bool
     tx_at_max_power: bool
     talk_around: bool
