@@ -1,5 +1,5 @@
 from __future__ import annotations
-from packedbits import PackedBits, bitfield, union_bitfield, BitStream, set_literal_classvars
+from packedbits import PackedBits, bitfield, union_bitfield, BitStreamOld, set_literal_classvars
 from dataclasses import dataclass
 import typing as t
 import pytest
@@ -309,14 +309,14 @@ def test_value_too_large():
 
 
 def test_bitstream_eof():
-    foo = BitStream.from_bytes(b'\x01')
+    foo = BitStreamOld.from_bytes(b'\x01')
     foo.read_int(8)
     with pytest.raises(EOFError):
         foo.read_bool()
 
 
 def test_bitstream_eof2():
-    foo = BitStream.from_bytes(b'\x01')
+    foo = BitStreamOld.from_bytes(b'\x01')
     foo.read_int(8)
     with pytest.raises(EOFError):
         foo.advance(1)

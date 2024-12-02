@@ -59,7 +59,7 @@ class Bits(t.Tuple[bool, ...]):
         return self.to_bytes().decode("utf-8")
 
 
-class BitStreamNew:
+class BitStream:
     _bits: Bits
     _pos: int
 
@@ -74,19 +74,19 @@ class BitStreamNew:
         if n > self.remaining():
             raise EOFError
 
-        return self._bits[self._pos:n+self._pos], BitStreamNew(self._bits, self._pos+n)
+        return self._bits[self._pos:n+self._pos], BitStream(self._bits, self._pos+n)
 
     def __repr__(self) -> str:
         str_bits = "".join(str(int(bit)) for bit in self._bits[self._pos:])
         return f"{self.__class__.__name__}({str_bits})"
 
     def extend(self, other: Bits):
-        return BitStreamNew(
+        return BitStream(
             self._bits[self._pos:] + other,
         )
 
 
-class BitStream:
+class BitStreamOld:
     _bits: Bits
     _pos: int
 
@@ -95,7 +95,7 @@ class BitStream:
         self._pos = pos
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> BitStream:
+    def from_bytes(cls, data: bytes) -> BitStreamOld:
         return cls(Bits.from_bytes(data))
 
     def extend(self, data: Bits) -> None:

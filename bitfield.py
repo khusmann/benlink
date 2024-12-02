@@ -6,7 +6,7 @@ import inspect
 
 from enum import IntEnum, IntFlag, Enum
 
-from bits import Bits, BitStreamNew, AttrProxy
+from bits import Bits, BitStream, AttrProxy
 
 
 class NotProvided:
@@ -139,7 +139,7 @@ def bftype_has_children_with_default(bftype: BFType) -> bool:
             return is_provided(inner.default) or bftype_has_children_with_default(inner)
 
 
-def bftype_from_bitstream(bftype: BFType, stream: BitStreamNew, proxy: AttrProxy, context: t.Any) -> t.Tuple[t.Any, BitStreamNew]:
+def bftype_from_bitstream(bftype: BFType, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Tuple[t.Any, BitStream]:
     match bftype:
         case BFBits(n=n):
             return stream.take(n)
@@ -485,7 +485,7 @@ class Bitfield:
 
     @classmethod
     def from_bits(cls, bits: Bits, context: t.Any = None) -> Bitfield:
-        stream = BitStreamNew(bits)
+        stream = BitStream(bits)
 
         out, stream = cls.from_bitstream(stream, context)
 
@@ -499,7 +499,7 @@ class Bitfield:
     @classmethod
     def from_bitstream(
         cls,
-        stream: BitStreamNew,
+        stream: BitStream,
         context: t.Any = None
     ):
         proxy: AttrProxy = AttrProxy({})

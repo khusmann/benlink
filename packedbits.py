@@ -3,7 +3,7 @@ import typing as t
 import types
 from typing_extensions import dataclass_transform
 
-from bits import Bits, BitStream, AttrProxy
+from bits import Bits, BitStreamOld, AttrProxy
 
 # Missing features:
 # - Better management of _pb_fields (different field objects should signify different field actions)
@@ -260,7 +260,7 @@ class PackedBits:
 
     @classmethod
     def from_bits(cls, bits: Bits):
-        stream = BitStream(bits)
+        stream = BitStreamOld(bits)
 
         out = cls.from_bitstream(stream, raise_value_error_on_eof=True)
 
@@ -272,7 +272,7 @@ class PackedBits:
         return out
 
     @ classmethod
-    def from_bitstream(cls, stream: BitStream, raise_value_error_on_eof: bool = False):
+    def from_bitstream(cls, stream: BitStreamOld, raise_value_error_on_eof: bool = False):
         value_map: t.Mapping[str, t.Any] = {}
 
         for field in cls._pb_fields:

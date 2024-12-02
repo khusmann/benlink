@@ -5,14 +5,14 @@ import sys
 import typing as t
 
 from messageframe import MessageFrame
-from packedbits import BitStream
+from packedbits import BitStreamOld
 
 
 class MessageStream:
-    _stream: BitStream
+    _stream: BitStreamOld
 
     def __init__(self):
-        self._stream = BitStream()
+        self._stream = BitStreamOld()
 
     def update(self, data: bytes) -> t.List[MessageFrame]:
         self._stream.extend_bytes(data)
