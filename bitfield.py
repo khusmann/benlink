@@ -25,11 +25,8 @@ def is_provided(x: _T | NotProvided) -> t.TypeGuard[_T]:
 
 
 class ValueMapper(t.Protocol[_T, _P]):
-    def forward(self, x: _T) -> _P:
-        ...
-
-    def back(self, y: _P) -> _T:
-        ...
+    def forward(self, x: _T) -> _P: ...
+    def back(self, y: _P) -> _T: ...
 
 
 class Scale:
