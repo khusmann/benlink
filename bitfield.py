@@ -29,23 +29,14 @@ class ValueMapper(t.Protocol[_T, _P]):
     def back(self, y: _P) -> _T: ...
 
 
-class Scale:
-    def __init__(self, by: float) -> None:
-        self.by = by
+class Scale(t.NamedTuple):
+    by: float
 
     def forward(self, x: int):
         return x * self.by
 
     def back(self, y: float):
         return round(y / self.by)
-
-
-class LocChMap:
-    def forward(self, x: int) -> int | t.Literal["current"]:
-        return x - 1 if x > 0 else "current"
-
-    def back(self, y: int | t.Literal["current"]):
-        return 0 if y == "current" else y + 1
 
 
 class BFBits(t.NamedTuple):

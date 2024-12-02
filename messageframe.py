@@ -12,6 +12,14 @@ import sys
 from enum import IntEnum, IntFlag
 
 
+class LocChMap:
+    def forward(self, x: int) -> int | t.Literal["current"]:
+        return x - 1 if x > 0 else "current"
+
+    def back(self, y: int | t.Literal["current"]):
+        return 0 if y == "current" else y + 1
+
+
 class FrameOptions(IntFlag):
     NONE = 0
     CHECKSUM = 1
