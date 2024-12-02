@@ -172,7 +172,7 @@ class DataPacket(Bitfield):
     with_channel_id: bool
     packet_id: int = bf_int(6)
     data: bytes = bf_dyn(
-        lambda x, n: bf_bytes((n - 1 if x.with_channel_id else n) // 8)
+        lambda x, _, n: bf_bytes((n - 1 if x.with_channel_id else n) // 8)
     )
     channel_id: int | None = bf_dyn(
         lambda x: bf_int(8) if x.with_channel_id else None
