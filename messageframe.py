@@ -6,10 +6,25 @@ from bitfield import (
     bf_dyn,
     bf_bool,
     bf_bytes,
+    bf_lit,
+    bf_map,
+    bf_bitfield,
+    Scale,
 )
 import typing as t
 import sys
 from enum import IntEnum, IntFlag
+
+
+class ReplyStatus(IntEnum):
+    SUCCESS = 0
+    NOT_SUPPORTED = 1
+    NOT_AUTHENTICATED = 2
+    INSUFFICIENT_RESOURCES = 3
+    AUTHENTICATING = 4
+    INVALID_PARAMETER = 5
+    INCORRECT_STATE = 6
+    IN_PROGRESS = 7
 
 
 class LocChMap:
@@ -18,6 +33,217 @@ class LocChMap:
 
     def back(self, y: int | t.Literal["current"]):
         return 0 if y == "current" else y + 1
+
+#################################################
+# READ_RF_CHANNEL / WRITE_RF_CHANNEL
+
+
+class ModulationType(IntEnum):
+    FM = 0
+    AM = 1
+    DMR = 2
+
+
+class BandwidthType(IntEnum):
+    NARROW = 0
+    WIDE = 1
+
+
+class ChannelSettings(Bitfield):
+    tx_mod: ModulationType = bf_int_enum(ModulationType, 2)
+    tx_freq: float = bf_map(bf_int(30), Scale(1e-6))
+    rx_mod: ModulationType = bf_int_enum(ModulationType, 2)
+    rx_freq: float = bf_map(bf_int(30), Scale(1e-6))
+    tx_sub_audio: int = bf_int(16)
+    rx_sub_audio: int = bf_int(16)
+    scan: bool
+    tx_at_max_power: bool
+    talk_around: bool
+    bandwidth: BandwidthType = bf_int_enum(BandwidthType, 1)
+    pre_de_emph_bypass: bool
+    sign: bool
+    tx_at_med_power: bool
+    tx_disable: bool
+    fixed_freq: bool
+    fixed_bandwith: bool
+    fixed_tx_power: bool
+    mute: bool
+    _pad: t.Literal[0] = bf_lit(bf_int(4), default=0)
+    name_str: bytes = bf_bytes(10)
+
+
+class ChannelSettingsDMR(ChannelSettings):
+    tx_color: int = bf_int(4)
+    rx_color: int = bf_int(4)
+    slot: int = bf_int(1)
+    _pad2: t.Literal[0] = bf_lit(bf_int(7), default=0)
+
+
+def channel_settings_disc(_: ChannelSettings, __: None, n: int):
+    # Note: in the app, this is detected via support_dmr in
+    # device settings. But for simplicity, I'm just going to
+    # use the size of the bitfield.
+    if n == ChannelSettings.length():
+        return ChannelSettings
+
+    if n == ChannelSettingsDMR.length():
+        return ChannelSettingsDMR
+
+    raise ValueError(f"Unknown channel settings type (size {n})")
+
+
+class ReadRFChBody(Bitfield):
+    channel_id: int = bf_int(8)
+
+
+class ReadRFChReplyBody(Bitfield):
+    reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
+    channel_id: int = bf_int(8)
+    channel_settings: ChannelSettings | ChannelSettingsDMR = bf_dyn(
+        channel_settings_disc
+    )
+
+
+class WriteRFChBody(Bitfield):
+    channel_id: int = bf_int(8)
+    channel_settings: ChannelSettings | ChannelSettingsDMR = bf_dyn(
+        channel_settings_disc
+    )
+
+
+class WriteRFChReplyBody(Bitfield):
+    reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
+    channel_id: int = bf_int(8)
+
+
+#################################################
+# GET_DEV_STATE_VAR
+
+
+class DevStateVar(IntEnum):
+    START = 0
+    RSSI_LOW_THRESHOLD = 1
+    RSSI_HIGH_THRESHOLD = 2
+    BATTERY_LOW_THRESHOLD = 3
+    BATTERY_HIGH_THRESHOLD = 4
+    DEVICE_STATE_CHANGED = 5
+    PIO_CHANGED = 6
+    DEBUG_MESSAGE = 7
+    BATTERY_CHARGED = 8
+    CHARGER_CONNECTION = 9
+    CAPSENSE_UPDATE = 10
+    USER_ACTION = 11
+    SPEECH_RECOGNITION = 12
+    AV_COMMAND = 13
+    REMOTE_BATTERY_LEVEL = 14
+    KEY = 15
+    DFU_STATE = 16
+    UART_RECEIVED_DATA = 17
+    VMU_PACKET = 18
+
+# TODO
+
+
+#################################################
+# READ_STATUS
+
+
+class ReadStatusType(IntEnum):
+    UNKNOWN = 0
+    BATTERY_LEVEL = 1
+    BATTERY_VOLTAGE = 2
+    RC_BATTERY_LEVEL = 3
+    BATTERY_LEVEL_AS_PERCENTAGE = 4
+
+
+class ReadStatusBody(Bitfield):
+    status_type: ReadStatusType = bf_int_enum(ReadStatusType, 16)
+
+
+class ReadStatusVoltage(Bitfield):
+    voltage: float = bf_map(bf_int(16), Scale(1 / 1000))
+
+
+class ReadStatusBatteryLevel(Bitfield):
+    level: int = bf_int(8)
+
+
+class ReadStatusBatteryLevelPercentage(Bitfield):
+    percentage: int = bf_int(8)
+
+
+class ReadStatusRCBatteryLevel(Bitfield):
+    level: int = bf_int(8)
+
+
+RadioStatus = t.Union[
+    ReadStatusVoltage,
+    ReadStatusBatteryLevel,
+    ReadStatusBatteryLevelPercentage,
+    ReadStatusRCBatteryLevel,
+]
+
+
+def radio_status_disc(m: ReadStatusBody):
+    match m.status_type:
+        case ReadStatusType.BATTERY_VOLTAGE:
+            return ReadStatusVoltage
+        case ReadStatusType.BATTERY_LEVEL:
+            return ReadStatusBatteryLevel
+        case ReadStatusType.BATTERY_LEVEL_AS_PERCENTAGE:
+            return ReadStatusBatteryLevelPercentage
+        case ReadStatusType.RC_BATTERY_LEVEL:
+            return ReadStatusRCBatteryLevel
+        case ReadStatusType.UNKNOWN:
+            raise ValueError("Unknown radio status type")
+
+
+class ReadStatusReplyBody(Bitfield):
+    reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
+    status_type: ReadStatusType = bf_int_enum(ReadStatusType, 16)
+    value: RadioStatus = bf_dyn(radio_status_disc)
+
+
+#################################################
+# GET_DEV_INFO
+
+
+class DevInfo(Bitfield):
+    vendor_id: int = bf_int(8)
+    product_id: int = bf_int(16)
+    hw_ver: int = bf_int(8)
+    soft_ver: int = bf_int(16)
+    support_radio: bool
+    support_medium_power: bool
+    fixed_loc_speaker_vol: bool
+    not_support_soft_power_ctrl: bool
+    have_no_speaker: bool
+    have_hm_speaker: bool
+    region_count: int = bf_int(6)
+    support_noaa: bool
+    gmrs: bool
+    support_vfo: bool
+    support_dmr: bool
+    channel_count: int = bf_int(8)
+    freq_range_count: int = bf_int(4)
+    _pad: t.Literal[0] = bf_lit(bf_int(4), default=0)
+
+
+class GetDevInfoBody(Bitfield):
+    unknown: t.Literal[3] = bf_lit(bf_int(8), default=3)
+
+
+class GetDevInfoReplyBody(Bitfield):
+    reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
+    info: DevInfo | None = bf_dyn(
+        lambda x: DevInfo
+        if x.reply_status == ReplyStatus.SUCCESS
+        else None
+    )
+
+
+#################################################
+# MessageFrame
 
 
 class FrameOptions(IntFlag):
@@ -142,10 +368,62 @@ def checksum_disc(m: MessageFrame):
 
 
 def body_disc(m: MessageFrame):
-    if m.type_group == FrameTypeGroup.BASIC:
-        return bf_bytes(m.n_bytes_body)
-    else:
-        return bf_bytes(m.n_bytes_body)
+    match m.type_group:
+        case FrameTypeGroup.BASIC:
+            match m.type:
+                case FrameTypeBasic.GET_DEV_INFO:
+                    out = GetDevInfoReplyBody if m.is_reply else GetDevInfoBody
+                case FrameTypeBasic.READ_STATUS:
+                    out = ReadStatusReplyBody if m.is_reply else ReadStatusBody
+                case FrameTypeBasic.READ_RF_CH:
+                    out = ReadRFChReplyBody if m.is_reply else ReadRFChBody
+                case FrameTypeBasic.WRITE_RF_CH:
+                    out = WriteRFChReplyBody if m.is_reply else WriteRFChBody
+#                case FrameTypeBasic.READ_SETTINGS:
+#                    out = ReadSettingsReplyBody if m.is_reply else ReadSettingsBody
+#                case FrameTypeBasic.WRITE_SETTINGS:
+#                    out = WriteSettingsReplyBody if m.is_reply else WriteSettingsBody
+#                case FrameTypeBasic.GET_PF:
+#                    out = GetPFReplyBody if m.is_reply else GetPFBody
+#                case FrameTypeBasic.READ_BSS_SETTINGS:
+#                    out = ReadBSSSettingsReplyBody if m.is_reply else ReadBSSSettingsBody
+#                case FrameTypeBasic.WRITE_BSS_SETTINGS:
+#                    out = WriteBSSSettingsReplyBody if m.is_reply else WriteBSSSettingsBody
+#                case FrameTypeBasic.EVENT_NOTIFICATION:
+#                    if m.is_reply:
+#                        raise ValueError("EventNotification cannot be a reply")
+#                    out = EventNotificationBody
+                case _:
+                    return bf_bytes(m.n_bytes_body)
+        case FrameTypeGroup.EXTENDED:
+            match m.type:
+                case _:
+                    return bf_bytes(m.n_bytes_body)
+
+    return bf_bitfield(out, m.n_bytes_body * 8)
+
+
+MessageBody = t.Union[
+    GetDevInfoBody,
+    GetDevInfoReplyBody,
+    ReadStatusBody,
+    ReadStatusReplyBody,
+    ReadRFChBody,
+    ReadRFChReplyBody,
+    WriteRFChBody,
+    WriteRFChReplyBody,
+    # ReadSettingsBody,
+    # ReadSettingsReplyBody,
+    # WriteSettingsBody,
+    # WriteSettingsReplyBody,
+    # GetPFBody,
+    # GetPFReplyBody,
+    # ReadBSSSettingsBody,
+    # ReadBSSSettingsReplyBody,
+    # WriteBSSSettingsBody,
+    # WriteBSSSettingsReplyBody,
+    # EventNotificationBody,
+]
 
 
 class MessageFrame(Bitfield):
@@ -155,5 +433,5 @@ class MessageFrame(Bitfield):
     type_group: FrameTypeGroup = bf_int_enum(FrameTypeGroup, 16)
     is_reply: bool = bf_bool()
     type: FrameTypeBasic | FrameTypeExtended = bf_dyn(frame_type_disc)
-    body: bytes = bf_dyn(body_disc)
+    body: MessageBody | bytes = bf_dyn(body_disc)
     checksum: int | None = bf_dyn(checksum_disc, default=None)
