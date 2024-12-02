@@ -6,7 +6,7 @@ from bitfield import (
     bf_dyn,
     bf_bool,
     bf_bytes,
-    bf_lit,
+    bf_lit_int,
     bf_map,
     bf_bitfield,
     Scale,
@@ -27,12 +27,82 @@ class ReplyStatus(IntEnum):
     IN_PROGRESS = 7
 
 
+#################################################
+# READ_SETTINGS / WRITE_SETTINGS
+
 class LocChMap:
     def forward(self, x: int) -> int | t.Literal["current"]:
         return x - 1 if x > 0 else "current"
 
     def back(self, y: int | t.Literal["current"]):
         return 0 if y == "current" else y + 1
+
+
+class RadioSettings(Bitfield):
+    channel_a: int = bf_int(8)
+    channel_b: int = bf_int(8)
+    scan: bool
+    aghfp_call_mode: int = bf_int(1)
+    double_channel: int = bf_int(2)
+    squelch_level: int = bf_int(4)
+    tail_elim: bool
+    auto_relay_en: bool
+    auto_power_on: bool
+    keep_aghfp_link: bool
+    mic_gain: int = bf_int(3)
+    tx_hold_time: int = bf_int(4)
+    tx_time_limit: int = bf_int(5)
+    local_speaker: int = bf_int(2)
+    bt_mic_gain: int = bf_int(3)
+    adaptive_response: bool
+    dis_tone: bool
+    power_saving_mode: bool
+    auto_power_off: int = bf_int(3)
+    auto_share_loc_ch: int | t.Literal["current"] = bf_map(
+        bf_int(5), LocChMap()
+    )
+    hm_speaker: int = bf_int(2)
+    positioning_system: int = bf_int(4)
+    time_offset: int = bf_int(6)
+    use_freq_range_2: bool
+    ptt_lock: bool
+    leading_sync_bit_en: bool
+    pairing_at_power_on: bool
+    screen_timeout: int = bf_int(5)
+    vfo_x: int = bf_int(2)
+    imperial_unit: bool
+    # channel_a_upper (reordered; 4)
+    # channel_b_upper (reordered; 4)
+    wx_mode: int = bf_int(2)
+    noaa_ch: int = bf_int(4)
+    vfol_tx_power_x: int = bf_int(2)
+    vfo2_tx_power_x: int = bf_int(2)
+    dis_digital_mute: bool
+    signaling_ecc_en: bool
+    ch_data_lock: bool
+    _pad: t.Literal[0] = bf_lit_int(3, default=0)
+    vfo1_mod_freq_x: int = bf_int(32)
+    vfo2_mod_freq_x: int = bf_int(32)
+
+    _reorder = list(range(72, 72 + 8))
+
+
+class ReadSettingsBody(Bitfield):
+    pass
+
+
+class ReadSettingsReplyBody(Bitfield):
+    reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
+    settings: RadioSettings
+
+
+class WriteSettingsBody(Bitfield):
+    settings: RadioSettings
+
+
+class WriteSettingsReplyBody(Bitfield):
+    reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
+
 
 #################################################
 # READ_RF_CHANNEL / WRITE_RF_CHANNEL
@@ -68,7 +138,7 @@ class ChannelSettings(Bitfield):
     fixed_bandwith: bool
     fixed_tx_power: bool
     mute: bool
-    _pad: t.Literal[0] = bf_lit(bf_int(4), default=0)
+    _pad: t.Literal[0] = bf_lit_int(4, default=0)
     name_str: bytes = bf_bytes(10)
 
 
@@ -76,7 +146,7 @@ class ChannelSettingsDMR(ChannelSettings):
     tx_color: int = bf_int(4)
     rx_color: int = bf_int(4)
     slot: int = bf_int(1)
-    _pad2: t.Literal[0] = bf_lit(bf_int(7), default=0)
+    _pad2: t.Literal[0] = bf_lit_int(7, default=0)
 
 
 def channel_settings_disc(_: ChannelSettings, __: None, n: int):
@@ -226,11 +296,11 @@ class DevInfo(Bitfield):
     support_dmr: bool
     channel_count: int = bf_int(8)
     freq_range_count: int = bf_int(4)
-    _pad: t.Literal[0] = bf_lit(bf_int(4), default=0)
+    _pad: t.Literal[0] = bf_lit_int(4, default=0)
 
 
 class GetDevInfoBody(Bitfield):
-    unknown: t.Literal[3] = bf_lit(bf_int(8), default=3)
+    unknown: t.Literal[3] = bf_lit_int(8, default=3)
 
 
 class GetDevInfoReplyBody(Bitfield):
@@ -379,10 +449,10 @@ def body_disc(m: MessageFrame):
                     out = ReadRFChReplyBody if m.is_reply else ReadRFChBody
                 case FrameTypeBasic.WRITE_RF_CH:
                     out = WriteRFChReplyBody if m.is_reply else WriteRFChBody
-#                case FrameTypeBasic.READ_SETTINGS:
-#                    out = ReadSettingsReplyBody if m.is_reply else ReadSettingsBody
-#                case FrameTypeBasic.WRITE_SETTINGS:
-#                    out = WriteSettingsReplyBody if m.is_reply else WriteSettingsBody
+                case FrameTypeBasic.READ_SETTINGS:
+                    out = ReadSettingsReplyBody if m.is_reply else ReadSettingsBody
+                case FrameTypeBasic.WRITE_SETTINGS:
+                    out = WriteSettingsReplyBody if m.is_reply else WriteSettingsBody
 #                case FrameTypeBasic.GET_PF:
 #                    out = GetPFReplyBody if m.is_reply else GetPFBody
 #                case FrameTypeBasic.READ_BSS_SETTINGS:
@@ -412,10 +482,10 @@ MessageBody = t.Union[
     ReadRFChReplyBody,
     WriteRFChBody,
     WriteRFChReplyBody,
-    # ReadSettingsBody,
-    # ReadSettingsReplyBody,
-    # WriteSettingsBody,
-    # WriteSettingsReplyBody,
+    ReadSettingsBody,
+    ReadSettingsReplyBody,
+    WriteSettingsBody,
+    WriteSettingsReplyBody,
     # GetPFBody,
     # GetPFReplyBody,
     # ReadBSSSettingsBody,

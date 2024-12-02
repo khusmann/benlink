@@ -332,6 +332,10 @@ def bf_lit(field: BFTypeDisguised[_LiteralT], *, default: _P) -> BFTypeDisguised
     return disguise(BFLit(undisguise(field), default))
 
 
+def bf_lit_int(n: int, *, default: _LiteralT) -> BFTypeDisguised[_LiteralT]:
+    return bf_lit(bf_int(n), default=default)
+
+
 def bf_bytes(n: int, *, default: bytes | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[bytes]:
     if is_provided(default) and len(default) != n:
         raise ValueError(
@@ -421,6 +425,7 @@ def bf_bitfield(
         bf_bitfield,
         bf_list,
         bf_lit,
+        bf_lit_int,
         bf_bytes,
         bf_str,
         bf_dyn,
