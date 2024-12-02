@@ -134,7 +134,7 @@ class EventNotificationHTStatusChanged(Bitfield):
     double_channel: ChannelType = bf_int_enum(ChannelType, 2)
     is_scan: bool
     is_radio: bool
-    curr_ch_id_lower: int = bf_int(4)
+    curr_ch_id: int = bf_int(4)
     is_gps_locked: bool
     is_hfp_connected: bool
     is_aoc_connected: bool
