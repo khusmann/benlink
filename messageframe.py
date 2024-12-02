@@ -81,7 +81,7 @@ class ReadBSSSettingsBody(Bitfield):
     unknown: int = bf_int(8)
 
 
-def bss_settings_disc(_: ReadBSSSettingsBody, __: None, n: int):
+def bss_settings_disc(_: ReadBSSSettingsBody, n: int):
     if n == BSSSettings.length():
         return BSSSettings
     if n == BSSSettingsExt.length():
@@ -164,7 +164,7 @@ class EventNotificationHTStatusChangedExt(Bitfield):
 
 
 class EventNotificationUnknown(Bitfield):
-    data: bytes = bf_dyn(lambda _, __, n: bf_bytes(n // 8))
+    data: bytes = bf_dyn(lambda _, n: bf_bytes(n // 8))
 
 
 class DataPacket(Bitfield):
@@ -172,14 +172,14 @@ class DataPacket(Bitfield):
     with_channel_id: bool
     packet_id: int = bf_int(6)
     data: bytes = bf_dyn(
-        lambda x, _, n: bf_bytes((n - 1 if x.with_channel_id else n) // 8)
+        lambda x, n: bf_bytes((n - 1 if x.with_channel_id else n) // 8)
     )
     channel_id: int | None = bf_dyn(
         lambda x: bf_int(8) if x.with_channel_id else None
     )
 
 
-def event_notification_disc(m: EventNotificationBody, _: None, n: int):
+def event_notification_disc(m: EventNotificationBody, n: int):
     match m.event_type:
         case EventNotificationType.HT_STATUS_CHANGED:
             if n == EventNotificationHTStatusChanged.length():
@@ -411,7 +411,7 @@ class ChannelSettingsDMR(ChannelSettings):
     _pad2: t.Literal[0] = bf_lit_int(7, default=0)
 
 
-def channel_settings_disc(_: ChannelSettings, __: None, n: int):
+def channel_settings_disc(_: ChannelSettings, n: int):
     # Note: in the app, this is detected via support_dmr in
     # device settings. But for simplicity, I'm just going to
     # use the size of the bitfield.

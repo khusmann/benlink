@@ -72,7 +72,7 @@ class BarEnum(IntEnum):
     C = 3
 
 
-def foo(x: Foo, _: t.Any) -> t.Literal[10] | list[float]:
+def foo(x: Foo) -> t.Literal[10] | list[float]:
     if x.ab == 1:
         return bf_list(bf_map(bf_int(5), Scale(100)), 1)
     else:

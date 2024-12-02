@@ -63,13 +63,8 @@ class BFDynSelf(t.NamedTuple):
     default: t.Any | NotProvided
 
 
-class BFDynSelfCtx(t.NamedTuple):
-    fn: t.Callable[[t.Any, t.Any], BFTypeDisguised[t.Any]]
-    default: t.Any | NotProvided
-
-
-class BFDynSelfCtxN(t.NamedTuple):
-    fn: t.Callable[[t.Any, t.Any, int], BFTypeDisguised[t.Any]]
+class BFDynSelfN(t.NamedTuple):
+    fn: t.Callable[[t.Any, int], BFTypeDisguised[t.Any]]
     default: t.Any | NotProvided
 
 
@@ -93,8 +88,7 @@ BFType = t.Union[
     BFList,
     BFMap,
     BFDynSelf,
-    BFDynSelfCtx,
-    BFDynSelfCtxN,
+    BFDynSelfN,
     BFLit,
     BFNone,
     BFBitfield,
@@ -116,13 +110,13 @@ def bftype_length(bftype: BFType) -> int | None:
         case BFNone():
             return 0
 
-        case BFDynSelf() | BFDynSelfCtx() | BFDynSelfCtxN():
+        case BFDynSelf() | BFDynSelfN():
             return None
 
 
 def bftype_has_children_with_default(bftype: BFType) -> bool:
     match bftype:
-        case BFBits() | BFBitfield() | BFNone() | BFDynSelf() | BFDynSelfCtx() | BFDynSelfCtxN():
+        case BFBits() | BFBitfield() | BFNone() | BFDynSelf() | BFDynSelfN():
             return False
 
         case BFList(inner=inner) | BFMap(inner=inner) | BFLit(inner=inner):
@@ -152,11 +146,8 @@ def bftype_from_bitstream(bftype: BFType, stream: BitStream, proxy: AttrProxy, c
         case BFDynSelf(fn=fn):
             return bftype_from_bitstream(undisguise(fn(proxy)), stream, proxy, context)
 
-        case BFDynSelfCtx(fn=fn):
-            return bftype_from_bitstream(undisguise(fn(proxy, context)), stream, proxy, context)
-
-        case BFDynSelfCtxN(fn=fn):
-            return bftype_from_bitstream(undisguise(fn(proxy, context, stream.remaining())), stream, proxy, context)
+        case BFDynSelfN(fn=fn):
+            return bftype_from_bitstream(undisguise(fn(proxy, stream.remaining())), stream, proxy, context)
 
         case BFLit(inner=inner, default=default):
             value, stream = bftype_from_bitstream(
@@ -192,10 +183,7 @@ def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield, context: t.An
         case BFDynSelf(fn=fn):
             return bftype_to_bits(undisguise(fn(parent)), value, parent, context)
 
-        case BFDynSelfCtx(fn=fn):
-            return bftype_to_bits(undisguise(fn(parent, context)), value, parent, context)
-
-        case BFDynSelfCtxN(fn=fn):
+        case BFDynSelfN(fn=fn):
             field = type(value) if isinstance(value, Bitfield) else value
             if not isinstance(field, (Bitfield, str, bytes)) and field is not None:
                 raise TypeError(
@@ -374,8 +362,7 @@ def bf_str(n: int, encoding: str = "utf-8", *, default: str | NotProvided = NOT_
 
 def bf_dyn(
     fn: t.Callable[[t.Any], t.Type[_T] | BFTypeDisguised[_T]] |
-        t.Callable[[t.Any, t.Any], t.Type[_T] | BFTypeDisguised[_T]] |
-        t.Callable[[t.Any, t.Any, int], t.Type[_T] | BFTypeDisguised[_T]],
+        t.Callable[[t.Any, int], t.Type[_T] | BFTypeDisguised[_T]],
     default: _T | NotProvided = NOT_PROVIDED
 ) -> BFTypeDisguised[_T]:
     n_params = len(inspect.signature(fn).parameters)
@@ -388,17 +375,11 @@ def bf_dyn(
             return disguise(BFDynSelf(fn, default))
         case 2:
             fn = t.cast(
-                t.Callable[[t.Any, t.Any], t.Type[_T] | BFTypeDisguised[_T]],
-                fn
-            )
-            return disguise(BFDynSelfCtx(fn, default))
-        case 3:
-            fn = t.cast(
                 t.Callable[
-                    [t.Any, t.Any, int], t.Type[_T] | BFTypeDisguised[_T]
+                    [t.Any, int], t.Type[_T] | BFTypeDisguised[_T]
                 ], fn
             )
-            return disguise(BFDynSelfCtxN(fn, default))
+            return disguise(BFDynSelfN(fn, default))
         case _:
             raise ValueError(f"unsupported number of parameters: {n_params}")
 
@@ -436,6 +417,7 @@ def bf_bitfield(
 class Bitfield:
     _fields: t.ClassVar[t.Dict[str, BFType]]
     _reorder: t.ClassVar[t.Sequence[int]] = []
+    bitfield_context: t.ClassVar[t.Any] = None  # TODO: make this generic?
 
     def __init__(self, **kwargs: t.Any):
         for name, field in self._fields.items():
@@ -501,6 +483,7 @@ class Bitfield:
         context: t.Any = None
     ):
         proxy: AttrProxy = AttrProxy({})
+        proxy["bitfield_context"] = cls.bitfield_context
 
         stream = stream.reorder(cls._reorder)
 
@@ -519,6 +502,7 @@ class Bitfield:
         return cls(**proxy), stream
 
     def to_bits(self, context: t.Any = None) -> Bits:
+        setattr(self, "bitfield_context", context)
         acc: Bits = Bits()
 
         for name, field in self._fields.items():
