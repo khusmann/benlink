@@ -434,11 +434,11 @@ def bf_bitfield(
     )
 )
 class Bitfield:
-    _bf_fields: t.ClassVar[t.Dict[str, BFType]]
+    _fields: t.ClassVar[t.Dict[str, BFType]]
     _reorder: t.ClassVar[t.Sequence[int]] = []
 
     def __init__(self, **kwargs: t.Any):
-        for name, field in self._bf_fields.items():
+        for name, field in self._fields.items():
             value = kwargs.get(name, NOT_PROVIDED)
 
             if not is_provided(value):
@@ -454,7 +454,7 @@ class Bitfield:
             self.__class__.__name__,
             "(",
             ', '.join(
-                f'{name}={getattr(self, name)!r}' for name in self._bf_fields
+                f'{name}={getattr(self, name)!r}' for name in self._fields
             ),
             ")",
         ))
@@ -464,13 +464,13 @@ class Bitfield:
             return False
 
         return all((
-            getattr(self, name) == getattr(other, name) for name in self._bf_fields
+            getattr(self, name) == getattr(other, name) for name in self._fields
         ))
 
     @classmethod
     def length(cls) -> int | None:
         acc = 0
-        for field in cls._bf_fields.values():
+        for field in cls._fields.values():
             field_len = bftype_length(field)
             if field_len is None:
                 return None
@@ -504,7 +504,7 @@ class Bitfield:
 
         stream = stream.reorder(cls._reorder)
 
-        for name, field in cls._bf_fields.items():
+        for name, field in cls._fields.items():
             try:
                 value, stream = bftype_from_bitstream(
                     field, stream, proxy, context
@@ -521,7 +521,7 @@ class Bitfield:
     def to_bits(self, context: t.Any = None) -> Bits:
         acc: Bits = Bits()
 
-        for name, field in self._bf_fields.items():
+        for name, field in self._fields.items():
             value = getattr(self, name)
             try:
                 acc += bftype_to_bits(field, value, self, context)
@@ -537,9 +537,9 @@ class Bitfield:
 
     def __init_subclass__(cls):
         if not hasattr(cls, "_bf_fields"):
-            cls._bf_fields = {}
+            cls._fields = {}
         else:
-            cls._bf_fields = cls._bf_fields.copy()
+            cls._fields = cls._fields.copy()
 
         for name, type_hint in t.get_type_hints(cls).items():
             if t.get_origin(type_hint) is t.ClassVar:
@@ -559,7 +559,7 @@ class Bitfield:
                     f"error in field {name!r} of {cls.__name__!r}: {e}"
                 )
 
-            cls._bf_fields[name] = bf_field
+            cls._fields[name] = bf_field
 
 
 def distill_field(type_hint: t.Any, value: t.Any) -> BFType:
