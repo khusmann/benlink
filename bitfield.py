@@ -6,7 +6,7 @@ import inspect
 
 from enum import IntEnum, IntFlag, Enum
 
-from bits import Bits, BitStream, AttrProxy
+from bits import Bits, BitStreamNew, AttrProxy
 
 
 class NotProvided:
@@ -139,16 +139,26 @@ def bftype_has_children_with_default(bftype: BFType) -> bool:
             return is_provided(inner.default) or bftype_has_children_with_default(inner)
 
 
-def bftype_from_bitstream(bftype: BFType, stream: BitStream, proxy: AttrProxy, context: t.Any) -> t.Any:
+def bftype_from_bitstream(bftype: BFType, stream: BitStreamNew, proxy: AttrProxy, context: t.Any) -> t.Tuple[t.Any, BitStreamNew]:
     match bftype:
         case BFBits(n=n):
-            return stream.read_bits(n)
+            return stream.take(n)
 
         case BFList(inner=inner, n=n):
-            return [bftype_from_bitstream(inner, stream, proxy, context) for _ in range(n)]
+            acc: t.List[t.Any] = []
+            for _ in range(n):
+                print(stream)
+                item, stream = bftype_from_bitstream(
+                    inner, stream, proxy, context
+                )
+                acc.append(item)
+            return acc, stream
 
         case BFMap(inner=inner, vm=vm):
-            return vm.forward(bftype_from_bitstream(inner, stream, proxy, context))
+            value, stream = bftype_from_bitstream(
+                inner, stream, proxy, context
+            )
+            return vm.forward(value), stream
 
         case BFDynSelf(fn=fn):
             return bftype_from_bitstream(undisguise(fn(proxy)), stream, proxy, context)
@@ -160,16 +170,19 @@ def bftype_from_bitstream(bftype: BFType, stream: BitStream, proxy: AttrProxy, c
             return bftype_from_bitstream(undisguise(fn(proxy, context, stream.remaining())), stream, proxy, context)
 
         case BFLit(inner=inner, default=default):
-            value = bftype_from_bitstream(inner, stream, proxy, context)
+            value, stream = bftype_from_bitstream(
+                inner, stream, proxy, context
+            )
             if value != default:
                 raise ValueError(f"expected {default!r}, got {value!r}")
-            return value
+            return value, stream
 
         case BFNone():
-            return None
+            return None, stream
 
         case BFBitfield(inner=inner, n=n):
-            return inner.from_bits(stream.read_bits(n), context)
+            bits, stream = stream.take(n)
+            return inner.from_bits(bits, context), stream
 
 
 def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
@@ -472,9 +485,9 @@ class Bitfield:
 
     @classmethod
     def from_bits(cls, bits: Bits, context: t.Any = None) -> Bitfield:
-        stream = BitStream(bits)
+        stream = BitStreamNew(bits)
 
-        out = cls.from_bitstream(stream, context)
+        out, stream = cls.from_bitstream(stream, context)
 
         if stream.remaining():
             raise ValueError(
@@ -486,14 +499,14 @@ class Bitfield:
     @classmethod
     def from_bitstream(
         cls,
-        stream: BitStream,
+        stream: BitStreamNew,
         context: t.Any = None
     ):
         proxy: AttrProxy = AttrProxy({})
 
         for name, field in cls._bf_fields.items():
             try:
-                value = bftype_from_bitstream(
+                value, stream = bftype_from_bitstream(
                     field, stream, proxy, context
                 )
             except ValueError as e:
@@ -507,7 +520,7 @@ class Bitfield:
 
             proxy[name] = value
 
-        return cls(**proxy)
+        return cls(**proxy), stream
 
     def to_bits(self, context: t.Any = None) -> Bits:
         acc: Bits = Bits()
