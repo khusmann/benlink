@@ -95,38 +95,36 @@ class BarEnum(IntEnum):
     C = 3
 
 
-def foo(x: Foo) -> t.Literal[10] | list[float]:
-    if x.ab == 1:
-        return bf_list(bf_map(bf_int(5), Scale(100)), 1)
-    else:
-        return bf_lit(bf_int(5), default=10)
-
-
 class Baz(Bitfield):
     a: int = bf_int(3)
     b: int = bf_int(10)
 
 
-class Foo(Bitfield):
-    a: float = bf_map(bf_int(2), Scale(1 / 2))
-    _pad: t.Literal[0x5] = bf_lit(bf_int(3), default=0x5)
-    ff: Baz
-    ay: t.Literal[b'world'] = b'world'
-    ab: int = bf_int(10)
-    ac: int = bf_int(2)
-    zz: BarEnum = bf_int_enum(BarEnum, 2)
-    yy: bytes = bf_bytes(2)
-    ad: int = bf_int(3)
-    c: t.Literal[10] | list[float] | Baz = bf_dyn(foo)
-    d: t.List[int] = bf_list(bf_int(10), 3)
-    e: t.List[Baz] = bf_list(Baz, 3)
-    f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
-    h: t.Literal["Hello"] = "Hello"
-    g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
-    xx: bool
-
-
 def test_kitchen_sink():
+    def foo(x: Foo) -> t.Literal[10] | list[float]:
+        if x.ab == 1:
+            return bf_list(bf_map(bf_int(5), Scale(100)), 1)
+        else:
+            return bf_lit(bf_int(5), default=10)
+
+    class Foo(Bitfield):
+        a: float = bf_map(bf_int(2), Scale(1 / 2))
+        _pad: t.Literal[0x5] = bf_lit(bf_int(3), default=0x5)
+        ff: Baz
+        ay: t.Literal[b'world'] = b'world'
+        ab: int = bf_int(10)
+        ac: int = bf_int(2)
+        zz: BarEnum = bf_int_enum(BarEnum, 2)
+        yy: bytes = bf_bytes(2)
+        ad: int = bf_int(3)
+        c: t.Literal[10] | list[float] | Baz = bf_dyn(foo)
+        d: t.List[int] = bf_list(bf_int(10), 3)
+        e: t.List[Baz] = bf_list(Baz, 3)
+        f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
+        h: t.Literal["Hello"] = "Hello"
+        g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
+        xx: bool
+
     f = Foo(
         a=0.5,
         ff=Baz(a=1, b=2),
