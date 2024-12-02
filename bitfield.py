@@ -31,9 +31,11 @@ class ValueMapper(t.Protocol[_T, _P]):
 
 class Scale(t.NamedTuple):
     by: float
+    n_digits: int | None = None
 
     def forward(self, x: int):
-        return x * self.by
+        value = x * self.by
+        return value if self.n_digits is None else round(value, self.n_digits)
 
     def back(self, y: float):
         return round(y / self.by)

@@ -379,9 +379,9 @@ class SubAudioMap:
 
 class ChannelSettings(Bitfield):
     tx_mod: ModulationType = bf_int_enum(ModulationType, 2)
-    tx_freq: float = bf_map(bf_int(30), Scale(1e-6))
+    tx_freq: float = bf_map(bf_int(30), Scale(1e-6, 6))
     rx_mod: ModulationType = bf_int_enum(ModulationType, 2)
-    rx_freq: float = bf_map(bf_int(30), Scale(1e-6))
+    rx_freq: float = bf_map(bf_int(30), Scale(1e-6, 6))
     tx_sub_audio: float | DCS | None = bf_map(bf_int(16), SubAudioMap())
     rx_sub_audio: float | DCS | None = bf_map(bf_int(16), SubAudioMap())
     scan: bool
@@ -489,7 +489,7 @@ class ReadStatusBody(Bitfield):
 
 
 class ReadStatusVoltage(Bitfield):
-    voltage: float = bf_map(bf_int(16), Scale(1 / 1000))
+    voltage: float = bf_map(bf_int(16), Scale(1 / 1000, 3))
 
 
 class ReadStatusBatteryLevel(Bitfield):
