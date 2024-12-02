@@ -82,7 +82,7 @@ class Foo(Bitfield):
     f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
     h: t.Literal["Hello"] = "Hello"
     g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
-    xx: int = bf_int(1)
+    xx: bool
 
 
 def test_kitchen_sink():
@@ -98,7 +98,7 @@ def test_kitchen_sink():
         d=[1, 2, 3],
         e=[Baz(a=1, b=2), Baz(a=3, b=4), Baz(a=5, b=6)],
         g=[[1, 2, 3], [4, 5, 6], [7, 8, 9]],
-        xx=1,
+        xx=True,
     )
 
     assert f.to_bytes() == b'i\x00\x9d\xdb\xdc\x9b\x19?\xfehij\x00@ \x0c\x80L\x04\xa02C+cczC+ccx\x02\x01\x00` \n\x03\x00\xe0@\x13'

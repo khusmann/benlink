@@ -235,11 +235,14 @@ def undisguise(x: BFTypeDisguised[t.Any]) -> BFType:
     if isinstance(x, BFType):
         return x
 
-    if isinstance(x, type) and issubclass(x, Bitfield):
-        field_length = x.length()
-        if field_length is None:
-            raise TypeError("cannot infer length for dynamic Bitfield")
-        return undisguise(bf_bitfield(x, field_length))
+    if isinstance(x, type):
+        if issubclass(x, Bitfield):
+            field_length = x.length()
+            if field_length is None:
+                raise TypeError("cannot infer length for dynamic Bitfield")
+            return undisguise(bf_bitfield(x, field_length))
+        if issubclass(x, bool):
+            return undisguise(bf_bool())
 
     if isinstance(x, bytes):
         return undisguise(bf_lit(bf_bytes(len(x)), default=x))
@@ -552,7 +555,7 @@ class Bitfield:
 
 def distill_field(type_hint: t.Any, value: t.Any) -> BFType:
     if value is NOT_PROVIDED:
-        if isinstance(type_hint, type) and issubclass(type_hint, Bitfield):
+        if isinstance(type_hint, type) and issubclass(type_hint, (Bitfield, bool)):
             return undisguise(type_hint)
 
         if t.get_origin(type_hint) is t.Literal:
