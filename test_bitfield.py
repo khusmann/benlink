@@ -34,6 +34,29 @@ def test_basic():
     assert Work.from_bytes(work.to_bytes()) == work
 
 
+def test_basic_context():
+    class TestCtx(t.NamedTuple):
+        a: int
+
+    def ctx_disc(instance: BFWithCtx):
+        if instance.bitfield_context is None:
+            return None
+
+        if instance.bitfield_context.a == 10:
+            return bf_int(8)
+
+    class BFWithCtx(Bitfield[TestCtx]):
+        z: int | None = bf_dyn(ctx_disc)
+
+    bf_with_ctx = BFWithCtx(z=None)
+    assert bf_with_ctx.to_bytes() == b''
+    assert BFWithCtx.from_bytes(bf_with_ctx.to_bytes()) == bf_with_ctx
+
+    bf_with_ctx = BFWithCtx(z=5)
+    assert bf_with_ctx.to_bytes(TestCtx(a=10)) == b'\x05'
+    assert BFWithCtx.from_bytes(b'\x05', TestCtx(a=10)) == bf_with_ctx
+
+
 def test_basic_subclasses():
     class Work(Bitfield):
         a: int = bf_int(4)

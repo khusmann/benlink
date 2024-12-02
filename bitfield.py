@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing_extensions import dataclass_transform
+from typing_extensions import dataclass_transform, TypeVar as TypeVarDefault
 import typing as t
 import inspect
 
@@ -165,7 +165,15 @@ def bftype_from_bitstream(bftype: BFType, stream: BitStream, proxy: AttrProxy, c
             return inner.from_bits(bits, context), stream
 
 
-def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield, context: t.Any) -> Bits:
+def is_bitfield(x: t.Any) -> t.TypeGuard[Bitfield[t.Any]]:
+    return isinstance(x, Bitfield)
+
+
+def is_bitfield_class(x: t.Type[t.Any]) -> t.TypeGuard[t.Type[Bitfield[t.Any]]]:
+    return issubclass(x, Bitfield)
+
+
+def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield[t.Any], context: t.Any) -> Bits:
     match bftype:
         case BFBits(n=n):
             if len(value) != n:
@@ -184,12 +192,15 @@ def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield, context: t.An
             return bftype_to_bits(undisguise(fn(parent)), value, parent, context)
 
         case BFDynSelfN(fn=fn):
-            field = type(value) if isinstance(value, Bitfield) else value
-            if not isinstance(field, (Bitfield, str, bytes)) and field is not None:
+            if is_bitfield(value):
+                field = type(value)
+            elif isinstance(value, (str, bytes)) or value is None:
+                field = value
+            else:
                 raise TypeError(
                     f"dynamic fields that use discriminators with 'n bits remaining' "
                     f"can only be used with Bitfield, str, bytes, or None values. "
-                    f"{field!r} is not supported"
+                    f"{value!r} is not supported"
                 )
             return bftype_to_bits(undisguise(field), value, parent, context)
 
@@ -204,7 +215,7 @@ def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield, context: t.An
             return Bits()
 
         case BFBitfield(inner=inner, n=n):
-            if not isinstance(value, Bitfield):
+            if not is_bitfield(value):
                 raise TypeError(
                     f"expected Bitfield, got {type(value).__name__}"
                 )
@@ -226,7 +237,7 @@ def undisguise(x: BFTypeDisguised[t.Any]) -> BFType:
         return x
 
     if isinstance(x, type):
-        if issubclass(x, Bitfield):
+        if is_bitfield_class(x):
             field_length = x.length()
             if field_length is None:
                 raise TypeError("cannot infer length for dynamic Bitfield")
@@ -397,6 +408,9 @@ def bf_bitfield(
     return disguise(BFBitfield(cls, n, default=default))
 
 
+_ContextT = TypeVarDefault("_ContextT", default=None)
+
+
 @dataclass_transform(
     kw_only_default=True,
     field_specifiers=(
@@ -414,10 +428,10 @@ def bf_bitfield(
         bf_dyn,
     )
 )
-class Bitfield:
+class Bitfield(t.Generic[_ContextT]):
     _fields: t.ClassVar[t.Dict[str, BFType]]
     _reorder: t.ClassVar[t.Sequence[int]] = []
-    bitfield_context: t.ClassVar[t.Any] = None  # TODO: make this generic?
+    bitfield_context: _ContextT | None = None
 
     def __init__(self, **kwargs: t.Any):
         for name, field in self._fields.items():
@@ -460,11 +474,11 @@ class Bitfield:
         return acc
 
     @classmethod
-    def from_bytes(cls, data: bytes, context: t.Any = None) -> Bitfield:
+    def from_bytes(cls, data: bytes, context: _ContextT | None = None):
         return cls.from_bits(Bits.from_bytes(data), context)
 
     @classmethod
-    def from_bits(cls, bits: Bits, context: t.Any = None) -> Bitfield:
+    def from_bits(cls, bits: Bits, context: _ContextT | None = None):
         stream = BitStream(bits)
 
         out, stream = cls.from_bitstream(stream, context)
@@ -480,10 +494,10 @@ class Bitfield:
     def from_bitstream(
         cls,
         stream: BitStream,
-        context: t.Any = None
+        context: _ContextT | None = None
     ):
         proxy: AttrProxy = AttrProxy({})
-        proxy["bitfield_context"] = cls.bitfield_context
+        proxy["bitfield_context"] = context
 
         stream = stream.reorder(cls._reorder)
 
@@ -501,7 +515,7 @@ class Bitfield:
 
         return cls(**proxy), stream
 
-    def to_bits(self, context: t.Any = None) -> Bits:
+    def to_bits(self, context: _ContextT | None = None) -> Bits:
         setattr(self, "bitfield_context", context)
         acc: Bits = Bits()
 
@@ -526,7 +540,7 @@ class Bitfield:
             cls._fields = cls._fields.copy()
 
         for name, type_hint in t.get_type_hints(cls).items():
-            if t.get_origin(type_hint) is t.ClassVar:
+            if t.get_origin(type_hint) is t.ClassVar or name == "bitfield_context":
                 continue
 
             value = getattr(cls, name) if hasattr(cls, name) else NOT_PROVIDED
