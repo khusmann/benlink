@@ -64,8 +64,8 @@ class Bits(t.Tuple[bool, ...]):
         return Bits(self[i] for i, _ in pairs)
 
     @classmethod
-    def from_str(cls, data: str) -> Bits:
-        return cls.from_bytes(data.encode("utf-8"))
+    def from_str(cls, data: str, encoding: str = "utf-8") -> Bits:
+        return cls.from_bytes(data.encode(encoding))
 
     @classmethod
     def from_bytes(cls, data: bytes) -> Bits:
@@ -95,8 +95,8 @@ class Bits(t.Tuple[bool, ...]):
             raise ValueError("Bits is not byte aligned (multiple of 8 bits)")
         return bytes(self[i:i+8].to_int() for i in range(0, len(self), 8))
 
-    def to_str(self) -> str:
-        return self.to_bytes().decode("utf-8")
+    def to_str(self, encoding: str = "utf-8") -> str:
+        return self.to_bytes().decode(encoding)
 
 
 class BitStream:
