@@ -443,6 +443,8 @@ class Bitfield(t.Generic[_DynOptsT]):
 
             setattr(self, name, value)
 
+        self.dyn_opts = kwargs.get("dyn_opts", None)
+
     def __repr__(self) -> str:
         return "".join((
             self.__class__.__name__,
@@ -514,7 +516,7 @@ class Bitfield(t.Generic[_DynOptsT]):
         return cls(**proxy), stream
 
     def to_bits(self, opts: _DynOptsT | None = None) -> Bits:
-        setattr(self, "dyn_opts", opts)
+        self.dyn_opts = opts
         acc: Bits = Bits()
 
         for name, field in self._fields.items():
