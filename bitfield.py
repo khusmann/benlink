@@ -173,7 +173,7 @@ def is_bitfield_class(x: t.Type[t.Any]) -> t.TypeGuard[t.Type[Bitfield[t.Any]]]:
     return issubclass(x, Bitfield)
 
 
-def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield[t.Any], opts: t.Any) -> Bits:
+def bftype_to_bits(bftype: BFType, value: t.Any, proxy: AttrProxy, opts: t.Any) -> Bits:
     match bftype:
         case BFBits(n=n):
             if len(value) != n:
@@ -183,13 +183,13 @@ def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield[t.Any], opts: 
         case BFList(inner=inner, n=n):
             if len(value) != n:
                 raise ValueError(f"expected {n} items, got {len(value)}")
-            return sum([bftype_to_bits(inner, item, parent, opts) for item in value], Bits())
+            return sum([bftype_to_bits(inner, item, proxy, opts) for item in value], Bits())
 
         case BFMap(inner=inner, vm=vm):
-            return bftype_to_bits(inner, vm.back(value), parent, opts)
+            return bftype_to_bits(inner, vm.back(value), proxy, opts)
 
         case BFDynSelf(fn=fn):
-            return bftype_to_bits(undisguise(fn(parent)), value, parent, opts)
+            return bftype_to_bits(undisguise(fn(proxy)), value, proxy, opts)
 
         case BFDynSelfN(fn=fn):
             if is_bitfield(value):
@@ -202,12 +202,12 @@ def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield[t.Any], opts: 
                     f"can only be used with Bitfield, bool, bytes, or None values. "
                     f"{value!r} is not supported"
                 )
-            return bftype_to_bits(undisguise(field), value, parent, opts)
+            return bftype_to_bits(undisguise(field), value, proxy, opts)
 
         case BFLit(inner=inner, default=default):
             if value != default:
                 raise ValueError(f"expected {default!r}, got {value!r}")
-            return bftype_to_bits(inner, value, parent, opts)
+            return bftype_to_bits(inner, value, proxy, opts)
 
         case BFNone():
             if value is not None:
@@ -443,8 +443,6 @@ class Bitfield(t.Generic[_DynOptsT]):
 
             setattr(self, name, value)
 
-        self.dyn_opts = kwargs.get("dyn_opts", None)
-
     def __repr__(self) -> str:
         return "".join((
             self.__class__.__name__,
@@ -496,8 +494,7 @@ class Bitfield(t.Generic[_DynOptsT]):
         stream: BitStream,
         opts: _DynOptsT | None = None
     ):
-        proxy: AttrProxy = AttrProxy({})
-        proxy["dyn_opts"] = opts
+        proxy: AttrProxy = AttrProxy({"dyn_opts": opts})
 
         stream = stream.reorder(cls._reorder)
 
@@ -516,13 +513,14 @@ class Bitfield(t.Generic[_DynOptsT]):
         return cls(**proxy), stream
 
     def to_bits(self, opts: _DynOptsT | None = None) -> Bits:
-        self.dyn_opts = opts
+        proxy = AttrProxy({**self.__dict__, "dyn_opts": opts})
+
         acc: Bits = Bits()
 
         for name, field in self._fields.items():
             value = getattr(self, name)
             try:
-                acc += bftype_to_bits(field, value, self, opts)
+                acc += bftype_to_bits(field, value, proxy, opts)
             except Exception as e:
                 raise type(e)(
                     f"error in field {name!r} of {self.__class__.__name__!r}: {e}"

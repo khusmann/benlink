@@ -70,7 +70,9 @@ def test_basic_context():
     assert foo.to_bytes(Opts(a=10)) == b'\x05'
     foo2 = Foo.from_bytes(b'\x05', Opts(a=10))
     assert foo2 == foo
-    assert foo2.dyn_opts == Opts(a=10)
+
+    assert foo.dyn_opts == None
+    assert foo2.dyn_opts == None
 
 
 def test_basic_subclasses():
