@@ -427,7 +427,7 @@ _DynOptsT = TypeVarDefault("_DynOptsT", default=None)
     )
 )
 class Bitfield(t.Generic[_DynOptsT]):
-    _fields: t.ClassVar[t.Dict[str, BFType]]
+    _fields: t.ClassVar[t.Dict[str, BFType]] = {}
     _reorder: t.ClassVar[t.Sequence[int]] = []
     dyn_opts: _DynOptsT | None = None
 
@@ -532,10 +532,7 @@ class Bitfield(t.Generic[_DynOptsT]):
         return self.to_bits(opts).to_bytes()
 
     def __init_subclass__(cls):
-        if not hasattr(cls, "_bf_fields"):
-            cls._fields = {}
-        else:
-            cls._fields = cls._fields.copy()
+        cls._fields = cls._fields.copy()
 
         for name, type_hint in t.get_type_hints(cls).items():
             if t.get_origin(type_hint) is t.ClassVar or name == "dyn_opts":
