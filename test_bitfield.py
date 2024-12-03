@@ -47,26 +47,30 @@ def test_str_field():
 
 
 def test_basic_context():
-    class TestCtx(t.NamedTuple):
+    class Opts(t.NamedTuple):
         a: int
 
-    def ctx_disc(x: BFWithCtx):
+    def ctx_disc(x: Foo):
         if x.dyn_opts is None:
             return None
 
         if x.dyn_opts.a == 10:
             return bf_int(8)
+        else:
+            return None
 
-    class BFWithCtx(Bitfield[TestCtx]):
+    class Foo(Bitfield[Opts]):
         z: int | None = bf_dyn(ctx_disc)
 
-    bf_with_ctx = BFWithCtx(z=None)
-    assert bf_with_ctx.to_bytes() == b''
-    assert BFWithCtx.from_bytes(bf_with_ctx.to_bytes()) == bf_with_ctx
+    foo = Foo(z=None)
+    assert foo.to_bytes() == b''
+    assert Foo.from_bytes(foo.to_bytes()) == foo
 
-    bf_with_ctx = BFWithCtx(z=5)
-    assert bf_with_ctx.to_bytes(TestCtx(a=10)) == b'\x05'
-    assert BFWithCtx.from_bytes(b'\x05', TestCtx(a=10)) == bf_with_ctx
+    foo = Foo(z=5)
+    assert foo.to_bytes(Opts(a=10)) == b'\x05'
+    foo2 = Foo.from_bytes(b'\x05', Opts(a=10))
+    assert foo2 == foo
+    assert foo2.dyn_opts == Opts(a=10)
 
 
 def test_basic_subclasses():
