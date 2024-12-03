@@ -48,7 +48,7 @@ class BSSSettings(Bitfield):
     location_share_interval: int = bf_int(8)
     bss_user_id: int = bf_int(32)
     ptt_release_id_info: bytes = bf_bytes(12)
-    beacon_message: bytes = bf_bytes(18)
+    beacon_message: str = bf_str(18)
     aprs_symbol: str = bf_str(2)
     aprs_callsign: str = bf_str(6)
 
@@ -70,9 +70,9 @@ class BSSSettingsExt(Bitfield):
     location_share_interval: int = bf_int(8)
     # bss_user_id (reordered; 32)
     ptt_release_id_info: bytes = bf_bytes(12)
-    beacon_message: bytes = bf_bytes(18)
-    aprs_symbol: bytes = bf_bytes(2)
-    aprs_callsign: bytes = bf_bytes(6)
+    beacon_message: str = bf_str(18)
+    aprs_symbol: str = bf_str(2)
+    aprs_callsign: str = bf_str(6)
     # bss_user_id_upper (reordered; 32)
 
     _reorder = [*range(368, 368+32), *range(32, 32+32)]
@@ -402,7 +402,7 @@ class ChannelSettings(Bitfield):
     fixed_tx_power: bool
     mute: bool
     _pad: t.Literal[0] = bf_lit_int(4, default=0)
-    name_str: bytes = bf_bytes(10)
+    name_str: str = bf_str(10)
 
 
 class ChannelSettingsDMR(ChannelSettings):
