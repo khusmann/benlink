@@ -225,8 +225,8 @@ def test_default_children_err():
 
 
 def test_bit_reorder():
-    b = Bits([True, False, True, True, False, False])
+    b = Bits("101100")
     order = [1, 3, 5]
 
-    assert b.reorder(order) == (False, True, False, True, True, False)
+    assert b.reorder(order) == Bits("010110")
     assert b.reorder(order).unreorder(order) == b

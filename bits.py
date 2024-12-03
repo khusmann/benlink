@@ -22,6 +22,11 @@ def reorder_pairs(order: t.Sequence[int], size: int):
 
 
 class Bits(t.Tuple[bool, ...]):
+    def __new__(cls, bits: t.Iterable[bool] | str = ()) -> Bits:
+        if isinstance(bits, str):
+            bits = (bit == "1" for bit in bits if bit in ("0", "1"))
+        return super().__new__(cls, tuple(bits))
+
     @t.overload
     def __getitem__(self, index: t.SupportsIndex) -> bool:
         ...
@@ -40,7 +45,7 @@ class Bits(t.Tuple[bool, ...]):
 
     def __repr__(self) -> str:
         str_bits = "".join(str(int(bit)) for bit in self)
-        return f"0b{str_bits}"
+        return f"{self.__class__.__name__}({str_bits!r})"
 
     def reorder(self, order: t.Sequence[int]):
         if not order:
