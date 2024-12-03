@@ -429,6 +429,7 @@ _DynOptsT = TypeVarDefault("_DynOptsT", default=None)
 class Bitfield(t.Generic[_DynOptsT]):
     _fields: t.ClassVar[t.Dict[str, BFType]] = {}
     _reorder: t.ClassVar[t.Sequence[int]] = []
+    _DYN_OPTS_STR: t.ClassVar[str] = "dyn_opts"
     dyn_opts: _DynOptsT | None = None
 
     def __init__(self, **kwargs: t.Any):
@@ -494,7 +495,7 @@ class Bitfield(t.Generic[_DynOptsT]):
         stream: BitStream,
         opts: _DynOptsT | None = None
     ):
-        proxy: AttrProxy = AttrProxy({"dyn_opts": opts})
+        proxy: AttrProxy = AttrProxy({cls._DYN_OPTS_STR: opts})
 
         stream = stream.reorder(cls._reorder)
 
@@ -513,7 +514,7 @@ class Bitfield(t.Generic[_DynOptsT]):
         return cls(**proxy), stream
 
     def to_bits(self, opts: _DynOptsT | None = None) -> Bits:
-        proxy = AttrProxy({**self.__dict__, "dyn_opts": opts})
+        proxy = AttrProxy({**self.__dict__, self._DYN_OPTS_STR: opts})
 
         acc: Bits = Bits()
 
@@ -535,7 +536,7 @@ class Bitfield(t.Generic[_DynOptsT]):
         cls._fields = cls._fields.copy()
 
         for name, type_hint in t.get_type_hints(cls).items():
-            if t.get_origin(type_hint) is t.ClassVar or name == "dyn_opts":
+            if t.get_origin(type_hint) is t.ClassVar or name == cls._DYN_OPTS_STR:
                 continue
 
             value = getattr(cls, name) if hasattr(cls, name) else NOT_PROVIDED
