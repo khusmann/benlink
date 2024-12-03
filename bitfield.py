@@ -194,12 +194,12 @@ def bftype_to_bits(bftype: BFType, value: t.Any, parent: Bitfield[t.Any], opts: 
         case BFDynSelfN(fn=fn):
             if is_bitfield(value):
                 field = type(value)
-            elif isinstance(value, (str, bytes)) or value is None:
+            elif isinstance(value, (bool, bytes)) or value is None:
                 field = value
             else:
                 raise TypeError(
                     f"dynamic fields that use discriminators with 'n bits remaining' "
-                    f"can only be used with Bitfield, str, bytes, or None values. "
+                    f"can only be used with Bitfield, bool, bytes, or None values. "
                     f"{value!r} is not supported"
                 )
             return bftype_to_bits(undisguise(field), value, parent, opts)
@@ -242,14 +242,12 @@ def undisguise(x: BFTypeDisguised[t.Any]) -> BFType:
             if field_length is None:
                 raise TypeError("cannot infer length for dynamic Bitfield")
             return undisguise(bf_bitfield(x, field_length))
+
         if issubclass(x, bool):
             return undisguise(bf_bool())
 
     if isinstance(x, bytes):
         return undisguise(bf_lit(bf_bytes(len(x)), default=x))
-
-    if isinstance(x, str):
-        return undisguise(bf_lit(bf_str(len(x.encode("utf-8"))), default=x))
 
     if x is None:
         return undisguise(bf_none())

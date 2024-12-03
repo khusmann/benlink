@@ -133,7 +133,7 @@ def test_kitchen_sink():
         d: t.List[int] = bf_list(bf_int(10), 3)
         e: t.List[Baz] = bf_list(Baz, 3)
         f: t.Literal["Hello"] = bf_lit(bf_str(5), default="Hello")
-        h: t.Literal["Hello"] = "Hello"
+        h: t.Literal[b"Hello"] = b"Hello"
         g: t.List[t.List[int]] = bf_list(bf_list(bf_int(10), 3), 3)
         xx: bool
 
@@ -160,7 +160,7 @@ def test_default_len_err():
     class Work(Bitfield):
         a: str = bf_str(4, default="ทt")
         b: bytes = bf_bytes(3, default=b"abc")
-        c: t.Literal["ทt"] = "ทt"
+        c: t.Literal["ทt"] = bf_lit(bf_str(4), default="ทt")
         d: t.List[int] = bf_list(bf_int(3), 4, default=[1, 2, 3, 4])
 
     assert Work.length() == 11*8 + 3*4
