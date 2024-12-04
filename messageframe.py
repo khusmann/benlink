@@ -32,6 +32,12 @@ class ReplyStatus(IntEnum):
 # READ_BSS_SETTINGS / WRITE_BSS_SETTINGS
 
 
+class PacketFormat(IntEnum):
+    BSS = 0
+    APRS = 1
+
+
+# Really should be named "Packet Settings" or something
 class BSSSettings(Bitfield):
     max_fwd_times: int = bf_int(4)
     time_to_live: int = bf_int(4)
@@ -40,7 +46,7 @@ class BSSSettings(Bitfield):
     ptt_release_send_bss_user_id: bool  # (Applies when BSS is turned on)
     should_share_location: bool
     send_pwr_voltage: bool
-    use_aprs_format: bool
+    packet_format: PacketFormat = bf_int_enum(PacketFormat, 1)
     allow_position_check: bool
     _pad: t.Literal[0] = bf_lit_int(1, default=0)
     aprs_ssid: int = bf_int(4)
@@ -62,7 +68,7 @@ class BSSSettingsExt(Bitfield):
     ptt_release_send_bss_user_id: bool  # (Applies when BSS is turned on)
     should_share_location: bool
     send_pwr_voltage: bool
-    use_aprs_format: bool
+    packet_format: PacketFormat = bf_int_enum(PacketFormat, 1)
     allow_position_check: bool
     _pad: t.Literal[0] = bf_lit_int(1, default=0)
     aprs_ssid: int = bf_int(4)
