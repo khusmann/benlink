@@ -84,7 +84,7 @@ class BSSSettingsExt(Bitfield):
     _reorder = [*range(368, 368+32), *range(32, 32+32)]
 
 
-class ReadBSSSettings(Bitfield):
+class ReadBSSSettingsBody(Bitfield):
     unknown: int = bf_int(8)
 
 
@@ -96,16 +96,16 @@ def bss_settings_disc(_: None, n: int):
     raise ValueError(f"Unknown size for BSSSettings ({n})")
 
 
-class ReadBSSSettingsReply(Bitfield):
+class ReadBSSSettingsReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
     bss_settings: BSSSettings | BSSSettingsExt = bf_dyn(bss_settings_disc)
 
 
-class WriteBSSSettings(Bitfield):
+class WriteBSSSettingsBody(Bitfield):
     bss_settings: BSSSettings | BSSSettingsExt = bf_dyn(bss_settings_disc)
 
 
-class WriteBSSSettingsReply(Bitfield):
+class WriteBSSSettingsReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
 
 
@@ -186,7 +186,7 @@ class DataPacket(Bitfield):
     )
 
 
-def event_notification_disc(m: EventNotification, n: int):
+def event_notification_disc(m: EventNotificationBody, n: int):
     match m.event_type:
         case EventNotificationType.HT_STATUS_CHANGED:
             if n == EventNotificationHTStatusChanged.length():
@@ -202,7 +202,7 @@ def event_notification_disc(m: EventNotification, n: int):
             return bf_bitfield(EventNotificationUnknown, n)
 
 
-class EventNotification(Bitfield):
+class EventNotificationBody(Bitfield):
     event_type: EventNotificationType = bf_int_enum(EventNotificationType, 8)
     event: EventNotificationUnknown | DataPacket | EventNotificationHTStatusChanged | EventNotificationHTStatusChangedExt = bf_dyn(
         event_notification_disc
@@ -262,11 +262,11 @@ class PFSetting(Bitfield):
     effect: PFEffectType = bf_int_enum(PFEffectType, 8)
 
 
-class GetPF(Bitfield):
+class GetPFBody(Bitfield):
     pass
 
 
-class GetPFReply(Bitfield):
+class GetPFReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
     pf: t.List[PFSetting] = bf_list(PFSetting, 8)
 
@@ -331,20 +331,20 @@ class RadioSettings(Bitfield):
     _reorder = list(range(72, 72 + 8))
 
 
-class ReadSettings(Bitfield):
+class ReadSettingsBody(Bitfield):
     pass
 
 
-class ReadSettingsReply(Bitfield):
+class ReadSettingsReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
     settings: RadioSettings
 
 
-class WriteSettings(Bitfield):
+class WriteSettingsBody(Bitfield):
     settings: RadioSettings
 
 
-class WriteSettingsReply(Bitfield):
+class WriteSettingsReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
 
 
@@ -431,11 +431,11 @@ def channel_settings_disc(_: None, n: int):
     raise ValueError(f"Unknown channel settings type (size {n})")
 
 
-class ReadRFCh(Bitfield):
+class ReadRFChBody(Bitfield):
     channel_id: int = bf_int(8)
 
 
-class ReadRFChReply(Bitfield):
+class ReadRFChReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
     channel_id: int = bf_int(8)
     channel_settings: ChannelSettings | ChannelSettingsDMR = bf_dyn(
@@ -443,14 +443,14 @@ class ReadRFChReply(Bitfield):
     )
 
 
-class WriteRFCh(Bitfield):
+class WriteRFChBody(Bitfield):
     channel_id: int = bf_int(8)
     channel_settings: ChannelSettings | ChannelSettingsDMR = bf_dyn(
         channel_settings_disc
     )
 
 
-class WriteRFChReply(Bitfield):
+class WriteRFChReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
     channel_id: int = bf_int(8)
 
@@ -495,7 +495,7 @@ class ReadStatusType(IntEnum):
     BATTERY_LEVEL_AS_PERCENTAGE = 4
 
 
-class ReadStatus(Bitfield):
+class ReadStatusBody(Bitfield):
     status_type: ReadStatusType = bf_int_enum(ReadStatusType, 16)
 
 
@@ -523,7 +523,7 @@ RadioStatus = t.Union[
 ]
 
 
-def radio_status_disc(m: ReadStatus):
+def radio_status_disc(m: ReadStatusBody):
     match m.status_type:
         case ReadStatusType.BATTERY_VOLTAGE:
             return ReadStatusVoltage
@@ -537,7 +537,7 @@ def radio_status_disc(m: ReadStatus):
             raise ValueError("Unknown radio status type")
 
 
-class ReadStatusReply(Bitfield):
+class ReadStatusReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
     status_type: ReadStatusType = bf_int_enum(ReadStatusType, 16)
     value: RadioStatus = bf_dyn(radio_status_disc)
@@ -568,11 +568,11 @@ class DevInfo(Bitfield):
     _pad: t.Literal[0] = bf_lit_int(4, default=0)
 
 
-class GetDevInfo(Bitfield):
+class GetDevInfoBody(Bitfield):
     unknown: t.Literal[3] = bf_lit_int(8, default=3)
 
 
-class GetDevInfoReply(Bitfield):
+class GetDevInfoReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
     info: DevInfo | None = bf_dyn(
         lambda x: DevInfo
@@ -585,12 +585,12 @@ class GetDevInfoReply(Bitfield):
 # MessageFrame
 
 
-class CommandGroupId(IntEnum):
+class MessageGroupId(IntEnum):
     BASIC = 2
     EXTENDED = 10
 
 
-class ExtendedCommandId(IntEnum):
+class ExtendedMessageId(IntEnum):
     UNKNOWN = 0
     GET_BT_SIGNAL = 769
     UNKNOWN_01 = 1600
@@ -607,7 +607,7 @@ class ExtendedCommandId(IntEnum):
         return cls.UNKNOWN
 
 
-class BasicCommandId(IntEnum):
+class BasicMessageId(IntEnum):
     UNKNOWN = 0
     GET_DEV_ID = 1
     SET_REG_TIMES = 2
@@ -686,44 +686,44 @@ class BasicCommandId(IntEnum):
     GET_PF_ACTIONS = 75
 
 
-def frame_type_disc(m: Command):
+def frame_type_disc(m: MessageFrame):
     match m.group_id:
-        case CommandGroupId.BASIC:
-            return bf_int_enum(BasicCommandId, 15)
-        case CommandGroupId.EXTENDED:
-            return bf_int_enum(ExtendedCommandId, 15)
+        case MessageGroupId.BASIC:
+            return bf_int_enum(BasicMessageId, 15)
+        case MessageGroupId.EXTENDED:
+            return bf_int_enum(ExtendedMessageId, 15)
 
 
-def body_disc(m: Command, n: int):
+def body_disc(m: MessageFrame, n: int):
     assert n % 8 == 0
     match m.group_id:
-        case CommandGroupId.BASIC:
+        case MessageGroupId.BASIC:
             match m.id:
-                case BasicCommandId.GET_DEV_INFO:
-                    out = GetDevInfoReply if m.is_reply else GetDevInfo
-                case BasicCommandId.READ_STATUS:
-                    out = ReadStatusReply if m.is_reply else ReadStatus
-                case BasicCommandId.READ_RF_CH:
-                    out = ReadRFChReply if m.is_reply else ReadRFCh
-                case BasicCommandId.WRITE_RF_CH:
-                    out = WriteRFChReply if m.is_reply else WriteRFCh
-                case BasicCommandId.READ_SETTINGS:
-                    out = ReadSettingsReply if m.is_reply else ReadSettings
-                case BasicCommandId.WRITE_SETTINGS:
-                    out = WriteSettingsReply if m.is_reply else WriteSettings
-                case BasicCommandId.GET_PF:
-                    out = GetPFReply if m.is_reply else GetPF
-                case BasicCommandId.READ_BSS_SETTINGS:
-                    out = ReadBSSSettingsReply if m.is_reply else ReadBSSSettings
-                case BasicCommandId.WRITE_BSS_SETTINGS:
-                    out = WriteBSSSettingsReply if m.is_reply else WriteBSSSettings
-                case BasicCommandId.EVENT_NOTIFICATION:
+                case BasicMessageId.GET_DEV_INFO:
+                    out = GetDevInfoReplyBody if m.is_reply else GetDevInfoBody
+                case BasicMessageId.READ_STATUS:
+                    out = ReadStatusReplyBody if m.is_reply else ReadStatusBody
+                case BasicMessageId.READ_RF_CH:
+                    out = ReadRFChReplyBody if m.is_reply else ReadRFChBody
+                case BasicMessageId.WRITE_RF_CH:
+                    out = WriteRFChReplyBody if m.is_reply else WriteRFChBody
+                case BasicMessageId.READ_SETTINGS:
+                    out = ReadSettingsReplyBody if m.is_reply else ReadSettingsBody
+                case BasicMessageId.WRITE_SETTINGS:
+                    out = WriteSettingsReplyBody if m.is_reply else WriteSettingsBody
+                case BasicMessageId.GET_PF:
+                    out = GetPFReplyBody if m.is_reply else GetPFBody
+                case BasicMessageId.READ_BSS_SETTINGS:
+                    out = ReadBSSSettingsReplyBody if m.is_reply else ReadBSSSettingsBody
+                case BasicMessageId.WRITE_BSS_SETTINGS:
+                    out = WriteBSSSettingsReplyBody if m.is_reply else WriteBSSSettingsBody
+                case BasicMessageId.EVENT_NOTIFICATION:
                     if m.is_reply:
                         raise ValueError("EventNotification cannot be a reply")
-                    out = EventNotification
+                    out = EventNotificationBody
                 case _:
                     return bf_bytes(n // 8)
-        case CommandGroupId.EXTENDED:
+        case MessageGroupId.EXTENDED:
             match m.id:
                 case _:
                     return bf_bytes(n // 8)
@@ -731,34 +731,34 @@ def body_disc(m: Command, n: int):
     return bf_bitfield(out, n)
 
 
-CommandBody = t.Union[
-    GetDevInfo,
-    GetDevInfoReply,
-    ReadStatus,
-    ReadStatusReply,
-    ReadRFCh,
-    ReadRFChReply,
-    WriteRFCh,
-    WriteRFChReply,
-    ReadSettings,
-    ReadSettingsReply,
-    WriteSettings,
-    WriteSettingsReply,
-    GetPF,
-    GetPFReply,
-    ReadBSSSettings,
-    ReadBSSSettingsReply,
-    WriteBSSSettings,
-    WriteBSSSettingsReply,
-    EventNotification,
+MessageBody = t.Union[
+    GetDevInfoBody,
+    GetDevInfoReplyBody,
+    ReadStatusBody,
+    ReadStatusReplyBody,
+    ReadRFChBody,
+    ReadRFChReplyBody,
+    WriteRFChBody,
+    WriteRFChReplyBody,
+    ReadSettingsBody,
+    ReadSettingsReplyBody,
+    WriteSettingsBody,
+    WriteSettingsReplyBody,
+    GetPFBody,
+    GetPFReplyBody,
+    ReadBSSSettingsBody,
+    ReadBSSSettingsReplyBody,
+    WriteBSSSettingsBody,
+    WriteBSSSettingsReplyBody,
+    EventNotificationBody,
 ]
 
 
-class Command(Bitfield):
-    group_id: CommandGroupId = bf_int_enum(CommandGroupId, 16)
+class MessageFrame(Bitfield):
+    group_id: MessageGroupId = bf_int_enum(MessageGroupId, 16)
     is_reply: bool = bf_bool()
-    id: BasicCommandId | ExtendedCommandId = bf_dyn(frame_type_disc)
-    body: CommandBody | bytes = bf_dyn(body_disc)
+    id: BasicMessageId | ExtendedMessageId = bf_dyn(frame_type_disc)
+    body: MessageBody | bytes = bf_dyn(body_disc)
 
 #################################################
 # GaiaFrame
@@ -781,7 +781,7 @@ class GaiaFrame(Bitfield):
     version: t.Literal[b'\x01'] = b'\x01'
     flags: GaiaFlags = bf_int_enum(GaiaFlags, 8)
     n_bytes_data: int = bf_int(8)
-    data: Command = bf_dyn(lambda x: bf_bitfield(
-        Command, x.n_bytes_data * 8 + 32)  # 32 for group_id + is_reply + id
+    data: MessageFrame = bf_dyn(lambda x: bf_bitfield(
+        MessageFrame, x.n_bytes_data * 8 + 32)  # 32 for group_id + is_reply + id
     )
     checksum: int | None = bf_dyn(checksum_disc, default=None)

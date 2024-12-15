@@ -1,9 +1,9 @@
 from __future__ import annotations
-from .messageframe import (
-    Command,
-    CommandGroupId,
-    BasicCommandId,
-    GetDevInfo,
+from .message import (
+    MessageFrame,
+    MessageGroupId,
+    BasicMessageId,
+    GetDevInfoBody,
     # GetDevInfoReply,
 )
 import typing as t
@@ -37,7 +37,7 @@ RADIO_SERVICE_UUID = "00001100-d102-11e1-9b23-00025b00a5a5"
 RADIO_WRITE_UUID = "00001101-d102-11e1-9b23-00025b00a5a5"
 RADIO_INDICATE_UUID = "00001102-d102-11e1-9b23-00025b00a5a5"
 
-CommandHandler = t.Callable[[Command], None]
+CommandHandler = t.Callable[[MessageFrame], None]
 
 
 class RadioConnection:
@@ -56,11 +56,11 @@ class RadioConnection:
         )
 
         reply = await self.send_command_expect_reply(
-            Command(
-                group_id=CommandGroupId.BASIC,
+            MessageFrame(
+                group_id=MessageGroupId.BASIC,
                 is_reply=False,
-                id=BasicCommandId.GET_DEV_INFO,
-                body=GetDevInfo()
+                id=BasicMessageId.GET_DEV_INFO,
+                body=GetDevInfoBody()
             )
         )
 
@@ -69,17 +69,17 @@ class RadioConnection:
     async def disconnect(self):
         await self._client.disconnect()
 
-    async def send_command(self, command: Command):
+    async def send_command(self, command: MessageFrame):
         await self._client.write_gatt_char(
             RADIO_WRITE_UUID,
             command.to_bytes(),
             response=True
         )
 
-    async def send_command_expect_reply(self, command: Command) -> Command:
-        queue: asyncio.Queue[Command] = asyncio.Queue()
+    async def send_command_expect_reply(self, command: MessageFrame) -> MessageFrame:
+        queue: asyncio.Queue[MessageFrame] = asyncio.Queue()
 
-        def reply_handler(reply: Command):
+        def reply_handler(reply: MessageFrame):
             if reply.is_reply and reply.id == command.id:
                 assert command.group_id == reply.group_id
                 queue.put_nowait(reply)
@@ -102,6 +102,6 @@ class RadioConnection:
 
     def _on_indication(self, characteristic: BleakGATTCharacteristic, data: bytearray):
         assert characteristic.uuid == RADIO_INDICATE_UUID
-        command = Command.from_bytes(data)
+        command = MessageFrame.from_bytes(data)
         for handler in self.handlers:
             handler(command)

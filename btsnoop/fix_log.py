@@ -4,7 +4,7 @@ import csv
 import sys
 import typing as t
 
-from benlink.messageframe import GaiaFrame
+from benlink.message import GaiaFrame
 from benlink.bitfield import BitStream
 
 
