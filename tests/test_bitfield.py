@@ -6,9 +6,9 @@ import re
 
 from enum import IntEnum
 
-from bits import Bits
+from benlink.bits import Bits
 
-from bitfield import (
+from benlink.bitfield import (
     Bitfield,
     bf_str,
     bf_bytes,
