@@ -4,8 +4,8 @@ import csv
 import sys
 import typing as t
 
-from messageframe import MessageFrame
-from bits import BitStream
+from benlink.messageframe import MessageFrame
+from benlink.bitfield import BitStream
 
 
 class MessageStream:
