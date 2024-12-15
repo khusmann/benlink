@@ -73,7 +73,7 @@ class Bits(t.Tuple[bool, ...]):
         return cls.from_bytes(data.encode(encoding))
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> Bits:
+    def from_bytes(cls, data: t.ByteString) -> Bits:
         bits: t.List[bool] = []
         for byte in data:
             bits += cls.from_int(byte, 8)
@@ -646,7 +646,7 @@ class Bitfield(t.Generic[_DynOptsT]):
         return acc
 
     @classmethod
-    def from_bytes(cls, data: bytes, opts: _DynOptsT | None = None):
+    def from_bytes(cls, data: t.ByteString, opts: _DynOptsT | None = None):
         return cls.from_bits(Bits.from_bytes(data), opts)
 
     @classmethod
