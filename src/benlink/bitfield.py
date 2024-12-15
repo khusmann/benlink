@@ -6,7 +6,7 @@ import inspect
 
 from enum import IntEnum, IntFlag, Enum
 
-from bits import Bits, BitStream, AttrProxy
+from .bits import Bits, BitStream, AttrProxy
 
 
 class NotProvided:
