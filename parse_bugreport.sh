@@ -1,6 +1,10 @@
 #!/bin/env bash
-REPORT_FILE=$1
+REPORT_FILE_ZIP=$1
 
-cat ${REPORT_FILE%.zip}.txt | sed 's/^/# /'
+report_file="${REPORT_FILE_ZIP%.zip}.txt"
+
+if [ -f "$report_file" ]; then
+    cat "$report_file" | sed 's/^/# /'
+fi
 echo
-./cat_btsnoop.sh $REPORT_FILE | ./fix_log.py
+./cat_btsnoop.sh $REPORT_FILE_ZIP | ./fix_log.py
