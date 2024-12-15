@@ -4,20 +4,20 @@ import csv
 import sys
 import typing as t
 
-from benlink.messageframe import MessageFrame
+from benlink.messageframe import GaiaFrame
 from benlink.bitfield import BitStream
 
 
-class MessageStream:
+class GaiaFrameStream:
     _stream: BitStream
 
     def __init__(self):
         self._stream = BitStream()
 
-    def update(self, data: bytes) -> t.List[MessageFrame]:
+    def update(self, data: bytes) -> t.List[GaiaFrame]:
         self._stream = self._stream.extend_bytes(data)
 
-        messages: t.List[MessageFrame] = []
+        messages: t.List[GaiaFrame] = []
 
         while self._stream.remaining():
             if self._stream.peek_bytes(1) != b"\xff":
@@ -26,7 +26,7 @@ class MessageStream:
                     _, self._stream = self._stream.take_bytes(1)
 
             try:
-                value, self._stream = MessageFrame.from_bitstream(self._stream)
+                value, self._stream = GaiaFrame.from_bitstream(self._stream)
                 messages.append(value)
             except EOFError:
                 break
@@ -47,33 +47,33 @@ output_header = [
 writer = csv.DictWriter(sys.stdout, fieldnames=output_header)
 writer.writeheader()
 
-phone_to_radio = MessageStream()
-radio_to_phone = MessageStream()
+phone_to_radio = GaiaFrameStream()
+radio_to_phone = GaiaFrameStream()
 
-for frame in reader:
-    if frame["id"] == "NEW_BTSNOOP":
+for snoop_frame in reader:
+    if snoop_frame["id"] == "NEW_BTSNOOP":
         writer.writerow({
             "id": "NEW_BTSNOOP"
         })
         continue
 
-    data = bytes.fromhex(frame["data"].replace(":", ""))
+    data = bytes.fromhex(snoop_frame["data"].replace(":", ""))
 
-    match frame["dir"]:
+    match snoop_frame["dir"]:
         case "phone->radio":
-            messages = phone_to_radio.update(data)
+            frames = phone_to_radio.update(data)
         case "radio->phone":
-            messages = radio_to_phone.update(data)
+            frames = radio_to_phone.update(data)
         case _:
-            raise ValueError(f"Unknown direction: {frame['dir']}")
+            raise ValueError(f"Unknown direction: {snoop_frame['dir']}")
 
-    for message in messages:
+    for frame in frames:
         writer.writerow({
-            "id": frame["id"],
-            "dir": frame["dir"],
+            "id": snoop_frame["id"],
+            "dir": snoop_frame["dir"],
             "is_known": True,
-            "group": message.type_group.name,
-            "is_reply": message.is_reply,
-            "command": message.type.name,
-            "message": str(message.body)
+            "group": frame.data.group_id.name,
+            "is_reply": frame.data.is_reply,
+            "command": frame.data.id.name,
+            "message": str(frame.data.body)
         })

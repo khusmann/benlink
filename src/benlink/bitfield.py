@@ -574,7 +574,6 @@ def bf_none(*, default: None | NotProvided = NOT_PROVIDED) -> BFTypeDisguised[No
 def bf_bitfield(
     cls: t.Type[_BitfieldT],
     n: int,
-    *,
     default: _BitfieldT | NotProvided = NOT_PROVIDED
 ) -> BFTypeDisguised[_BitfieldT]:
     return disguise(BFBitfield(cls, n, default=default))
