@@ -39,7 +39,7 @@ print(client.channel_settings)
 await client.set_channel_settings(channel_id=0, name = "helloworld")
 print(client.channel_settings[0])
 
-await client.set_channel_settings(channel_id=0, freq = 146.460)
+await client.set_channel_settings(channel_id=0, name = "foo", rx_freq = 146.460)
 print(client.channel_settings[0])
 
 await client.disconnect()
