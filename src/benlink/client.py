@@ -21,6 +21,11 @@ class RadioClient:
         self._device_uuid = device_uuid
         self._conn = RadioConnection(device_uuid)
 
+    def __repr__(self):
+        if not self._is_connected:
+            return f"<RadioClient {self.device_uuid} (disconnected)>"
+        return f"<RadioClient {self.device_uuid} (connected)>"
+
     @property
     def device_info(self):
         self._assert_conn()
