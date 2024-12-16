@@ -419,7 +419,13 @@ class ChannelSettingsDMR(ChannelSettings):
     _pad2: t.Literal[0] = bf_lit_int(7, default=0)
 
 
-def channel_settings_disc(_: None, n: int):
+def channel_settings_reply_disc(body: ReadRFChReplyBody, n: int):
+    if body.reply_status != ReplyStatus.SUCCESS:
+        return None
+    return channel_settings_disc(body, n)
+
+
+def channel_settings_disc(_: ReadRFChReplyBody | WriteRFChBody, n: int):
     # Note: in the app, this is detected via support_dmr in
     # device settings. But for simplicity, I'm just going to
     # use the size of the bitfield.
@@ -438,8 +444,8 @@ class ReadRFChBody(Bitfield):
 
 class ReadRFChReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
-    channel_settings: ChannelSettings | ChannelSettingsDMR = bf_dyn(
-        channel_settings_disc
+    channel_settings: ChannelSettings | ChannelSettingsDMR | None = bf_dyn(
+        channel_settings_reply_disc
     )
 
 

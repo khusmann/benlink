@@ -35,19 +35,19 @@ class RadioConnection:
     async def send_command(self, command: Message):
         await self._client.write_gatt_char(
             RADIO_WRITE_UUID,
-            to_protocol_message(command).to_bytes(),
+            message_to_protocol(command).to_bytes(),
             response=True
         )
 
-    async def send_command_expect_reply(self, command: Message) -> Message:
-        queue: asyncio.Queue[Message] = asyncio.Queue()
+    async def send_command_expect_reply(self, command: Message) -> Message | MessageReplyError:
+        queue: asyncio.Queue[Message | MessageReplyError] = asyncio.Queue()
 
-        proto_command = to_protocol_message(command)
+        proto_command = message_to_protocol(command)
 
         def reply_handler(reply: p.MessageFrame):
             if reply.is_reply and reply.command == proto_command.command:
                 assert proto_command.command_group == reply.command_group
-                queue.put_nowait(from_protocol_message(reply))
+                queue.put_nowait(message_from_protocol(reply))
 
         self.add_handler(reply_handler)
 
@@ -88,7 +88,7 @@ class RadioConnection:
         return reply.device_info
 
 
-def to_protocol_message(m: Message) -> p.MessageFrame:
+def message_to_protocol(m: Message) -> p.MessageFrame:
     match m:
         case GetDeviceInfo():
             return p.MessageFrame(
@@ -108,22 +108,37 @@ def to_protocol_message(m: Message) -> p.MessageFrame:
             raise ValueError(f"Unknown message: {m}")
 
 
-def from_protocol_message(mf: p.MessageFrame) -> Message:
+def message_from_protocol(mf: p.MessageFrame) -> Message | MessageReplyError:
     match mf:
         case p.MessageFrame(
+            command_group=command_group,
+            command=command,
             body=p.GetDevInfoReplyBody(
+                reply_status=reply_status,
                 info=info
             )
-        ) if info is not None:
+        ):
+            if info is None:
+                return MessageReplyError(
+                    command_group=command_group.name,
+                    command=command.name,
+                    reason=reply_status.name,
+                )
             return GetDeviceInfoReply(device_info=DeviceInfo.from_protocol(info))
         case p.MessageFrame(
-            command_group=p.CommandGroup.BASIC,
-            is_reply=True,
-            command=p.BasicCommand.READ_RF_CH,
+            command_group=command_group,
+            command=command,
             body=p.ReadRFChReplyBody(
+                reply_status=reply_status,
                 channel_settings=channel_settings
             )
         ):
+            if channel_settings is None:
+                return MessageReplyError(
+                    command_group=command_group.name,
+                    command=command.name,
+                    reason=reply_status.name,
+                )
             return GetChannelSettingsReply(channel_settings=ChannelSettings.from_protocol(channel_settings))
         case _:
             raise ValueError(f"Unknown message frame: {mf}")
@@ -157,6 +172,13 @@ class SetChannelSettings:
 @dataclass(frozen=True)
 class SetChannelSettingsReply:
     pass
+
+
+@dataclass(frozen=True)
+class MessageReplyError:
+    command_group: str
+    command: str
+    reason: str
 
 
 Message = t.Union[
