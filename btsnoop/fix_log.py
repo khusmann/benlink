@@ -4,7 +4,7 @@ import csv
 import sys
 import typing as t
 
-from benlink.message import GaiaFrame
+from benlink.protocol import GaiaFrame
 from benlink.bitfield import BitStream
 
 
@@ -72,8 +72,8 @@ for snoop_frame in reader:
             "id": snoop_frame["id"],
             "dir": snoop_frame["dir"],
             "is_known": True,
-            "group": frame.data.group_id.name,
+            "group": frame.data.command_group.name,
             "is_reply": frame.data.is_reply,
-            "command": frame.data.id.name,
+            "command": frame.data.command.name,
             "message": str(frame.data.body)
         })

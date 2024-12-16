@@ -389,6 +389,7 @@ class SubAudioMap:
 
 
 class ChannelSettings(Bitfield):
+    channel_id: int = bf_int(8)
     tx_mod: ModulationType = bf_int_enum(ModulationType, 2)
     tx_freq: float = bf_map(bf_int(30), Scale(1e-6, 6))
     rx_mod: ModulationType = bf_int_enum(ModulationType, 2)
@@ -404,7 +405,7 @@ class ChannelSettings(Bitfield):
     tx_at_med_power: bool
     tx_disable: bool
     fixed_freq: bool
-    fixed_bandwith: bool
+    fixed_bandwidth: bool
     fixed_tx_power: bool
     mute: bool
     _pad: t.Literal[0] = bf_lit_int(4, default=0)
@@ -437,14 +438,12 @@ class ReadRFChBody(Bitfield):
 
 class ReadRFChReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
-    channel_id: int = bf_int(8)
     channel_settings: ChannelSettings | ChannelSettingsDMR = bf_dyn(
         channel_settings_disc
     )
 
 
 class WriteRFChBody(Bitfield):
-    channel_id: int = bf_int(8)
     channel_settings: ChannelSettings | ChannelSettingsDMR = bf_dyn(
         channel_settings_disc
     )
@@ -585,12 +584,12 @@ class GetDevInfoReplyBody(Bitfield):
 # MessageFrame
 
 
-class MessageGroupId(IntEnum):
+class CommandGroup(IntEnum):
     BASIC = 2
     EXTENDED = 10
 
 
-class ExtendedMessageId(IntEnum):
+class ExtendedCommand(IntEnum):
     UNKNOWN = 0
     GET_BT_SIGNAL = 769
     UNKNOWN_01 = 1600
@@ -607,7 +606,7 @@ class ExtendedMessageId(IntEnum):
         return cls.UNKNOWN
 
 
-class BasicMessageId(IntEnum):
+class BasicCommand(IntEnum):
     UNKNOWN = 0
     GET_DEV_ID = 1
     SET_REG_TIMES = 2
@@ -687,44 +686,44 @@ class BasicMessageId(IntEnum):
 
 
 def frame_type_disc(m: MessageFrame):
-    match m.group_id:
-        case MessageGroupId.BASIC:
-            return bf_int_enum(BasicMessageId, 15)
-        case MessageGroupId.EXTENDED:
-            return bf_int_enum(ExtendedMessageId, 15)
+    match m.command_group:
+        case CommandGroup.BASIC:
+            return bf_int_enum(BasicCommand, 15)
+        case CommandGroup.EXTENDED:
+            return bf_int_enum(ExtendedCommand, 15)
 
 
 def body_disc(m: MessageFrame, n: int):
     assert n % 8 == 0
-    match m.group_id:
-        case MessageGroupId.BASIC:
-            match m.id:
-                case BasicMessageId.GET_DEV_INFO:
+    match m.command_group:
+        case CommandGroup.BASIC:
+            match m.command:
+                case BasicCommand.GET_DEV_INFO:
                     out = GetDevInfoReplyBody if m.is_reply else GetDevInfoBody
-                case BasicMessageId.READ_STATUS:
+                case BasicCommand.READ_STATUS:
                     out = ReadStatusReplyBody if m.is_reply else ReadStatusBody
-                case BasicMessageId.READ_RF_CH:
+                case BasicCommand.READ_RF_CH:
                     out = ReadRFChReplyBody if m.is_reply else ReadRFChBody
-                case BasicMessageId.WRITE_RF_CH:
+                case BasicCommand.WRITE_RF_CH:
                     out = WriteRFChReplyBody if m.is_reply else WriteRFChBody
-                case BasicMessageId.READ_SETTINGS:
+                case BasicCommand.READ_SETTINGS:
                     out = ReadSettingsReplyBody if m.is_reply else ReadSettingsBody
-                case BasicMessageId.WRITE_SETTINGS:
+                case BasicCommand.WRITE_SETTINGS:
                     out = WriteSettingsReplyBody if m.is_reply else WriteSettingsBody
-                case BasicMessageId.GET_PF:
+                case BasicCommand.GET_PF:
                     out = GetPFReplyBody if m.is_reply else GetPFBody
-                case BasicMessageId.READ_BSS_SETTINGS:
+                case BasicCommand.READ_BSS_SETTINGS:
                     out = ReadBSSSettingsReplyBody if m.is_reply else ReadBSSSettingsBody
-                case BasicMessageId.WRITE_BSS_SETTINGS:
+                case BasicCommand.WRITE_BSS_SETTINGS:
                     out = WriteBSSSettingsReplyBody if m.is_reply else WriteBSSSettingsBody
-                case BasicMessageId.EVENT_NOTIFICATION:
+                case BasicCommand.EVENT_NOTIFICATION:
                     if m.is_reply:
                         raise ValueError("EventNotification cannot be a reply")
                     out = EventNotificationBody
                 case _:
                     return bf_bytes(n // 8)
-        case MessageGroupId.EXTENDED:
-            match m.id:
+        case CommandGroup.EXTENDED:
+            match m.command:
                 case _:
                     return bf_bytes(n // 8)
 
@@ -755,9 +754,9 @@ MessageBody = t.Union[
 
 
 class MessageFrame(Bitfield):
-    group_id: MessageGroupId = bf_int_enum(MessageGroupId, 16)
+    command_group: CommandGroup = bf_int_enum(CommandGroup, 16)
     is_reply: bool = bf_bool()
-    id: BasicMessageId | ExtendedMessageId = bf_dyn(frame_type_disc)
+    command: BasicCommand | ExtendedCommand = bf_dyn(frame_type_disc)
     body: MessageBody | bytes = bf_dyn(body_disc)
 
 #################################################
