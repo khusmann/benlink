@@ -20,7 +20,30 @@ pip install -e .
 
 ## Usage
 
-Coming soon...
+Use iPython to get an interactive shell and explore the API:
+
+```bash
+ipython
+```
+
+```python
+from benlink.client import RadioClient
+
+client = RadioClient("<device_uuid>")
+
+await client.connect()
+
+print(client.device_info)
+print(client.channels)
+
+await client.set_channel(0, name = "helloworld")
+print(client.channels[0])
+
+await client.set_channel(0, freq = 146.460)
+print(client.channels[0])
+
+client.disconnect()
+```
 
 ## Contributing
 
