@@ -34,15 +34,15 @@ client = RadioClient("<device_uuid>")
 await client.connect()
 
 print(client.device_info)
-print(client.channels)
+print(client.channel_settings)
 
-await client.set_channel(0, name = "helloworld")
-print(client.channels[0])
+await client.set_channel_settings(channel_id=0, name = "helloworld")
+print(client.channel_settings[0])
 
-await client.set_channel(0, freq = 146.460)
-print(client.channels[0])
+await client.set_channel_settings(channel_id=0, freq = 146.460)
+print(client.channel_settings[0])
 
-client.disconnect()
+await client.disconnect()
 ```
 
 ## Contributing
