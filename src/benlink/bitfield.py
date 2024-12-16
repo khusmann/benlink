@@ -367,16 +367,16 @@ def bftype_to_bits(bftype: BFType, value: t.Any, proxy: AttrProxy, opts: t.Any) 
 
         case BFDynSelfN(fn=fn):
             if is_bitfield(value):
-                field = type(value)
-            elif isinstance(value, (bool, bytes)) or value is None:
-                field = value
-            else:
-                raise TypeError(
-                    f"dynamic fields that use discriminators with 'n bits remaining' "
-                    f"can only be used with Bitfield, bool, bytes, or None values. "
-                    f"{value!r} is not supported"
-                )
-            return bftype_to_bits(undisguise(field), value, proxy, opts)
+                return value.to_bits(opts)
+
+            if isinstance(value, (bool, bytes)) or value is None:
+                return bftype_to_bits(undisguise(value), value, proxy, opts)
+
+            raise TypeError(
+                f"dynamic fields that use discriminators with 'n bits remaining' "
+                f"can only be used with Bitfield, bool, bytes, or None values. "
+                f"{value!r} is not supported"
+            )
 
         case BFLit(inner=inner, default=default):
             if value != default:

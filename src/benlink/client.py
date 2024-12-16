@@ -1,10 +1,11 @@
 from __future__ import annotations
-
+from typing_extensions import Unpack
 import typing as t
 from .connection import (
     RadioConnection,
     DeviceInfo,
     ChannelSettings,
+    ChannelSettingsDict,
 )
 # from contextlib import contextmanager
 
@@ -41,6 +42,19 @@ class RadioClient:
     def _assert_conn(self):
         if not self._is_connected:
             raise ValueError("Not connected")
+
+    async def set_channel_settings(
+        self, **settings: Unpack[ChannelSettingsDict]
+    ):
+        self._assert_conn()
+
+        new_settings = ChannelSettings(**(
+            self._channels[settings["channel_id"]].as_dict() | settings
+        ))
+
+        await self._conn.set_channel_settings(new_settings)
+
+        self._channels[settings["channel_id"]] = new_settings
 
     async def _hydrate(self):
         self._device_info = await self._conn.get_device_info()

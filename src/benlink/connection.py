@@ -6,6 +6,7 @@ from bleak.backends.characteristic import BleakGATTCharacteristic
 from . import protocol as p
 
 import typing as t
+from typing_extensions import Required, Unpack
 
 RADIO_SERVICE_UUID = "00001100-d102-11e1-9b23-00025b00a5a5"
 RADIO_WRITE_UUID = "00001101-d102-11e1-9b23-00025b00a5a5"
@@ -67,6 +68,12 @@ class RadioConnection:
 
         return reply.channel_settings
 
+    async def set_channel_settings(self, channel_settings: ChannelSettings):
+        reply = await self.send_command_expect_reply(SetChannelSettings(channel_settings))
+
+        if not isinstance(reply, SetChannelSettingsReply):
+            raise ValueError(f"Expected SetChannelSettingsReply, got {reply}")
+
     def add_handler(self, handler: MessageFrameHandler):
         self.handlers.append(handler)
 
@@ -104,12 +111,34 @@ def message_to_protocol(m: Message) -> p.MessageFrame:
                 command=p.BasicCommand.READ_RF_CH,
                 body=p.ReadRFChBody(channel_id=channel_id)
             )
+        case SetChannelSettings(channel_settings=channel_settings):
+            return p.MessageFrame(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.WRITE_RF_CH,
+                body=p.WriteRFChBody(
+                    channel_settings=channel_settings.to_protocol())
+            )
         case _:
             raise ValueError(f"Unknown message: {m}")
 
 
 def message_from_protocol(mf: p.MessageFrame) -> Message | MessageReplyError:
     match mf:
+        case p.MessageFrame(
+            command_group=command_group,
+            command=command,
+            body=p.WriteRFChReplyBody(
+                reply_status=reply_status,
+            )
+        ):
+            if reply_status is not p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    command_group=command_group.name,
+                    command=command.name,
+                    reason=reply_status.name,
+                )
+            return SetChannelSettingsReply()
         case p.MessageFrame(
             command_group=command_group,
             command=command,
@@ -259,6 +288,29 @@ def bw_to_protocol(lit: BandwidthType) -> p.BandwidthType:
             return p.BandwidthType.WIDE
 
 
+class ChannelSettingsDict(t.TypedDict, total=False):
+    channel_id: Required[int]
+    tx_mod: ModulationType
+    tx_freq: float
+    rx_mod: ModulationType
+    rx_freq: float
+    tx_sub_audio: float | DCS | None
+    rx_sub_audio: float | DCS | None
+    scan: bool
+    tx_at_max_power: bool
+    talk_around: bool
+    bandwidth: BandwidthType
+    pre_de_emph_bypass: bool
+    sign: bool
+    tx_at_med_power: bool
+    tx_disable: bool
+    fixed_freq: bool
+    fixed_bandwidth: bool
+    fixed_tx_power: bool
+    mute: bool
+    name: str
+
+
 @dataclass(frozen=True)
 class ChannelSettings:
     channel_id: int
@@ -281,6 +333,35 @@ class ChannelSettings:
     fixed_tx_power: bool
     mute: bool
     name: str
+
+    def mutate(self, **settings: Unpack[ChannelSettingsDict]) -> ChannelSettings:
+        return ChannelSettings(
+            **self.as_dict() | settings
+        )
+
+    def as_dict(self) -> ChannelSettingsDict:
+        return {
+            "channel_id": self.channel_id,
+            "tx_mod": self.tx_mod,
+            "tx_freq": self.tx_freq,
+            "rx_mod": self.rx_mod,
+            "rx_freq": self.rx_freq,
+            "tx_sub_audio": self.tx_sub_audio,
+            "rx_sub_audio": self.rx_sub_audio,
+            "scan": self.scan,
+            "tx_at_max_power": self.tx_at_max_power,
+            "talk_around": self.talk_around,
+            "bandwidth": self.bandwidth,
+            "pre_de_emph_bypass": self.pre_de_emph_bypass,
+            "sign": self.sign,
+            "tx_at_med_power": self.tx_at_med_power,
+            "tx_disable": self.tx_disable,
+            "fixed_freq": self.fixed_freq,
+            "fixed_bandwidth": self.fixed_bandwidth,
+            "fixed_tx_power": self.fixed_tx_power,
+            "mute": self.mute,
+            "name": self.name
+        }
 
     @staticmethod
     def from_protocol(cs: p.ChannelSettings) -> ChannelSettings:
