@@ -8,7 +8,7 @@ from enum import IntEnum, IntFlag, Enum
 
 
 def reorder_pairs(order: t.Sequence[int], size: int):
-    if not all(i < size for i in order) or not all(i > 0 for i in order):
+    if not all(i < size for i in order) or not all(i >= 0 for i in order):
         raise ValueError(
             f"some indices in the reordering are out-of-bounds"
         )
