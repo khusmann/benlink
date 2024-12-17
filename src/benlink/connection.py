@@ -4,9 +4,9 @@ import asyncio
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from . import protocol as p
+from .common import DCS, ImmutableBaseModel
 
 import typing as t
-from typing_extensions import Required, Unpack
 
 RADIO_SERVICE_UUID = "00001100-d102-11e1-9b23-00025b00a5a5"
 RADIO_WRITE_UUID = "00001101-d102-11e1-9b23-00025b00a5a5"
@@ -223,73 +223,12 @@ Message = t.Union[
 # Protocol to Message conversions
 
 
-class DCS(t.NamedTuple):
-    n: int
+ModulationType = t.Literal["AM", "FM", "DMR"]
 
-    def __repr__(self):
-        return f"DCS({self.n})"
+BandwidthType = t.Literal["NARROW", "WIDE"]
 
 
-def sub_audio_to_protocol(sa: float | DCS | None) -> float | p.DCS | None:
-    match sa:
-        case None | float() | int():
-            return sa
-        case DCS(n=n):
-            return p.DCS(n)
-
-
-def sub_audio_from_protocol(sa: float | p.DCS | None) -> float | DCS | None:
-    match sa:
-        case None | float() | int():
-            return sa
-        case p.DCS(n=n):
-            return DCS(n)
-
-
-ModulationType = t.Literal["am", "fm", "dmr"]
-
-
-def mod_from_protocol(mod: p.ModulationType) -> ModulationType:
-    match mod:
-        case p.ModulationType.AM:
-            return "am"
-        case p.ModulationType.FM:
-            return "fm"
-        case p.ModulationType.DMR:
-            return "dmr"
-
-
-def mod_to_protocol(lit: ModulationType) -> p.ModulationType:
-    match lit:
-        case "am":
-            return p.ModulationType.AM
-        case "fm":
-            return p.ModulationType.FM
-        case "dmr":
-            return p.ModulationType.DMR
-
-
-BandwidthType = t.Literal["narrow", "wide"]
-
-
-def bw_from_protocol(bw: p.BandwidthType) -> BandwidthType:
-    match bw:
-        case p.BandwidthType.NARROW:
-            return "narrow"
-        case p.BandwidthType.WIDE:
-            return "wide"
-
-
-def bw_to_protocol(lit: BandwidthType) -> p.BandwidthType:
-    match lit:
-        case "narrow":
-            return p.BandwidthType.NARROW
-        case "wide":
-            return p.BandwidthType.WIDE
-
-
-class ChannelSettingsDict(t.TypedDict, total=False):
-    channel_id: Required[int]
+class ChannelSettingsArgs(t.TypedDict, total=False):
     tx_mod: ModulationType
     tx_freq: float
     rx_mod: ModulationType
@@ -311,8 +250,7 @@ class ChannelSettingsDict(t.TypedDict, total=False):
     name: str
 
 
-@dataclass(frozen=True)
-class ChannelSettings:
+class ChannelSettings(ImmutableBaseModel):
     channel_id: int
     tx_mod: ModulationType
     tx_freq: float
@@ -334,49 +272,20 @@ class ChannelSettings:
     mute: bool
     name: str
 
-    def mutate(self, **settings: Unpack[ChannelSettingsDict]) -> ChannelSettings:
-        return ChannelSettings(
-            **self.as_dict() | settings
-        )
-
-    def as_dict(self) -> ChannelSettingsDict:
-        return {
-            "channel_id": self.channel_id,
-            "tx_mod": self.tx_mod,
-            "tx_freq": self.tx_freq,
-            "rx_mod": self.rx_mod,
-            "rx_freq": self.rx_freq,
-            "tx_sub_audio": self.tx_sub_audio,
-            "rx_sub_audio": self.rx_sub_audio,
-            "scan": self.scan,
-            "tx_at_max_power": self.tx_at_max_power,
-            "talk_around": self.talk_around,
-            "bandwidth": self.bandwidth,
-            "pre_de_emph_bypass": self.pre_de_emph_bypass,
-            "sign": self.sign,
-            "tx_at_med_power": self.tx_at_med_power,
-            "tx_disable": self.tx_disable,
-            "fixed_freq": self.fixed_freq,
-            "fixed_bandwidth": self.fixed_bandwidth,
-            "fixed_tx_power": self.fixed_tx_power,
-            "mute": self.mute,
-            "name": self.name
-        }
-
     @staticmethod
     def from_protocol(cs: p.ChannelSettings) -> ChannelSettings:
         return ChannelSettings(
             channel_id=cs.channel_id,
-            tx_mod=mod_from_protocol(cs.tx_mod),
+            tx_mod=cs.tx_mod.name,
             tx_freq=cs.tx_freq,
-            rx_mod=mod_from_protocol(cs.rx_mod),
+            rx_mod=cs.rx_mod.name,
             rx_freq=cs.rx_freq,
-            tx_sub_audio=sub_audio_from_protocol(cs.tx_sub_audio),
-            rx_sub_audio=sub_audio_from_protocol(cs.rx_sub_audio),
+            tx_sub_audio=cs.tx_sub_audio,
+            rx_sub_audio=cs.rx_sub_audio,
             scan=cs.scan,
             tx_at_max_power=cs.tx_at_max_power,
             talk_around=cs.talk_around,
-            bandwidth=bw_from_protocol(cs.bandwidth),
+            bandwidth=cs.bandwidth.name,
             pre_de_emph_bypass=cs.pre_de_emph_bypass,
             sign=cs.sign,
             tx_at_med_power=cs.tx_at_med_power,
@@ -391,16 +300,16 @@ class ChannelSettings:
     def to_protocol(self) -> p.ChannelSettings:
         return p.ChannelSettings(
             channel_id=self.channel_id,
-            tx_mod=mod_to_protocol(self.tx_mod),
+            tx_mod=p.ModulationType[self.tx_mod],
             tx_freq=self.tx_freq,
-            rx_mod=mod_to_protocol(self.rx_mod),
+            rx_mod=p.ModulationType[self.rx_mod],
             rx_freq=self.rx_freq,
-            tx_sub_audio=sub_audio_to_protocol(self.tx_sub_audio),
-            rx_sub_audio=sub_audio_to_protocol(self.rx_sub_audio),
+            tx_sub_audio=self.tx_sub_audio,
+            rx_sub_audio=self.rx_sub_audio,
             scan=self.scan,
             tx_at_max_power=self.tx_at_max_power,
             talk_around=self.talk_around,
-            bandwidth=bw_to_protocol(self.bandwidth),
+            bandwidth=p.BandwidthType[self.bandwidth],
             pre_de_emph_bypass=self.pre_de_emph_bypass,
             sign=self.sign,
             tx_at_med_power=self.tx_at_med_power,
@@ -413,8 +322,7 @@ class ChannelSettings:
         )
 
 
-@dataclass(frozen=True)
-class DeviceInfo:
+class DeviceInfo(ImmutableBaseModel):
     vendor_id: int
     product_id: int
     hardware_version: int
@@ -422,14 +330,14 @@ class DeviceInfo:
     supports_radio: bool
     supports_medium_power: bool
     fixed_location_speaker_volume: bool
-    does_not_support_software_power_control: bool
-    has_no_speaker: bool
+    has_speaker: bool
     has_hand_microphone_speaker: bool
     region_count: int
     supports_noaa: bool
     supports_gmrs: bool
     supports_vfo: bool
     supports_dmr: bool
+    supports_software_power_control: bool
     channel_count: int
     frequency_range_count: int
 
@@ -443,8 +351,8 @@ class DeviceInfo:
             supports_radio=info.support_radio,
             supports_medium_power=info.support_medium_power,
             fixed_location_speaker_volume=info.fixed_loc_speaker_vol,
-            does_not_support_software_power_control=info.not_support_soft_power_ctrl,
-            has_no_speaker=info.have_no_speaker,
+            supports_software_power_control=not info.not_support_soft_power_ctrl,
+            has_speaker=not info.have_no_speaker,
             has_hand_microphone_speaker=info.have_hm_speaker,
             region_count=info.region_count,
             supports_noaa=info.support_noaa,
@@ -464,8 +372,8 @@ class DeviceInfo:
             support_radio=self.supports_radio,
             support_medium_power=self.supports_medium_power,
             fixed_loc_speaker_vol=self.fixed_location_speaker_volume,
-            not_support_soft_power_ctrl=self.does_not_support_software_power_control,
-            have_no_speaker=self.has_no_speaker,
+            not_support_soft_power_ctrl=not self.supports_software_power_control,
+            have_no_speaker=not self.has_speaker,
             have_hm_speaker=self.has_hand_microphone_speaker,
             region_count=self.region_count,
             support_noaa=self.supports_noaa,

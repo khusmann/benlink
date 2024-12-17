@@ -5,7 +5,7 @@ from .connection import (
     RadioConnection,
     DeviceInfo,
     ChannelSettings,
-    ChannelSettingsDict,
+    ChannelSettingsArgs,
 )
 # from contextlib import contextmanager
 
@@ -48,18 +48,18 @@ class RadioClient:
         if not self._is_connected:
             raise ValueError("Not connected")
 
-    async def set_channel_settings(
-        self, **settings: Unpack[ChannelSettingsDict]
+    async def set_channel(
+        self, channel_id: int, **settings: Unpack[ChannelSettingsArgs]
     ):
         self._assert_conn()
 
-        new_settings = ChannelSettings(**(
-            self._channels[settings["channel_id"]].as_dict() | settings
-        ))
+        new_settings = self._channels[channel_id].model_copy(
+            update=dict(settings)
+        )
 
         await self._conn.set_channel_settings(new_settings)
 
-        self._channels[settings["channel_id"]] = new_settings
+        self._channels[channel_id] = new_settings
 
     async def _hydrate(self):
         self._device_info = await self._conn.get_device_info()

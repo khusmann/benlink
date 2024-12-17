@@ -13,6 +13,7 @@ from .bitfield import (
     bf_bitfield,
     Scale,
 )
+from .common import DCS
 import typing as t
 import sys
 from enum import IntEnum, IntFlag
@@ -361,10 +362,6 @@ class ModulationType(IntEnum):
 class BandwidthType(IntEnum):
     NARROW = 0
     WIDE = 1
-
-
-class DCS(t.NamedTuple):
-    n: int
 
 
 class SubAudioMap:
