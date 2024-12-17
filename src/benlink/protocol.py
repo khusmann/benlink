@@ -230,7 +230,12 @@ class RadioSettings(Bitfield):
     vfo1_mod_freq_x: int = bf_int(32)
     vfo2_mod_freq_x: int = bf_int(32)
 
-    _reorder = list(range(72, 72 + 8))
+    _reorder = [
+        *range(72, 72 + 4),  # channel_a_upper
+        *range(0, 4),  # channel_a_lower
+        *range(76, 76 + 4),  # channel_b_upper
+        *range(4, 4 + 4)  # channel_b_lower
+    ]
 
 
 class ReadSettingsBody(Bitfield):
