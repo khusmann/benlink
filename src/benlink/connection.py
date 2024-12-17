@@ -66,6 +66,14 @@ class RadioConnection:
 
         return reply.channel_settings
 
+    async def get_radio_settings(self) -> RadioSettings:
+        reply = await self.send_command_expect_reply(GetRadioSettings())
+
+        if not isinstance(reply, GetRadioSettingsReply):
+            raise ValueError(f"Expected GetRadioSettingsReply, got {reply}")
+
+        return reply.radio_settings
+
     async def set_channel_settings(self, channel_settings: ChannelSettings):
         reply = await self.send_command_expect_reply(SetChannelSettings(channel_settings))
 
@@ -126,12 +134,43 @@ def message_to_protocol(m: Message) -> p.MessageFrame:
                 body=p.WriteRFChBody(
                     channel_settings=channel_settings.to_protocol())
             )
+        case GetRadioSettings():
+            return p.MessageFrame(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.READ_SETTINGS,
+                body=p.ReadSettingsBody()
+            )
         case _:
             raise ValueError(f"Unknown message: {m}")
 
 
 def message_from_protocol(mf: p.MessageFrame) -> Message | MessageReplyError:
     match mf:
+        case p.MessageFrame(
+            body=p.EventNotificationBody(
+                event_type=p.EventNotificationType.HT_SETTINGS_CHANGED,
+                event=p.EventNotificationHTSettingsChanged(
+                    radio_settings=radio_settings
+                )
+            )
+        ):
+            return EventNotificationHTSettingsChanged(radio_settings=RadioSettings.from_protocol(radio_settings))
+        case p.MessageFrame(
+            command_group=command_group,
+            command=command,
+            body=p.ReadSettingsReplyBody(
+                reply_status=reply_status,
+                settings=settings
+            )
+        ):
+            if reply_status is not p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    command_group=command_group.name,
+                    command=command.name,
+                    reason=reply_status.name,
+                )
+            return GetRadioSettingsReply(radio_settings=RadioSettings.from_protocol(settings))
         case p.MessageFrame(
             command_group=command_group,
             command=command,
@@ -211,6 +250,21 @@ class SetChannelSettingsReply:
 
 
 @dataclass(frozen=True)
+class GetRadioSettings:
+    pass
+
+
+@dataclass(frozen=True)
+class GetRadioSettingsReply:
+    radio_settings: RadioSettings
+
+
+@dataclass(frozen=True)
+class EventNotificationHTSettingsChanged:
+    radio_settings: RadioSettings
+
+
+@dataclass(frozen=True)
 class MessageReplyError:
     command_group: str
     command: str
@@ -223,7 +277,10 @@ Message = t.Union[
     GetChannelSettings,
     GetChannelSettingsReply,
     SetChannelSettings,
-    SetChannelSettingsReply
+    SetChannelSettingsReply,
+    EventNotificationHTSettingsChanged,
+    GetRadioSettings,
+    GetRadioSettingsReply,
 ]
 
 ProtocolMessageHandler = t.Callable[[p.MessageFrame], None]
@@ -329,6 +386,135 @@ class ChannelSettings(ImmutableBaseModel):
             fixed_tx_power=self.fixed_tx_power,
             mute=self.mute,
             name_str=self.name
+        )
+
+
+class RadioSettings(ImmutableBaseModel):
+    channel_a: int
+    channel_b: int
+    scan: bool
+    aghfp_call_mode: int
+    double_channel: int
+    squelch_level: int
+    tail_elim: bool
+    auto_relay_en: bool
+    auto_power_on: bool
+    keep_aghfp_link: bool
+    mic_gain: int
+    tx_hold_time: int
+    tx_time_limit: int
+    local_speaker: int
+    bt_mic_gain: int
+    adaptive_response: bool
+    dis_tone: bool
+    power_saving_mode: bool
+    auto_power_off: int
+    auto_share_loc_ch: int | t.Literal["current"]
+    hm_speaker: int
+    positioning_system: int
+    time_offset: int
+    use_freq_range_2: bool
+    ptt_lock: bool
+    leading_sync_bit_en: bool
+    pairing_at_power_on: bool
+    screen_timeout: int
+    vfo_x: int
+    imperial_unit: bool
+    wx_mode: int
+    noaa_ch: int
+    vfol_tx_power_x: int
+    vfo2_tx_power_x: int
+    dis_digital_mute: bool
+    signaling_ecc_en: bool
+    ch_data_lock: bool
+    vfo1_mod_freq_x: int
+    vfo2_mod_freq_x: int
+
+    @staticmethod
+    def from_protocol(rs: p.RadioSettings) -> RadioSettings:
+        return RadioSettings(
+            channel_a=rs.channel_a,
+            channel_b=rs.channel_b,
+            scan=rs.scan,
+            aghfp_call_mode=rs.aghfp_call_mode,
+            double_channel=rs.double_channel,
+            squelch_level=rs.squelch_level,
+            tail_elim=rs.tail_elim,
+            auto_relay_en=rs.auto_relay_en,
+            auto_power_on=rs.auto_power_on,
+            keep_aghfp_link=rs.keep_aghfp_link,
+            mic_gain=rs.mic_gain,
+            tx_hold_time=rs.tx_hold_time,
+            tx_time_limit=rs.tx_time_limit,
+            local_speaker=rs.local_speaker,
+            bt_mic_gain=rs.bt_mic_gain,
+            adaptive_response=rs.adaptive_response,
+            dis_tone=rs.dis_tone,
+            power_saving_mode=rs.power_saving_mode,
+            auto_power_off=rs.auto_power_off,
+            auto_share_loc_ch=rs.auto_share_loc_ch,
+            hm_speaker=rs.hm_speaker,
+            positioning_system=rs.positioning_system,
+            time_offset=rs.time_offset,
+            use_freq_range_2=rs.use_freq_range_2,
+            ptt_lock=rs.ptt_lock,
+            leading_sync_bit_en=rs.leading_sync_bit_en,
+            pairing_at_power_on=rs.pairing_at_power_on,
+            screen_timeout=rs.screen_timeout,
+            vfo_x=rs.vfo_x,
+            imperial_unit=rs.imperial_unit,
+            wx_mode=rs.wx_mode,
+            noaa_ch=rs.noaa_ch,
+            vfol_tx_power_x=rs.vfol_tx_power_x,
+            vfo2_tx_power_x=rs.vfo2_tx_power_x,
+            dis_digital_mute=rs.dis_digital_mute,
+            signaling_ecc_en=rs.signaling_ecc_en,
+            ch_data_lock=rs.ch_data_lock,
+            vfo1_mod_freq_x=rs.vfo1_mod_freq_x,
+            vfo2_mod_freq_x=rs.vfo2_mod_freq_x
+        )
+
+    def to_protocol(self):
+        return p.RadioSettings(
+            channel_a=self.channel_a,
+            channel_b=self.channel_b,
+            scan=self.scan,
+            aghfp_call_mode=self.aghfp_call_mode,
+            double_channel=self.double_channel,
+            squelch_level=self.squelch_level,
+            tail_elim=self.tail_elim,
+            auto_relay_en=self.auto_relay_en,
+            auto_power_on=self.auto_power_on,
+            keep_aghfp_link=self.keep_aghfp_link,
+            mic_gain=self.mic_gain,
+            tx_hold_time=self.tx_hold_time,
+            tx_time_limit=self.tx_time_limit,
+            local_speaker=self.local_speaker,
+            bt_mic_gain=self.bt_mic_gain,
+            adaptive_response=self.adaptive_response,
+            dis_tone=self.dis_tone,
+            power_saving_mode=self.power_saving_mode,
+            auto_power_off=self.auto_power_off,
+            auto_share_loc_ch=self.auto_share_loc_ch,
+            hm_speaker=self.hm_speaker,
+            positioning_system=self.positioning_system,
+            time_offset=self.time_offset,
+            use_freq_range_2=self.use_freq_range_2,
+            ptt_lock=self.ptt_lock,
+            leading_sync_bit_en=self.leading_sync_bit_en,
+            pairing_at_power_on=self.pairing_at_power_on,
+            screen_timeout=self.screen_timeout,
+            vfo_x=self.vfo_x,
+            imperial_unit=self.imperial_unit,
+            wx_mode=self.wx_mode,
+            noaa_ch=self.noaa_ch,
+            vfol_tx_power_x=self.vfol_tx_power_x,
+            vfo2_tx_power_x=self.vfo2_tx_power_x,
+            dis_digital_mute=self.dis_digital_mute,
+            signaling_ecc_en=self.signaling_ecc_en,
+            ch_data_lock=self.ch_data_lock,
+            vfo1_mod_freq_x=self.vfo1_mod_freq_x,
+            vfo2_mod_freq_x=self.vfo2_mod_freq_x
         )
 
 

@@ -6,6 +6,7 @@ from .connection import (
     DeviceInfo,
     ChannelSettings,
     ChannelSettingsArgs,
+    RadioSettings,
     MessageHandler,
 )
 # from contextlib import contextmanager
@@ -16,6 +17,7 @@ class RadioClient:
     _is_connected: bool = False
     _conn: RadioConnection
     _device_info: DeviceInfo
+    _settings: RadioSettings
     _channels: t.List[ChannelSettings]
 
     def __init__(self, device_uuid: str):
@@ -26,6 +28,11 @@ class RadioClient:
         if not self._is_connected:
             return f"<RadioClient {self.device_uuid} (disconnected)>"
         return f"<RadioClient {self.device_uuid} (connected)>"
+
+    @property
+    def settings(self):
+        self._assert_conn()
+        return self._settings
 
     @property
     def device_info(self):
@@ -73,6 +80,8 @@ class RadioClient:
         for i in range(self._device_info.channel_count):
             channel_settings = await self._conn.get_channel_settings(i)
             self._channels.append(channel_settings)
+
+        self._settings = await self._conn.get_radio_settings()
 
     async def connect(self):
         await self._conn.connect()
