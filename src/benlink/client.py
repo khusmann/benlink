@@ -6,6 +6,7 @@ from .connection import (
     DeviceInfo,
     ChannelSettings,
     ChannelSettingsArgs,
+    MessageHandler,
 )
 # from contextlib import contextmanager
 
@@ -47,6 +48,9 @@ class RadioClient:
     def _assert_conn(self):
         if not self._is_connected:
             raise ValueError("Not connected")
+
+    def register_event_handler(self, handler: MessageHandler):
+        return self._conn.register_message_handler(handler)
 
     async def set_channel(
         self, channel_id: int, **settings: Unpack[ChannelSettingsArgs]

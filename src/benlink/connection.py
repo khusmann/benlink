@@ -12,12 +12,10 @@ RADIO_SERVICE_UUID = "00001100-d102-11e1-9b23-00025b00a5a5"
 RADIO_WRITE_UUID = "00001101-d102-11e1-9b23-00025b00a5a5"
 RADIO_INDICATE_UUID = "00001102-d102-11e1-9b23-00025b00a5a5"
 
-MessageFrameHandler = t.Callable[[p.MessageFrame], None]
-
 
 class RadioConnection:
     _client: BleakClient
-    handlers: t.List[MessageFrameHandler] = []
+    handlers: t.List[ProtocolMessageHandler] = []
 
     def __init__(self, device_uuid: str):
         self.device_uuid = device_uuid
@@ -50,13 +48,13 @@ class RadioConnection:
                 assert proto_command.command_group == reply.command_group
                 queue.put_nowait(message_from_protocol(reply))
 
-        self.add_handler(reply_handler)
+        remove_handler = self._register_protocol_message_handler(reply_handler)
 
         await self.send_command(command)
 
         out = await queue.get()
 
-        self.remove_handler(reply_handler)
+        remove_handler()
 
         return out
 
@@ -74,11 +72,20 @@ class RadioConnection:
         if not isinstance(reply, SetChannelSettingsReply):
             raise ValueError(f"Expected SetChannelSettingsReply, got {reply}")
 
-    def add_handler(self, handler: MessageFrameHandler):
+    def register_message_handler(self, handler: MessageHandler):
+        def protocol_handler(mf: p.MessageFrame):
+            message = message_from_protocol(mf)
+            handler(message)
+
+        return self._register_protocol_message_handler(protocol_handler)
+
+    def _register_protocol_message_handler(self, handler: ProtocolMessageHandler):
         self.handlers.append(handler)
 
-    def remove_handler(self, handler: MessageFrameHandler):
-        self.handlers.remove(handler)
+        def remove_handler():
+            self.handlers.remove(handler)
+
+        return remove_handler
 
     def _on_indication(self, characteristic: BleakGATTCharacteristic, data: bytearray):
         assert characteristic.uuid == RADIO_INDICATE_UUID
@@ -218,6 +225,9 @@ Message = t.Union[
     SetChannelSettings,
     SetChannelSettingsReply
 ]
+
+ProtocolMessageHandler = t.Callable[[p.MessageFrame], None]
+MessageHandler = t.Callable[[Message | MessageReplyError], None]
 
 #####################
 # Protocol to Message conversions
