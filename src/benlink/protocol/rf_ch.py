@@ -38,7 +38,7 @@ class SubAudioMap:
                 return round(y*100)
 
 
-class ChannelSettings(Bitfield):
+class RfCh(Bitfield):
     channel_id: int = bf_int(8)
     tx_mod: ModulationType = bf_int_enum(ModulationType, 2)
     tx_freq: float = bf_map(bf_int(30), Scale(1e-6, 6))
@@ -62,7 +62,7 @@ class ChannelSettings(Bitfield):
     name_str: str = bf_str(10)
 
 
-class ChannelSettingsDMR(ChannelSettings):
+class RfChDMR(RfCh):
     tx_color: int = bf_int(4)
     rx_color: int = bf_int(4)
     slot: int = bf_int(1)
@@ -79,11 +79,11 @@ def channel_settings_disc(_: ReadRFChReplyBody | WriteRFChBody, n: int):
     # Note: in the app, this is detected via support_dmr in
     # device settings. But for simplicity, I'm just going to
     # use the size of the bitfield.
-    if n == ChannelSettings.length():
-        return ChannelSettings
+    if n == RfCh.length():
+        return RfCh
 
-    if n == ChannelSettingsDMR.length():
-        return ChannelSettingsDMR
+    if n == RfChDMR.length():
+        return RfChDMR
 
     raise ValueError(f"Unknown channel settings type (size {n})")
 
@@ -94,13 +94,13 @@ class ReadRFChBody(Bitfield):
 
 class ReadRFChReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
-    channel_settings: ChannelSettings | ChannelSettingsDMR | None = bf_dyn(
+    rf_ch: RfCh | RfChDMR | None = bf_dyn(
         channel_settings_reply_disc
     )
 
 
 class WriteRFChBody(Bitfield):
-    channel_settings: ChannelSettings | ChannelSettingsDMR = bf_dyn(
+    rf_ch: RfCh | RfChDMR = bf_dyn(
         channel_settings_disc
     )
 

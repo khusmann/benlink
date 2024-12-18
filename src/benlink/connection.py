@@ -132,7 +132,7 @@ def message_to_protocol(m: Message) -> p.Message:
                 is_reply=False,
                 command=p.BasicCommand.WRITE_RF_CH,
                 body=p.WriteRFChBody(
-                    channel_settings=channel_settings.to_protocol())
+                    rf_ch=channel_settings.to_protocol())
             )
         case GetRadioSettings():
             return p.Message(
@@ -205,16 +205,16 @@ def message_from_protocol(mf: p.Message) -> Message | MessageReplyError:
             command=command,
             body=p.ReadRFChReplyBody(
                 reply_status=reply_status,
-                channel_settings=channel_settings
+                rf_ch=rf_ch
             )
         ):
-            if channel_settings is None:
+            if rf_ch is None:
                 return MessageReplyError(
                     command_group=command_group.name,
                     command=command.name,
                     reason=reply_status.name,
                 )
-            return GetChannelSettingsReply(channel_settings=ChannelSettings.from_protocol(channel_settings))
+            return GetChannelSettingsReply(channel_settings=ChannelSettings.from_protocol(rf_ch))
         case _:
             raise ValueError(f"Unknown message frame: {mf}")
 
@@ -340,7 +340,7 @@ class ChannelSettings(ImmutableBaseModel):
     name: str
 
     @staticmethod
-    def from_protocol(cs: p.ChannelSettings) -> ChannelSettings:
+    def from_protocol(cs: p.RfCh) -> ChannelSettings:
         return ChannelSettings(
             channel_id=cs.channel_id,
             tx_mod=cs.tx_mod.name,
@@ -364,8 +364,8 @@ class ChannelSettings(ImmutableBaseModel):
             name=cs.name_str
         )
 
-    def to_protocol(self) -> p.ChannelSettings:
-        return p.ChannelSettings(
+    def to_protocol(self) -> p.RfCh:
+        return p.RfCh(
             channel_id=self.channel_id,
             tx_mod=p.ModulationType[self.tx_mod],
             tx_freq=self.tx_freq,
