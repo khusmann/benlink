@@ -149,8 +149,8 @@ def message_from_protocol(mf: p.Message) -> Message | MessageReplyError:
     match mf:
         case p.Message(
             body=p.EventNotificationBody(
-                event_type=p.EventNotificationType.HT_SETTINGS_CHANGED,
-                event=p.EventNotificationHTSettingsChanged(
+                event_type=p.EventType.HT_SETTINGS_CHANGED,
+                event=p.HTSettingsChanged(
                     radio_settings=radio_settings
                 )
             )

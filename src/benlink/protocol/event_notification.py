@@ -16,7 +16,7 @@ from .settings import RadioSettings
 from enum import IntEnum
 
 
-class EventNotificationType(IntEnum):
+class EventType(IntEnum):
     UNKNOWN = 0
     HT_STATUS_CHANGED = 1
     DATA_RXD = 2  # Received APRS or BSS Message
@@ -37,11 +37,11 @@ class ChannelType(IntEnum):
     B = 2
 
 
-class EventNotificationHTSettingsChanged(Bitfield):
+class HTSettingsChanged(Bitfield):
     radio_settings: RadioSettings
 
 
-class EventNotificationHTStatusChanged(Bitfield):
+class HTStatusChanged(Bitfield):
     is_power_on: bool
     is_in_tx: bool
     is_sq: bool
@@ -56,7 +56,7 @@ class EventNotificationHTStatusChanged(Bitfield):
     _pad: t.Literal[0] = bf_lit_int(1, default=0)
 
 
-class EventNotificationHTStatusChangedExt(Bitfield):
+class HTStatusChangedExt(Bitfield):
     curr_channel_id: int = bf_int(8)
     is_power_on: bool
     is_in_tx: bool
@@ -78,7 +78,7 @@ class EventNotificationHTStatusChangedExt(Bitfield):
     _reorder = [*range(26, 26+4), *range(8, 8+4)]
 
 
-class EventNotificationUnknown(Bitfield):
+class UnknownEvent(Bitfield):
     data: bytes = bf_dyn(lambda _, n: bf_bytes(n // 8))
 
 
@@ -96,24 +96,33 @@ class DataPacket(Bitfield):
 
 def event_notification_disc(m: EventNotificationBody, n: int):
     match m.event_type:
-        case EventNotificationType.HT_SETTINGS_CHANGED:
-            return EventNotificationHTSettingsChanged
-        case EventNotificationType.HT_STATUS_CHANGED:
-            if n == EventNotificationHTStatusChanged.length():
-                return EventNotificationHTStatusChanged
-            if n == EventNotificationHTStatusChangedExt.length():
-                return EventNotificationHTStatusChangedExt
+        case EventType.HT_SETTINGS_CHANGED:
+            return HTSettingsChanged
+        case EventType.HT_STATUS_CHANGED:
+            if n == HTStatusChanged.length():
+                return HTStatusChanged
+            if n == HTStatusChangedExt.length():
+                return HTStatusChangedExt
             raise ValueError(
                 f"Unknown size for HT_STATUS_CHANGED event ({n})"
             )
-        case EventNotificationType.DATA_RXD:
+        case EventType.DATA_RXD:
             return bf_bitfield(DataPacket, n)
         case _:
-            return bf_bitfield(EventNotificationUnknown, n)
+            return bf_bitfield(UnknownEvent, n)
+
+
+Event = t.Union[
+    UnknownEvent,
+    DataPacket,
+    HTStatusChanged,
+    HTSettingsChanged,
+    HTStatusChangedExt,
+]
 
 
 class EventNotificationBody(Bitfield):
-    event_type: EventNotificationType = bf_int_enum(EventNotificationType, 8)
-    event: EventNotificationUnknown | DataPacket | EventNotificationHTStatusChanged | EventNotificationHTSettingsChanged | EventNotificationHTStatusChangedExt = bf_dyn(
+    event_type: EventType = bf_int_enum(EventType, 8)
+    event: Event = bf_dyn(
         event_notification_disc
     )
