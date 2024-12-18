@@ -31,15 +31,15 @@ class RadioConnection:
     async def disconnect(self):
         await self._client.disconnect()
 
-    async def send_command(self, command: Message):
+    async def send_command(self, command: ClientMessage):
         await self._client.write_gatt_char(
             RADIO_WRITE_UUID,
             message_to_protocol(command).to_bytes(),
             response=True
         )
 
-    async def send_command_expect_reply(self, command: Message) -> Message | MessageReplyError:
-        queue: asyncio.Queue[Message | MessageReplyError] = asyncio.Queue()
+    async def send_command_expect_reply(self, command: ClientMessage) -> RadioMessage:
+        queue: asyncio.Queue[RadioMessage] = asyncio.Queue()
 
         proto_command = message_to_protocol(command)
 
@@ -80,7 +80,7 @@ class RadioConnection:
         if not isinstance(reply, SetChannelSettingsReply):
             raise ValueError(f"Expected SetChannelSettingsReply, got {reply}")
 
-    def register_message_handler(self, handler: MessageHandler):
+    def register_message_handler(self, handler: RadioMessageHandler):
         def protocol_handler(mf: p.Message):
             message = message_from_protocol(mf)
             handler(message)
@@ -110,7 +110,7 @@ class RadioConnection:
         return reply.device_info
 
 
-def message_to_protocol(m: Message) -> p.Message:
+def message_to_protocol(m: ClientMessage) -> p.Message:
     match m:
         case GetDeviceInfo():
             return p.Message(
@@ -132,7 +132,8 @@ def message_to_protocol(m: Message) -> p.Message:
                 is_reply=False,
                 command=p.BasicCommand.WRITE_RF_CH,
                 body=p.WriteRFChBody(
-                    rf_ch=channel_settings.to_protocol())
+                    rf_ch=channel_settings.to_protocol()
+                )
             )
         case GetRadioSettings():
             return p.Message(
@@ -141,11 +142,9 @@ def message_to_protocol(m: Message) -> p.Message:
                 command=p.BasicCommand.READ_SETTINGS,
                 body=p.ReadSettingsBody()
             )
-        case _:
-            raise ValueError(f"Unknown message: {m}")
 
 
-def message_from_protocol(mf: p.Message) -> Message | MessageReplyError:
+def message_from_protocol(mf: p.Message) -> RadioMessage:
     match mf:
         case p.Message(
             body=p.EventNotificationBody(
@@ -216,7 +215,7 @@ def message_from_protocol(mf: p.Message) -> Message | MessageReplyError:
                 )
             return GetChannelSettingsReply(channel_settings=ChannelSettings.from_protocol(rf_ch))
         case _:
-            raise ValueError(f"Unknown message frame: {mf}")
+            return UnknownProtocolMessage(message=mf)
 
 
 @dataclass(frozen=True)
@@ -225,18 +224,8 @@ class GetDeviceInfo:
 
 
 @dataclass(frozen=True)
-class GetDeviceInfoReply:
-    device_info: DeviceInfo
-
-
-@dataclass(frozen=True)
 class GetChannelSettings:
     channel_id: int
-
-
-@dataclass(frozen=True)
-class GetChannelSettingsReply:
-    channel_settings: ChannelSettings
 
 
 @dataclass(frozen=True)
@@ -245,12 +234,30 @@ class SetChannelSettings:
 
 
 @dataclass(frozen=True)
-class SetChannelSettingsReply:
+class GetRadioSettings:
     pass
 
 
+ClientMessage = t.Union[
+    GetDeviceInfo,
+    GetChannelSettings,
+    SetChannelSettings,
+    GetRadioSettings,
+]
+
+
 @dataclass(frozen=True)
-class GetRadioSettings:
+class GetDeviceInfoReply:
+    device_info: DeviceInfo
+
+
+@dataclass(frozen=True)
+class GetChannelSettingsReply:
+    channel_settings: ChannelSettings
+
+
+@dataclass(frozen=True)
+class SetChannelSettingsReply:
     pass
 
 
@@ -271,20 +278,24 @@ class MessageReplyError:
     reason: str
 
 
-Message = t.Union[
-    GetDeviceInfo,
-    GetDeviceInfoReply,
-    GetChannelSettings,
-    GetChannelSettingsReply,
-    SetChannelSettings,
-    SetChannelSettingsReply,
+@dataclass(frozen=True)
+class UnknownProtocolMessage:
+    message: p.Message
+
+
+RadioMessage = t.Union[
     EventNotificationHTSettingsChanged,
-    GetRadioSettings,
+    GetDeviceInfoReply,
+    GetChannelSettingsReply,
+    SetChannelSettingsReply,
     GetRadioSettingsReply,
+    MessageReplyError,
+    UnknownProtocolMessage,
 ]
 
 ProtocolMessageHandler = t.Callable[[p.Message], None]
-MessageHandler = t.Callable[[Message | MessageReplyError], None]
+
+RadioMessageHandler = t.Callable[[RadioMessage], None]
 
 #####################
 # Protocol to Message conversions
