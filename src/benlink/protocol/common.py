@@ -1,0 +1,12 @@
+from enum import IntEnum
+
+
+class ReplyStatus(IntEnum):
+    SUCCESS = 0
+    NOT_SUPPORTED = 1
+    NOT_AUTHENTICATED = 2
+    INSUFFICIENT_RESOURCES = 3
+    AUTHENTICATING = 4
+    INVALID_PARAMETER = 5
+    INCORRECT_STATE = 6
+    IN_PROGRESS = 7
