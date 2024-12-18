@@ -3,7 +3,7 @@ from .gaia_frame import *
 from .message import *
 from .dev_info import *
 from .settings import *
-from .rfchannel import *
+from .rf_ch import *
 from .event_notification import *
 from .pf import *
 from .status import *

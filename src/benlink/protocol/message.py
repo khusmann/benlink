@@ -13,7 +13,7 @@ from .settings import (
     WriteSettingsReplyBody,
 )
 from .status import ReadStatusBody, ReadStatusReplyBody
-from .rfchannel import (
+from .rf_ch import (
     ReadRFChBody,
     ReadRFChReplyBody,
     WriteRFChBody,
