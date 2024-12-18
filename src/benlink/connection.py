@@ -1,5 +1,4 @@
 from __future__ import annotations
-from dataclasses import dataclass
 import asyncio
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
@@ -218,23 +217,19 @@ def message_from_protocol(mf: p.Message) -> RadioMessage:
             return UnknownProtocolMessage(message=mf)
 
 
-@dataclass(frozen=True)
-class GetDeviceInfo:
+class GetDeviceInfo(t.NamedTuple):
     pass
 
 
-@dataclass(frozen=True)
-class GetChannelSettings:
+class GetChannelSettings(t.NamedTuple):
     channel_id: int
 
 
-@dataclass(frozen=True)
-class SetChannelSettings:
+class SetChannelSettings(t.NamedTuple):
     channel_settings: ChannelSettings
 
 
-@dataclass(frozen=True)
-class GetRadioSettings:
+class GetRadioSettings(t.NamedTuple):
     pass
 
 
@@ -246,40 +241,33 @@ ClientMessage = t.Union[
 ]
 
 
-@dataclass(frozen=True)
-class GetDeviceInfoReply:
+class GetDeviceInfoReply(t.NamedTuple):
     device_info: DeviceInfo
 
 
-@dataclass(frozen=True)
-class GetChannelSettingsReply:
+class GetChannelSettingsReply(t.NamedTuple):
     channel_settings: ChannelSettings
 
 
-@dataclass(frozen=True)
-class SetChannelSettingsReply:
+class SetChannelSettingsReply(t.NamedTuple):
     pass
 
 
-@dataclass(frozen=True)
-class GetRadioSettingsReply:
+class GetRadioSettingsReply(t.NamedTuple):
     radio_settings: RadioSettings
 
 
-@dataclass(frozen=True)
-class EventNotificationHTSettingsChanged:
+class EventNotificationHTSettingsChanged(t.NamedTuple):
     radio_settings: RadioSettings
 
 
-@dataclass(frozen=True)
-class MessageReplyError:
+class MessageReplyError(t.NamedTuple):
     command_group: str
     command: str
     reason: str
 
 
-@dataclass(frozen=True)
-class UnknownProtocolMessage:
+class UnknownProtocolMessage(t.NamedTuple):
     message: p.Message
 
 
