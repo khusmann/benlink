@@ -151,11 +151,11 @@ def message_from_protocol(mf: p.Message) -> Message | MessageReplyError:
             body=p.EventNotificationBody(
                 event_type=p.EventType.HT_SETTINGS_CHANGED,
                 event=p.HTSettingsChanged(
-                    radio_settings=radio_settings
+                    settings=settings
                 )
             )
         ):
-            return EventNotificationHTSettingsChanged(radio_settings=RadioSettings.from_protocol(radio_settings))
+            return EventNotificationHTSettingsChanged(radio_settings=RadioSettings.from_protocol(settings))
         case p.Message(
             command_group=command_group,
             command=command,
@@ -164,7 +164,7 @@ def message_from_protocol(mf: p.Message) -> Message | MessageReplyError:
                 settings=settings
             )
         ):
-            if reply_status is not p.ReplyStatus.SUCCESS:
+            if settings is None:
                 return MessageReplyError(
                     command_group=command_group.name,
                     command=command.name,
@@ -431,7 +431,7 @@ class RadioSettings(ImmutableBaseModel):
     vfo2_mod_freq_x: int
 
     @staticmethod
-    def from_protocol(rs: p.RadioSettings) -> RadioSettings:
+    def from_protocol(rs: p.Settings) -> RadioSettings:
         return RadioSettings(
             channel_a=rs.channel_a,
             channel_b=rs.channel_b,
@@ -475,7 +475,7 @@ class RadioSettings(ImmutableBaseModel):
         )
 
     def to_protocol(self):
-        return p.RadioSettings(
+        return p.Settings(
             channel_a=self.channel_a,
             channel_b=self.channel_b,
             scan=self.scan,

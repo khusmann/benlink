@@ -11,7 +11,7 @@ from ..bitfield import (
     Scale,
 )
 import typing as t
-from .settings import RadioSettings
+from .settings import Settings
 
 from enum import IntEnum
 
@@ -38,7 +38,7 @@ class ChannelType(IntEnum):
 
 
 class HTSettingsChanged(Bitfield):
-    radio_settings: RadioSettings
+    settings: Settings
 
 
 class HTStatusChanged(Bitfield):

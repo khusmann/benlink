@@ -1,5 +1,5 @@
 from __future__ import annotations
-from ..bitfield import Bitfield, bf_int_enum, bf_int, bf_map, bf_lit_int
+from ..bitfield import Bitfield, bf_int_enum, bf_int, bf_map, bf_lit_int, bf_dyn
 from .common import ReplyStatus
 import typing as t
 
@@ -12,7 +12,7 @@ class LocChMap:
         return 0 if y == "current" else y + 1
 
 
-class RadioSettings(Bitfield):
+class Settings(Bitfield):
     channel_a: int = bf_int(8)
     channel_b: int = bf_int(8)
     scan: bool
@@ -72,11 +72,13 @@ class ReadSettingsBody(Bitfield):
 
 class ReadSettingsReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
-    settings: RadioSettings
+    settings: Settings | None = bf_dyn(
+        lambda x: Settings if x.reply_status == ReplyStatus.SUCCESS else None
+    )
 
 
 class WriteSettingsBody(Bitfield):
-    settings: RadioSettings
+    settings: Settings
 
 
 class WriteSettingsReplyBody(Bitfield):
