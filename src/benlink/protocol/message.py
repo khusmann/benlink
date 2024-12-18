@@ -4,8 +4,8 @@ import typing as t
 import sys
 from enum import IntEnum
 
-from .devinfo import GetDevInfoBody, GetDevInfoReplyBody
-from .eventnotification import EventNotificationBody
+from .dev_info import GetDevInfoBody, GetDevInfoReplyBody
+from .event_notification import EventNotificationBody
 from .settings import (
     ReadSettingsBody,
     ReadSettingsReplyBody,
@@ -20,7 +20,7 @@ from .rfchannel import (
     WriteRFChReplyBody,
 )
 from .pf import GetPFBody, GetPFReplyBody
-from .bsssettings import (
+from .bss_settings import (
     ReadBSSSettingsBody,
     ReadBSSSettingsReplyBody,
     WriteBSSSettingsBody,
@@ -129,7 +129,7 @@ class BasicCommand(IntEnum):
     GET_PF_ACTIONS = 75
 
 
-def frame_type_disc(m: MessageFrame):
+def frame_type_disc(m: Message):
     match m.command_group:
         case CommandGroup.BASIC:
             return bf_int_enum(BasicCommand, 15)
@@ -137,7 +137,7 @@ def frame_type_disc(m: MessageFrame):
             return bf_int_enum(ExtendedCommand, 15)
 
 
-def body_disc(m: MessageFrame, n: int):
+def body_disc(m: Message, n: int):
     assert n % 8 == 0
     match m.command_group:
         case CommandGroup.BASIC:
@@ -197,7 +197,7 @@ MessageBody = t.Union[
 ]
 
 
-class MessageFrame(Bitfield):
+class Message(Bitfield):
     command_group: CommandGroup = bf_int_enum(CommandGroup, 16)
     is_reply: bool = bf_bool()
     command: BasicCommand | ExtendedCommand = bf_dyn(frame_type_disc)

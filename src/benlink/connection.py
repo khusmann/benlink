@@ -43,7 +43,7 @@ class RadioConnection:
 
         proto_command = message_to_protocol(command)
 
-        def reply_handler(reply: p.MessageFrame):
+        def reply_handler(reply: p.Message):
             if reply.is_reply and reply.command == proto_command.command:
                 assert proto_command.command_group == reply.command_group
                 queue.put_nowait(message_from_protocol(reply))
@@ -81,7 +81,7 @@ class RadioConnection:
             raise ValueError(f"Expected SetChannelSettingsReply, got {reply}")
 
     def register_message_handler(self, handler: MessageHandler):
-        def protocol_handler(mf: p.MessageFrame):
+        def protocol_handler(mf: p.Message):
             message = message_from_protocol(mf)
             handler(message)
 
@@ -97,7 +97,7 @@ class RadioConnection:
 
     def _on_indication(self, characteristic: BleakGATTCharacteristic, data: bytearray):
         assert characteristic.uuid == RADIO_INDICATE_UUID
-        command = p.MessageFrame.from_bytes(data)
+        command = p.Message.from_bytes(data)
         for handler in self.handlers:
             handler(command)
 
@@ -110,24 +110,24 @@ class RadioConnection:
         return reply.device_info
 
 
-def message_to_protocol(m: Message) -> p.MessageFrame:
+def message_to_protocol(m: Message) -> p.Message:
     match m:
         case GetDeviceInfo():
-            return p.MessageFrame(
+            return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.GET_DEV_INFO,
                 body=p.GetDevInfoBody()
             )
         case GetChannelSettings(channel_id=channel_id):
-            return p.MessageFrame(
+            return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_RF_CH,
                 body=p.ReadRFChBody(channel_id=channel_id)
             )
         case SetChannelSettings(channel_settings=channel_settings):
-            return p.MessageFrame(
+            return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.WRITE_RF_CH,
@@ -135,7 +135,7 @@ def message_to_protocol(m: Message) -> p.MessageFrame:
                     channel_settings=channel_settings.to_protocol())
             )
         case GetRadioSettings():
-            return p.MessageFrame(
+            return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_SETTINGS,
@@ -145,9 +145,9 @@ def message_to_protocol(m: Message) -> p.MessageFrame:
             raise ValueError(f"Unknown message: {m}")
 
 
-def message_from_protocol(mf: p.MessageFrame) -> Message | MessageReplyError:
+def message_from_protocol(mf: p.Message) -> Message | MessageReplyError:
     match mf:
-        case p.MessageFrame(
+        case p.Message(
             body=p.EventNotificationBody(
                 event_type=p.EventNotificationType.HT_SETTINGS_CHANGED,
                 event=p.EventNotificationHTSettingsChanged(
@@ -156,7 +156,7 @@ def message_from_protocol(mf: p.MessageFrame) -> Message | MessageReplyError:
             )
         ):
             return EventNotificationHTSettingsChanged(radio_settings=RadioSettings.from_protocol(radio_settings))
-        case p.MessageFrame(
+        case p.Message(
             command_group=command_group,
             command=command,
             body=p.ReadSettingsReplyBody(
@@ -171,7 +171,7 @@ def message_from_protocol(mf: p.MessageFrame) -> Message | MessageReplyError:
                     reason=reply_status.name,
                 )
             return GetRadioSettingsReply(radio_settings=RadioSettings.from_protocol(settings))
-        case p.MessageFrame(
+        case p.Message(
             command_group=command_group,
             command=command,
             body=p.WriteRFChReplyBody(
@@ -185,7 +185,7 @@ def message_from_protocol(mf: p.MessageFrame) -> Message | MessageReplyError:
                     reason=reply_status.name,
                 )
             return SetChannelSettingsReply()
-        case p.MessageFrame(
+        case p.Message(
             command_group=command_group,
             command=command,
             body=p.GetDevInfoReplyBody(
@@ -200,7 +200,7 @@ def message_from_protocol(mf: p.MessageFrame) -> Message | MessageReplyError:
                     reason=reply_status.name,
                 )
             return GetDeviceInfoReply(device_info=DeviceInfo.from_protocol(info))
-        case p.MessageFrame(
+        case p.Message(
             command_group=command_group,
             command=command,
             body=p.ReadRFChReplyBody(
@@ -283,7 +283,7 @@ Message = t.Union[
     GetRadioSettingsReply,
 ]
 
-ProtocolMessageHandler = t.Callable[[p.MessageFrame], None]
+ProtocolMessageHandler = t.Callable[[p.Message], None]
 MessageHandler = t.Callable[[Message | MessageReplyError], None]
 
 #####################
