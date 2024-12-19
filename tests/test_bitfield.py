@@ -106,6 +106,18 @@ def test_basic_reorder():
     assert Work.from_bytes(work.to_bytes()) == work
 
 
+def test_classvars():
+    class Work(Bitfield):
+        a: int = bf_int(4)
+        b: int = bf_int(4)
+        c = 100
+        d: t.ClassVar[int] = 100
+
+    work = Work(a=1, b=2)
+    assert work.to_bytes() == b'\x12'
+    assert Work.from_bytes(work.to_bytes()) == work
+
+
 class BarEnum(IntEnum):
     A = 1
     B = 2
