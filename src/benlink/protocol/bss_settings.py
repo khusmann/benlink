@@ -69,6 +69,12 @@ class ReadBSSSettingsBody(Bitfield):
     unknown: int = bf_int(8)
 
 
+def bss_settings_reply_disc(reply: ReadBSSSettingsReplyBody, n: int):
+    if reply.reply_status != ReplyStatus.SUCCESS:
+        return None
+    return bss_settings_disc(None, n)
+
+
 def bss_settings_disc(_: None, n: int):
     if n == BSSSettings.length():
         return BSSSettings
@@ -79,7 +85,9 @@ def bss_settings_disc(_: None, n: int):
 
 class ReadBSSSettingsReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
-    bss_settings: BSSSettings | BSSSettingsExt = bf_dyn(bss_settings_disc)
+    bss_settings: BSSSettings | BSSSettingsExt | None = bf_dyn(
+        bss_settings_reply_disc
+    )
 
 
 class WriteBSSSettingsBody(Bitfield):
