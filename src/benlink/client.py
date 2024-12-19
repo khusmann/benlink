@@ -4,9 +4,9 @@ import typing as t
 from .connection import (
     RadioConnection,
     DeviceInfo,
-    ChannelSettings,
-    ChannelSettingsArgs,
-    RadioSettings,
+    Channel,
+    ChannelArgs,
+    Settings,
     RadioMessageHandler,
 )
 # from contextlib import contextmanager
@@ -17,8 +17,8 @@ class RadioClient:
     _is_connected: bool = False
     _conn: RadioConnection
     _device_info: DeviceInfo
-    _settings: RadioSettings
-    _channels: t.List[ChannelSettings]
+    _settings: Settings
+    _channels: t.List[Channel]
 
     def __init__(self, device_uuid: str):
         self._device_uuid = device_uuid
@@ -60,17 +60,17 @@ class RadioClient:
         return self._conn.register_message_handler(handler)
 
     async def set_channel(
-        self, channel_id: int, **settings: Unpack[ChannelSettingsArgs]
+        self, channel_id: int, **settings: Unpack[ChannelArgs]
     ):
         self._assert_conn()
 
-        new_settings = self._channels[channel_id].model_copy(
+        new_channel = self._channels[channel_id].model_copy(
             update=dict(settings)
         )
 
-        await self._conn.set_channel_settings(new_settings)
+        await self._conn.set_channel(new_channel)
 
-        self._channels[channel_id] = new_settings
+        self._channels[channel_id] = new_channel
 
     async def _hydrate(self):
         self._device_info = await self._conn.get_device_info()
@@ -78,10 +78,10 @@ class RadioClient:
         self._channels = []
 
         for i in range(self._device_info.channel_count):
-            channel_settings = await self._conn.get_channel_settings(i)
+            channel_settings = await self._conn.get_channel(i)
             self._channels.append(channel_settings)
 
-        self._settings = await self._conn.get_radio_settings()
+        self._settings = await self._conn.get_settings()
 
     async def connect(self):
         await self._conn.connect()

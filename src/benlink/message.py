@@ -15,6 +15,13 @@ def client_message_to_bytes(m: ClientMessage) -> bytes:
 
 def client_message_to_protocol(m: ClientMessage) -> p.Message:
     match m:
+        case GetSettings():
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.READ_SETTINGS,
+                body=p.ReadSettingsBody()
+            )
         case GetDeviceInfo():
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
@@ -22,28 +29,21 @@ def client_message_to_protocol(m: ClientMessage) -> p.Message:
                 command=p.BasicCommand.GET_DEV_INFO,
                 body=p.GetDevInfoBody()
             )
-        case GetChannelSettings(channel_id=channel_id):
+        case GetChannel(channel_id):
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_RF_CH,
                 body=p.ReadRFChBody(channel_id=channel_id)
             )
-        case SetChannelSettings(channel_settings=channel_settings):
+        case SetChannel(channel):
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.WRITE_RF_CH,
                 body=p.WriteRFChBody(
-                    rf_ch=channel_settings.to_protocol()
+                    rf_ch=channel.to_protocol()
                 )
-            )
-        case GetRadioSettings():
-            return p.Message(
-                command_group=p.CommandGroup.BASIC,
-                is_reply=False,
-                command=p.BasicCommand.READ_SETTINGS,
-                body=p.ReadSettingsBody()
             )
 
 
@@ -54,17 +54,17 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                 settings=settings
             )
         ):
-            return EventNotificationHTSettingsChanged(radio_settings=RadioSettings.from_protocol(settings))
+            return EventNotificationHTSettingsChanged(Settings.from_protocol(settings))
         case p.ReadSettingsReplyBody(
             reply_status=reply_status,
             settings=settings
         ):
             if settings is None:
                 return MessageReplyError(
-                    message_type=GetRadioSettingsReply,
+                    message_type=GetSettingsReply,
                     reason=reply_status.name,
                 )
-            return GetRadioSettingsReply(radio_settings=RadioSettings.from_protocol(settings))
+            return GetSettingsReply(Settings.from_protocol(settings))
         case p.GetDevInfoReplyBody(
             reply_status=reply_status,
             dev_info=dev_info
@@ -74,54 +74,52 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     message_type=GetDeviceInfoReply,
                     reason=reply_status.name,
                 )
-            return GetDeviceInfoReply(device_info=DeviceInfo.from_protocol(dev_info))
+            return GetDeviceInfoReply(DeviceInfo.from_protocol(dev_info))
         case p.ReadRFChReplyBody(
             reply_status=reply_status,
             rf_ch=rf_ch
         ):
             if rf_ch is None:
                 return MessageReplyError(
-                    message_type=GetChannelSettingsReply,
+                    message_type=GetChannelReply,
                     reason=reply_status.name,
                 )
-            return GetChannelSettingsReply(channel_settings=ChannelSettings.from_protocol(rf_ch))
+            return GetChannelReply(Channel.from_protocol(rf_ch))
         case p.WriteRFChReplyBody(
             reply_status=reply_status,
         ):
             if reply_status != p.ReplyStatus.SUCCESS:
                 return MessageReplyError(
-                    message_type=SetChannelSettingsReply,
+                    message_type=SetChannelReply,
                     reason=reply_status.name,
                 )
-            return SetChannelSettingsReply()
+            return SetChannelReply()
 
         case _:
-            return UnknownProtocolMessage(message=mf)
+            return UnknownProtocolMessage(mf)
 
 
 class GetDeviceInfo(t.NamedTuple):
     pass
 
 
-class GetChannelSettings(t.NamedTuple):
+class GetChannel(t.NamedTuple):
     channel_id: int
 
 
-class SetChannelSettings(t.NamedTuple):
-    channel_settings: ChannelSettings
+class SetChannel(t.NamedTuple):
+    channel: Channel
 
 
-class GetRadioSettings(t.NamedTuple):
+class GetSettings(t.NamedTuple):
     pass
 
 
 ClientMessage = t.Union[
     GetDeviceInfo,
-    GetChannelSettings,
-    SetChannelSettings,
-    GetRadioSettings,
-
-
+    GetChannel,
+    SetChannel,
+    GetSettings,
 ]
 
 
@@ -129,20 +127,20 @@ class GetDeviceInfoReply(t.NamedTuple):
     device_info: DeviceInfo
 
 
-class GetChannelSettingsReply(t.NamedTuple):
-    channel_settings: ChannelSettings
+class GetChannelReply(t.NamedTuple):
+    channel: Channel
 
 
-class SetChannelSettingsReply(t.NamedTuple):
+class SetChannelReply(t.NamedTuple):
     pass
 
 
-class GetRadioSettingsReply(t.NamedTuple):
-    radio_settings: RadioSettings
+class GetSettingsReply(t.NamedTuple):
+    settings: Settings
 
 
 class EventNotificationHTSettingsChanged(t.NamedTuple):
-    radio_settings: RadioSettings
+    settings: Settings
 
 
 ReplyStatus = t.Literal[
@@ -172,9 +170,9 @@ class UnknownProtocolMessage(t.NamedTuple):
 RadioMessage = t.Union[
     EventNotificationHTSettingsChanged,
     GetDeviceInfoReply,
-    GetChannelSettingsReply,
-    SetChannelSettingsReply,
-    GetRadioSettingsReply,
+    GetChannelReply,
+    SetChannelReply,
+    GetSettingsReply,
     UnknownProtocolMessage,
     MessageReplyError,
 ]
@@ -190,7 +188,7 @@ ModulationType = t.Literal["AM", "FM", "DMR"]
 BandwidthType = t.Literal["NARROW", "WIDE"]
 
 
-class ChannelSettingsArgs(t.TypedDict, total=False):
+class ChannelArgs(t.TypedDict, total=False):
     tx_mod: ModulationType
     tx_freq: float
     rx_mod: ModulationType
@@ -212,7 +210,7 @@ class ChannelSettingsArgs(t.TypedDict, total=False):
     name: str
 
 
-class ChannelSettings(ImmutableBaseModel):
+class Channel(ImmutableBaseModel):
     channel_id: int
     tx_mod: ModulationType
     tx_freq: float
@@ -235,8 +233,8 @@ class ChannelSettings(ImmutableBaseModel):
     name: str
 
     @ staticmethod
-    def from_protocol(cs: p.RfCh) -> ChannelSettings:
-        return ChannelSettings(
+    def from_protocol(cs: p.RfCh) -> Channel:
+        return Channel(
             channel_id=cs.channel_id,
             tx_mod=cs.tx_mod.name,
             tx_freq=cs.tx_freq,
@@ -284,7 +282,7 @@ class ChannelSettings(ImmutableBaseModel):
         )
 
 
-class RadioSettings(ImmutableBaseModel):
+class Settings(ImmutableBaseModel):
     channel_a: int
     channel_b: int
     scan: bool
@@ -326,8 +324,8 @@ class RadioSettings(ImmutableBaseModel):
     vfo2_mod_freq_x: int
 
     @staticmethod
-    def from_protocol(rs: p.Settings) -> RadioSettings:
-        return RadioSettings(
+    def from_protocol(rs: p.Settings) -> Settings:
+        return Settings(
             channel_a=rs.channel_a,
             channel_b=rs.channel_b,
             scan=rs.scan,

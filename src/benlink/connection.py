@@ -84,19 +84,19 @@ class RadioConnection:
             raise reply.as_exception()
         return reply.device_info
 
-    async def get_radio_settings(self) -> RadioSettings:
-        reply = await self.send_command_expect_reply(GetRadioSettings(), GetRadioSettingsReply)
+    async def get_settings(self) -> Settings:
+        reply = await self.send_command_expect_reply(GetSettings(), GetSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
-        return reply.radio_settings
+        return reply.settings
 
-    async def get_channel_settings(self, channel_id: int) -> ChannelSettings:
-        reply = await self.send_command_expect_reply(GetChannelSettings(channel_id), GetChannelSettingsReply)
+    async def get_channel(self, channel_id: int) -> Channel:
+        reply = await self.send_command_expect_reply(GetChannel(channel_id), GetChannelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
-        return reply.channel_settings
+        return reply.channel
 
-    async def set_channel_settings(self, channel_settings: ChannelSettings):
-        reply = await self.send_command_expect_reply(SetChannelSettings(channel_settings), SetChannelSettingsReply)
+    async def set_channel(self, channel: Channel):
+        reply = await self.send_command_expect_reply(SetChannel(channel), SetChannelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
