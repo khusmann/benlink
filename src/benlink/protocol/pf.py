@@ -49,7 +49,7 @@ class PFEffectType(IntEnum):
     TOGGLE_MUTE = 23
 
 
-class PFSetting(Bitfield):
+class PF(Bitfield):
     button_id: int = bf_int(4)
     action: PFActionType = bf_int_enum(PFActionType, 4)
     effect: PFEffectType = bf_int_enum(PFEffectType, 8)
@@ -61,4 +61,4 @@ class GetPFBody(Bitfield):
 
 class GetPFReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
-    pf: t.List[PFSetting] = bf_list(PFSetting, 8)
+    pf: t.List[PF] = bf_list(PF, 8)
