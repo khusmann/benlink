@@ -31,7 +31,7 @@ class GetDevInfoBody(Bitfield):
 
 class GetDevInfoReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
-    info: DevInfo | None = bf_dyn(
+    dev_info: DevInfo | None = bf_dyn(
         lambda x: DevInfo
         if x.reply_status == ReplyStatus.SUCCESS
         else None
