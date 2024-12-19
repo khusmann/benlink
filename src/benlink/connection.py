@@ -52,7 +52,7 @@ class RadioConnection:
             ):
                 queue.put_nowait(reply)
 
-        remove_handler = self.register_radio_message_handler(reply_handler)
+        remove_handler = self.register_message_handler(reply_handler)
 
         await self.send_command(command)
 
@@ -62,7 +62,7 @@ class RadioConnection:
 
         return out
 
-    def register_radio_message_handler(self, handler: RadioMessageHandler):
+    def register_message_handler(self, handler: RadioMessageHandler):
         self.handlers.append(handler)
 
         def remove_handler():
