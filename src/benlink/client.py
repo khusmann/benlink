@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing_extensions import Unpack
 import typing as t
+import sys
 from .connection import (
     RadioConnection,
     DeviceInfo,
@@ -128,8 +129,11 @@ class RadioClient:
         match event_message:
             case SettingsChangedEvent(settings):
                 self._settings = settings
-            case UnknownProtocolMessage():
-                pass
+            case UnknownProtocolMessage(message):
+                print(
+                    f"[DEBUG] Unknown protocol message: {message}",
+                    file=sys.stderr
+                )
 
     async def connect(self):
         await self._conn.connect()
