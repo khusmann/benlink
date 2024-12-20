@@ -15,7 +15,6 @@ from .connection import (
     SettingsChangedEvent,
     UnknownProtocolMessage,
 )
-# from contextlib import contextmanager
 
 
 class RadioClient:
@@ -134,6 +133,18 @@ class RadioClient:
                     f"[DEBUG] Unknown protocol message: {message}",
                     file=sys.stderr
                 )
+
+    async def __aenter__(self):
+        await self.connect()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: t.Type[BaseException],
+        exc_value: t.Type[BaseException],
+        traceback: t.Type[BaseException]
+    ):
+        await self.disconnect()
 
     async def connect(self):
         await self._conn.connect()
