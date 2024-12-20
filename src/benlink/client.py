@@ -18,6 +18,7 @@ from .message import (
     EventMessage,
     SettingsChangedEvent,
     PacketReceivedEvent,
+    ChannelChangedEvent,
     UnknownProtocolMessage,
 )
 
@@ -131,6 +132,8 @@ class RadioClient:
 
     def _on_event_message(self, event_message: EventMessage):
         match event_message:
+            case ChannelChangedEvent(channel):
+                self._channels[channel.channel_id] = channel
             case SettingsChangedEvent(settings):
                 self._settings = settings
             case PacketReceivedEvent():

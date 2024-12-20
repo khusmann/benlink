@@ -181,6 +181,10 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                         is_final_packet,
                         "current" if channel_id is None else channel_id,
                     )
+                case p.HTChChangedEvent(
+                    rf_ch=rf_ch
+                ):
+                    return ChannelChangedEvent(Channel.from_protocol(rf_ch))
                 case _:
                     return UnknownProtocolMessage(mf)
         case p.ReadSettingsReplyBody(
@@ -358,6 +362,10 @@ ReplyMessage = t.Union[
 ReplyMessageT = t.TypeVar("ReplyMessageT", bound=ReplyMessage)
 
 
+class ChannelChangedEvent(t.NamedTuple):
+    channel: Channel
+
+
 class PacketReceivedEvent(t.NamedTuple):
     packet_id: int
     data: bytes
@@ -377,6 +385,7 @@ EventMessage = t.Union[
     PacketReceivedEvent,
     SettingsChangedEvent,
     UnknownProtocolMessage,
+    ChannelChangedEvent,
 ]
 
 RadioMessage = ReplyMessage | EventMessage
