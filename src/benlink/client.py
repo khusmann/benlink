@@ -9,9 +9,10 @@ from .connection import (
     Settings,
     PacketSettings,
     PacketSettingsArgs,
-    RadioMessage,
-    RadioMessageHandler,
-    EventNotificationHTSettingsChanged,
+    EventMessage,
+    EventHandler,
+    SettingsChangedEvent,
+    UnknownProtocolMessage,
 )
 # from contextlib import contextmanager
 
@@ -107,8 +108,8 @@ class RadioClient:
         if not self._is_connected:
             raise ValueError("Not connected")
 
-    def register_message_handler(self, handler: RadioMessageHandler):
-        return self._conn.register_message_handler(handler)
+    def register_event_handler(self, handler: EventHandler):
+        return self._conn.register_event_handler(handler)
 
     async def _hydrate(self):
         self._device_info = await self._conn.get_device_info()
@@ -123,18 +124,18 @@ class RadioClient:
 
         self._packet_settings = await self._conn.get_packet_settings()
 
-    def _on_radio_message(self, radio_message: RadioMessage):
-        match radio_message:
-            case EventNotificationHTSettingsChanged(settings):
+    def _on_event_message(self, event_message: EventMessage):
+        match event_message:
+            case SettingsChangedEvent(settings):
                 self._settings = settings
-            case _:
+            case UnknownProtocolMessage():
                 pass
 
     async def connect(self):
         await self._conn.connect()
         await self._hydrate()
-        self._message_handler_unsubscribe = self._conn.register_message_handler(
-            self._on_radio_message
+        self._message_handler_unsubscribe = self._conn.register_event_handler(
+            self._on_event_message
         )
         self._is_connected = True
 

@@ -9,11 +9,11 @@ def radio_message_from_bytes(data: t.ByteString) -> RadioMessage:
     return radio_message_from_protocol(p.Message.from_bytes(data))
 
 
-def client_message_to_bytes(m: ClientMessage) -> bytes:
-    return client_message_to_protocol(m).to_bytes()
+def command_message_to_bytes(m: CommandMessage) -> bytes:
+    return command_message_to_protocol(m).to_bytes()
 
 
-def client_message_to_protocol(m: ClientMessage) -> p.Message:
+def command_message_to_protocol(m: CommandMessage) -> p.Message:
     match m:
         case GetPacketSettings():
             return p.Message(
@@ -135,6 +135,7 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     message_type=GetBatteryVoltageReply,
                     reason=reply_status.name,
                 )
+
             match status.value:
                 case p.BatteryVoltageStatus(
                     battery_voltage=battery_voltage
@@ -161,11 +162,15 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                         rc_battery_level=rc_battery_level
                     )
         case p.EventNotificationBody(
-            event=p.HTSettingsChanged(
-                settings=settings
-            )
+            event=event
         ):
-            return EventNotificationHTSettingsChanged(Settings.from_protocol(settings))
+            match event:
+                case p.HTSettingsChanged(
+                    settings=settings
+                ):
+                    return SettingsChangedEvent(Settings.from_protocol(settings))
+                case _:
+                    return UnknownProtocolMessage(mf)
         case p.ReadSettingsReplyBody(
             reply_status=reply_status,
             settings=settings
@@ -250,7 +255,7 @@ class GetSettings(t.NamedTuple):
     pass
 
 
-ClientMessage = t.Union[
+CommandMessage = t.Union[
     GetPacketSettings,
     SetPacketSettings,
     GetRCBatteryLevel,
@@ -304,10 +309,6 @@ class GetSettingsReply(t.NamedTuple):
     settings: Settings
 
 
-class EventNotificationHTSettingsChanged(t.NamedTuple):
-    settings: Settings
-
-
 ReplyStatus = t.Literal[
     "SUCCESS",
     "NOT_SUPPORTED",
@@ -328,30 +329,40 @@ class MessageReplyError(t.NamedTuple):
         return ValueError(f"{self.message_type.__name__} failed: {self.reason}")
 
 
-class UnknownProtocolMessage(t.NamedTuple):
-    message: p.Message
-
-
-RadioMessage = t.Union[
+ReplyMessage = t.Union[
     GetPacketSettingsReply,
     SetPacketSettingsReply,
     GetBatteryLevelAsPercentageReply,
     GetRCBatteryLevelReply,
     GetBatteryLevelReply,
     GetBatteryVoltageReply,
-    EventNotificationHTSettingsChanged,
     GetDeviceInfoReply,
     GetChannelReply,
     SetChannelReply,
     GetSettingsReply,
-    UnknownProtocolMessage,
     MessageReplyError,
 ]
 
-RadioMessageT = t.TypeVar("RadioMessageT", bound=RadioMessage)
+ReplyMessageT = t.TypeVar("ReplyMessageT", bound=ReplyMessage)
+
+
+class SettingsChangedEvent(t.NamedTuple):
+    settings: Settings
+
+
+class UnknownProtocolMessage(t.NamedTuple):
+    message: p.Message
+
+
+EventMessage = t.Union[
+    SettingsChangedEvent,
+    UnknownProtocolMessage,
+]
+
+RadioMessage = ReplyMessage | EventMessage
 
 #####################
-# Protocol to Message conversions
+# Protocol to data object conversions
 
 
 ModulationType = t.Literal["AM", "FM", "DMR"]

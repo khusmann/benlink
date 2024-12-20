@@ -12,6 +12,8 @@ RADIO_INDICATE_UUID = "00001102-d102-11e1-9b23-00025b00a5a5"
 
 RadioMessageHandler = t.Callable[[RadioMessage], None]
 
+EventHandler = t.Callable[[EventMessage], None]
+
 
 class RadioConnection:
     _client: BleakClient
@@ -31,15 +33,15 @@ class RadioConnection:
     async def disconnect(self):
         await self._client.disconnect()
 
-    async def send_command(self, command: ClientMessage):
+    async def send_command(self, command: CommandMessage):
         await self._client.write_gatt_char(
             RADIO_WRITE_UUID,
-            client_message_to_bytes(command),
+            command_message_to_bytes(command),
             response=True
         )
 
-    async def send_command_expect_reply(self, command: ClientMessage, expect: t.Type[RadioMessageT]) -> RadioMessageT | MessageReplyError:
-        queue: asyncio.Queue[RadioMessageT |
+    async def send_command_expect_reply(self, command: CommandMessage, expect: t.Type[ReplyMessageT]) -> ReplyMessageT | MessageReplyError:
+        queue: asyncio.Queue[ReplyMessageT |
                              MessageReplyError] = asyncio.Queue()
 
         def reply_handler(reply: RadioMessage):
@@ -52,7 +54,7 @@ class RadioConnection:
             ):
                 queue.put_nowait(reply)
 
-        remove_handler = self.register_message_handler(reply_handler)
+        remove_handler = self._register_message_handler(reply_handler)
 
         await self.send_command(command)
 
@@ -62,7 +64,13 @@ class RadioConnection:
 
         return out
 
-    def register_message_handler(self, handler: RadioMessageHandler):
+    def register_event_handler(self, handler: EventHandler):
+        def event_handler(msg: RadioMessage):
+            if isinstance(msg, EventMessage):
+                handler(msg)
+        return self._register_message_handler(event_handler)
+
+    def _register_message_handler(self, handler: RadioMessageHandler):
         self.handlers.append(handler)
 
         def remove_handler():
