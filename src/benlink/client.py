@@ -55,6 +55,15 @@ class RadioClient:
     async def battery_voltage(self):
         return await self._conn.get_battery_voltage()
 
+    async def battery_level(self):
+        return await self._conn.get_battery_level()
+
+    async def battery_level_as_percentage(self):
+        return await self._conn.get_battery_level_as_percentage()
+
+    async def rc_battery_level(self):
+        return await self._conn.get_rc_battery_level()
+
     def _assert_conn(self):
         if not self._is_connected:
             raise ValueError("Not connected")

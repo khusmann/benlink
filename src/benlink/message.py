@@ -54,6 +54,33 @@ def client_message_to_protocol(m: ClientMessage) -> p.Message:
                     status_type=p.ReadStatusType.BATTERY_VOLTAGE
                 )
             )
+        case GetBatteryLevel():
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.READ_STATUS,
+                body=p.ReadStatusBody(
+                    status_type=p.ReadStatusType.BATTERY_LEVEL
+                )
+            )
+        case GetBatteryLevelAsPercentage():
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.READ_STATUS,
+                body=p.ReadStatusBody(
+                    status_type=p.ReadStatusType.BATTERY_LEVEL_AS_PERCENTAGE
+                )
+            )
+        case GetRCBatteryLevel():
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.READ_STATUS,
+                body=p.ReadStatusBody(
+                    status_type=p.ReadStatusType.RC_BATTERY_LEVEL
+                )
+            )
 
 
 def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
@@ -69,13 +96,29 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                 )
             match status.value:
                 case p.BatteryVoltageStatus(
-                    voltage=voltage
+                    battery_voltage=battery_voltage
                 ):
                     return GetBatteryVoltageReply(
-                        voltage=voltage
+                        battery_voltage=battery_voltage
                     )
-                case _:
-                    return UnknownProtocolMessage(mf)
+                case p.BatteryLevelPercentageStatus(
+                    battery_level_as_percentage=battery_level_as_percentage
+                ):
+                    return GetBatteryLevelAsPercentageReply(
+                        battery_level_as_percentage=battery_level_as_percentage
+                    )
+                case p.BatteryLevelStatus(
+                    battery_level=battery_level
+                ):
+                    return GetBatteryLevelReply(
+                        battery_level=battery_level
+                    )
+                case p.RCBatteryLevelStatus(
+                    rc_battery_level=rc_battery_level
+                ):
+                    return GetRCBatteryLevelReply(
+                        rc_battery_level=rc_battery_level
+                    )
         case p.EventNotificationBody(
             event=p.HTSettingsChanged(
                 settings=settings
@@ -126,6 +169,18 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
             return UnknownProtocolMessage(mf)
 
 
+class GetBatteryLevelAsPercentage(t.NamedTuple):
+    pass
+
+
+class GetRCBatteryLevel(t.NamedTuple):
+    pass
+
+
+class GetBatteryLevel(t.NamedTuple):
+    pass
+
+
 class GetBatteryVoltage(t.NamedTuple):
     pass
 
@@ -147,16 +202,31 @@ class GetSettings(t.NamedTuple):
 
 
 ClientMessage = t.Union[
+    GetRCBatteryLevel,
+    GetBatteryLevelAsPercentage,
+    GetBatteryLevel,
+    GetBatteryVoltage,
     GetDeviceInfo,
     GetChannel,
     SetChannel,
     GetSettings,
-    GetBatteryVoltage,
 ]
 
 
+class GetBatteryLevelAsPercentageReply(t.NamedTuple):
+    battery_level_as_percentage: int
+
+
+class GetRCBatteryLevelReply(t.NamedTuple):
+    rc_battery_level: int
+
+
+class GetBatteryLevelReply(t.NamedTuple):
+    battery_level: int
+
+
 class GetBatteryVoltageReply(t.NamedTuple):
-    voltage: float
+    battery_voltage: float
 
 
 class GetDeviceInfoReply(t.NamedTuple):
@@ -204,6 +274,9 @@ class UnknownProtocolMessage(t.NamedTuple):
 
 
 RadioMessage = t.Union[
+    GetBatteryLevelAsPercentageReply,
+    GetRCBatteryLevelReply,
+    GetBatteryLevelReply,
     GetBatteryVoltageReply,
     EventNotificationHTSettingsChanged,
     GetDeviceInfoReply,

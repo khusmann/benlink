@@ -78,11 +78,29 @@ class RadioConnection:
 
     # Commands
 
+    async def get_battery_level(self) -> int:
+        reply = await self.send_command_expect_reply(GetBatteryLevel(), GetBatteryLevelReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+        return reply.battery_level
+
+    async def get_battery_level_as_percentage(self) -> int:
+        reply = await self.send_command_expect_reply(GetBatteryLevelAsPercentage(), GetBatteryLevelAsPercentageReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+        return reply.battery_level_as_percentage
+
+    async def get_rc_battery_level(self) -> int:
+        reply = await self.send_command_expect_reply(GetRCBatteryLevel(), GetRCBatteryLevelReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+        return reply.rc_battery_level
+
     async def get_battery_voltage(self) -> float:
         reply = await self.send_command_expect_reply(GetBatteryVoltage(), GetBatteryVoltageReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
-        return reply.voltage
+        return reply.battery_voltage
 
     async def get_device_info(self) -> DeviceInfo:
         reply = await self.send_command_expect_reply(GetDeviceInfo(), GetDeviceInfoReply)

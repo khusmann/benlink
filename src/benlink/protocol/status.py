@@ -14,19 +14,19 @@ class ReadStatusType(IntEnum):
 
 
 class BatteryVoltageStatus(Bitfield):
-    voltage: float = bf_map(bf_int(16), Scale(1 / 1000, 3))
+    battery_voltage: float = bf_map(bf_int(16), Scale(1 / 1000, 3))
 
 
 class BatteryLevelStatus(Bitfield):
-    level: int = bf_int(8)
+    battery_level: int = bf_int(8)
 
 
 class BatteryLevelPercentageStatus(Bitfield):
-    percentage: int = bf_int(8)
+    battery_level_as_percentage: int = bf_int(8)
 
 
 class RCBatteryLevelStatus(Bitfield):
-    level: int = bf_int(8)
+    rc_battery_level: int = bf_int(8)
 
 
 StatusValue = t.Union[
