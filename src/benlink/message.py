@@ -15,6 +15,22 @@ def client_message_to_bytes(m: ClientMessage) -> bytes:
 
 def client_message_to_protocol(m: ClientMessage) -> p.Message:
     match m:
+        case GetPacketSettings():
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.READ_BSS_SETTINGS,
+                body=p.ReadBSSSettingsBody()
+            )
+        case SetPacketSettings(packet_settings):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.WRITE_BSS_SETTINGS,
+                body=p.WriteBSSSettingsBody(
+                    bss_settings=packet_settings.to_protocol()
+                )
+            )
         case GetSettings():
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
@@ -85,6 +101,31 @@ def client_message_to_protocol(m: ClientMessage) -> p.Message:
 
 def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
     match mf.body:
+        case p.ReadBSSSettingsReplyBody(
+            reply_status=reply_status,
+            bss_settings=bss_settings,
+        ):
+            if bss_settings is None:
+                return MessageReplyError(
+                    message_type=GetPacketSettingsReply,
+                    reason=reply_status.name,
+                )
+
+            if isinstance(bss_settings, p.BSSSettings):
+                raise ValueError(
+                    "Radio replied with old BSSSettings message version. Upgrade your firmware!"
+                )
+
+            return GetPacketSettingsReply(PacketSettings.from_protocol(bss_settings))
+        case p.WriteBSSSettingsReplyBody(
+            reply_status=reply_status,
+        ):
+            if reply_status != p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    message_type=SetPacketSettingsReply,
+                    reason=reply_status.name,
+                )
+            return SetPacketSettingsReply()
         case p.ReadStatusReplyBody(
             reply_status=reply_status,
             status=status
@@ -169,6 +210,14 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
             return UnknownProtocolMessage(mf)
 
 
+class GetPacketSettings(t.NamedTuple):
+    pass
+
+
+class SetPacketSettings(t.NamedTuple):
+    packet_settings: PacketSettings
+
+
 class GetBatteryLevelAsPercentage(t.NamedTuple):
     pass
 
@@ -202,6 +251,8 @@ class GetSettings(t.NamedTuple):
 
 
 ClientMessage = t.Union[
+    GetPacketSettings,
+    SetPacketSettings,
     GetRCBatteryLevel,
     GetBatteryLevelAsPercentage,
     GetBatteryLevel,
@@ -211,6 +262,14 @@ ClientMessage = t.Union[
     SetChannel,
     GetSettings,
 ]
+
+
+class GetPacketSettingsReply(t.NamedTuple):
+    packet_settings: PacketSettings
+
+
+class SetPacketSettingsReply(t.NamedTuple):
+    pass
 
 
 class GetBatteryLevelAsPercentageReply(t.NamedTuple):
@@ -274,6 +333,8 @@ class UnknownProtocolMessage(t.NamedTuple):
 
 
 RadioMessage = t.Union[
+    GetPacketSettingsReply,
+    SetPacketSettingsReply,
     GetBatteryLevelAsPercentageReply,
     GetRCBatteryLevelReply,
     GetBatteryLevelReply,
@@ -581,4 +642,83 @@ class DeviceInfo(ImmutableBaseModel):
             support_dmr=self.supports_dmr,
             channel_count=self.channel_count,
             freq_range_count=self.frequency_range_count
+        )
+
+
+class PacketSettingsArgs(t.TypedDict, total=False):
+    max_fwd_times: int
+    time_to_live: int
+    ptt_release_send_location: bool
+    ptt_release_send_id_info: bool
+    ptt_release_send_bss_user_id: bool
+    should_share_location: bool
+    send_pwr_voltage: bool
+    packet_format: t.Literal["BSS", "APRS"]
+    allow_position_check: bool
+    aprs_ssid: int
+    location_share_interval: int
+    bss_user_id: int
+    ptt_release_id_info: str
+    beacon_message: str
+    aprs_symbol: str
+    aprs_callsign: str
+
+
+class PacketSettings(ImmutableBaseModel):
+    max_fwd_times: int
+    time_to_live: int
+    ptt_release_send_location: bool
+    ptt_release_send_id_info: bool
+    ptt_release_send_bss_user_id: bool
+    should_share_location: bool
+    send_pwr_voltage: bool
+    packet_format: t.Literal["BSS", "APRS"]
+    allow_position_check: bool
+    aprs_ssid: int
+    location_share_interval: int
+    bss_user_id: int
+    ptt_release_id_info: str
+    beacon_message: str
+    aprs_symbol: str
+    aprs_callsign: str
+
+    @staticmethod
+    def from_protocol(bs: p.BSSSettingsExt) -> PacketSettings:
+        return PacketSettings(
+            max_fwd_times=bs.max_fwd_times,
+            time_to_live=bs.time_to_live,
+            ptt_release_send_location=bs.ptt_release_send_location,
+            ptt_release_send_id_info=bs.ptt_release_send_id_info,
+            ptt_release_send_bss_user_id=bs.ptt_release_send_bss_user_id,
+            should_share_location=bs.should_share_location,
+            send_pwr_voltage=bs.send_pwr_voltage,
+            packet_format=bs.packet_format.name,
+            allow_position_check=bs.allow_position_check,
+            aprs_ssid=bs.aprs_ssid,
+            location_share_interval=bs.location_share_interval,
+            bss_user_id=bs.bss_user_id,
+            ptt_release_id_info=bs.ptt_release_id_info,
+            beacon_message=bs.beacon_message,
+            aprs_symbol=bs.aprs_symbol,
+            aprs_callsign=bs.aprs_callsign
+        )
+
+    def to_protocol(self) -> p.BSSSettingsExt:
+        return p.BSSSettingsExt(
+            max_fwd_times=self.max_fwd_times,
+            time_to_live=self.time_to_live,
+            ptt_release_send_location=self.ptt_release_send_location,
+            ptt_release_send_id_info=self.ptt_release_send_id_info,
+            ptt_release_send_bss_user_id=self.ptt_release_send_bss_user_id,
+            should_share_location=self.should_share_location,
+            send_pwr_voltage=self.send_pwr_voltage,
+            packet_format=p.PacketFormat[self.packet_format],
+            allow_position_check=self.allow_position_check,
+            aprs_ssid=self.aprs_ssid,
+            location_share_interval=self.location_share_interval,
+            bss_user_id=self.bss_user_id,
+            ptt_release_id_info=self.ptt_release_id_info,
+            beacon_message=self.beacon_message,
+            aprs_symbol=self.aprs_symbol,
+            aprs_callsign=self.aprs_callsign
         )

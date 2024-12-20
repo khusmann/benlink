@@ -78,6 +78,17 @@ class RadioConnection:
 
     # Commands
 
+    async def get_packet_settings(self) -> PacketSettings:
+        reply = await self.send_command_expect_reply(GetPacketSettings(), GetPacketSettingsReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+        return reply.packet_settings
+
+    async def set_packet_settings(self, packet_settings: PacketSettings):
+        reply = await self.send_command_expect_reply(SetPacketSettings(packet_settings), SetPacketSettingsReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+
     async def get_battery_level(self) -> int:
         reply = await self.send_command_expect_reply(GetBatteryLevel(), GetBatteryLevelReply)
         if isinstance(reply, MessageReplyError):

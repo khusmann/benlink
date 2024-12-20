@@ -7,6 +7,8 @@ from .connection import (
     Channel,
     ChannelArgs,
     Settings,
+    PacketSettings,
+    PacketSettingsArgs,
     RadioMessageHandler,
 )
 # from contextlib import contextmanager
@@ -17,6 +19,7 @@ class RadioClient:
     _is_connected: bool = False
     _conn: RadioConnection
     _device_info: DeviceInfo
+    _packet_settings: PacketSettings
     _settings: Settings
     _channels: t.List[Channel]
 
@@ -30,19 +33,48 @@ class RadioClient:
         return f"<RadioClient {self.device_uuid} (connected)>"
 
     @property
+    def packet_settings(self):
+        self._assert_conn()
+        return self._packet_settings
+
+    async def set_packet_settings(self, **packet_settings_args: Unpack[PacketSettingsArgs]):
+        self._assert_conn()
+
+        new_packet_settings = self._packet_settings.model_copy(
+            update=dict(packet_settings_args)
+        )
+
+        await self._conn.set_packet_settings(new_packet_settings)
+
+        self._packet_settings = new_packet_settings
+
+    @ property
     def settings(self):
         self._assert_conn()
         return self._settings
 
-    @property
+    @ property
     def device_info(self):
         self._assert_conn()
         return self._device_info
 
-    @property
+    @ property
     def channels(self):
         self._assert_conn()
         return self._channels
+
+    async def set_channel(
+        self, channel_id: int, **channel_args: Unpack[ChannelArgs]
+    ):
+        self._assert_conn()
+
+        new_channel = self._channels[channel_id].model_copy(
+            update=dict(channel_args)
+        )
+
+        await self._conn.set_channel(new_channel)
+
+        self._channels[channel_id] = new_channel
 
     @property
     def device_uuid(self):
@@ -75,19 +107,6 @@ class RadioClient:
     def register_message_handler(self, handler: RadioMessageHandler):
         return self._conn.register_message_handler(handler)
 
-    async def set_channel(
-        self, channel_id: int, **settings: Unpack[ChannelArgs]
-    ):
-        self._assert_conn()
-
-        new_channel = self._channels[channel_id].model_copy(
-            update=dict(settings)
-        )
-
-        await self._conn.set_channel(new_channel)
-
-        self._channels[channel_id] = new_channel
-
     async def _hydrate(self):
         self._device_info = await self._conn.get_device_info()
 
@@ -98,6 +117,8 @@ class RadioClient:
             self._channels.append(channel_settings)
 
         self._settings = await self._conn.get_settings()
+
+        self._packet_settings = await self._conn.get_packet_settings()
 
     async def connect(self):
         await self._conn.connect()

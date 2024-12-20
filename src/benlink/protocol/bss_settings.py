@@ -4,7 +4,6 @@ from ..bitfield import (
     bf_int,
     bf_int_enum,
     bf_dyn,
-    bf_bytes,
     bf_str,
     bf_lit_int,
 )
@@ -34,7 +33,7 @@ class BSSSettings(Bitfield):
     _pad2: t.Literal[0] = bf_lit_int(4, default=0)
     location_share_interval: int = bf_int(8)
     bss_user_id: int = bf_int(32)
-    ptt_release_id_info: bytes = bf_bytes(12)
+    ptt_release_id_info: str = bf_str(12)
     beacon_message: str = bf_str(18)
     aprs_symbol: str = bf_str(2)
     aprs_callsign: str = bf_str(6)
@@ -56,7 +55,7 @@ class BSSSettingsExt(Bitfield):
     _pad2: t.Literal[0] = bf_lit_int(4, default=0)
     location_share_interval: int = bf_int(8)
     # bss_user_id (reordered; 32)
-    ptt_release_id_info: bytes = bf_bytes(12)
+    ptt_release_id_info: str = bf_str(12)
     beacon_message: str = bf_str(18)
     aprs_symbol: str = bf_str(2)
     aprs_callsign: str = bf_str(6)
@@ -66,7 +65,7 @@ class BSSSettingsExt(Bitfield):
 
 
 class ReadBSSSettingsBody(Bitfield):
-    unknown: int = bf_int(8)
+    unknown: t.Literal[2] = bf_lit_int(8, default=2)
 
 
 def bss_settings_reply_disc(reply: ReadBSSSettingsReplyBody, n: int):
