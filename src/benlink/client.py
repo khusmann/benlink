@@ -17,6 +17,7 @@ from .message import (
     PacketSettingsArgs,
     EventMessage,
     SettingsChangedEvent,
+    PacketReceivedEvent,
     UnknownProtocolMessage,
 )
 
@@ -132,6 +133,8 @@ class RadioClient:
         match event_message:
             case SettingsChangedEvent(settings):
                 self._settings = settings
+            case PacketReceivedEvent():
+                pass
             case UnknownProtocolMessage(message):
                 print(
                     f"[DEBUG] Unknown protocol message: {message}",

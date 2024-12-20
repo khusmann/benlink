@@ -169,6 +169,14 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     settings=settings
                 ):
                     return SettingsChangedEvent(Settings.from_protocol(settings))
+                case p.DataPacket(
+                    data=data,
+                    channel_id=channel_id
+                ):
+                    return PacketReceivedEvent(
+                        data=data,
+                        channel_id="current" if channel_id is None else channel_id,
+                    )
                 case _:
                     return UnknownProtocolMessage(mf)
         case p.ReadSettingsReplyBody(
@@ -346,6 +354,11 @@ ReplyMessage = t.Union[
 ReplyMessageT = t.TypeVar("ReplyMessageT", bound=ReplyMessage)
 
 
+class PacketReceivedEvent(t.NamedTuple):
+    data: bytes
+    channel_id: int | t.Literal["current"]
+
+
 class SettingsChangedEvent(t.NamedTuple):
     settings: Settings
 
@@ -355,6 +368,7 @@ class UnknownProtocolMessage(t.NamedTuple):
 
 
 EventMessage = t.Union[
+    PacketReceivedEvent,
     SettingsChangedEvent,
     UnknownProtocolMessage,
 ]
