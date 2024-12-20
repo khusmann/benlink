@@ -45,10 +45,37 @@ def client_message_to_protocol(m: ClientMessage) -> p.Message:
                     rf_ch=channel.to_protocol()
                 )
             )
+        case GetBatteryVoltage():
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.READ_STATUS,
+                body=p.ReadStatusBody(
+                    status_type=p.ReadStatusType.BATTERY_VOLTAGE
+                )
+            )
 
 
 def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
     match mf.body:
+        case p.ReadStatusReplyBody(
+            reply_status=reply_status,
+            status=status
+        ):
+            if status is None:
+                return MessageReplyError(
+                    message_type=GetBatteryVoltageReply,
+                    reason=reply_status.name,
+                )
+            match status.value:
+                case p.BatteryVoltageStatus(
+                    voltage=voltage
+                ):
+                    return GetBatteryVoltageReply(
+                        voltage=voltage
+                    )
+                case _:
+                    return UnknownProtocolMessage(mf)
         case p.EventNotificationBody(
             event=p.HTSettingsChanged(
                 settings=settings
@@ -99,6 +126,10 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
             return UnknownProtocolMessage(mf)
 
 
+class GetBatteryVoltage(t.NamedTuple):
+    pass
+
+
 class GetDeviceInfo(t.NamedTuple):
     pass
 
@@ -120,7 +151,12 @@ ClientMessage = t.Union[
     GetChannel,
     SetChannel,
     GetSettings,
+    GetBatteryVoltage,
 ]
+
+
+class GetBatteryVoltageReply(t.NamedTuple):
+    voltage: float
 
 
 class GetDeviceInfoReply(t.NamedTuple):
@@ -168,6 +204,7 @@ class UnknownProtocolMessage(t.NamedTuple):
 
 
 RadioMessage = t.Union[
+    GetBatteryVoltageReply,
     EventNotificationHTSettingsChanged,
     GetDeviceInfoReply,
     GetChannelReply,
