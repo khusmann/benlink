@@ -2,8 +2,13 @@ from __future__ import annotations
 from typing_extensions import Unpack
 import typing as t
 import sys
+
 from .connection import (
     RadioConnection,
+    EventHandler,
+)
+
+from .message import (
     DeviceInfo,
     Channel,
     ChannelArgs,
@@ -11,7 +16,6 @@ from .connection import (
     PacketSettings,
     PacketSettingsArgs,
     EventMessage,
-    EventHandler,
     SettingsChangedEvent,
     UnknownProtocolMessage,
 )
