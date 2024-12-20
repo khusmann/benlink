@@ -215,6 +215,16 @@ class Scale(t.NamedTuple):
         return round(y / self.by)
 
 
+class IntScale(t.NamedTuple):
+    by: int
+
+    def forward(self, x: int):
+        return x * self.by
+
+    def back(self, y: int):
+        return round(y / self.by)
+
+
 class BFBits(t.NamedTuple):
     n: int
     default: Bits | NotProvided

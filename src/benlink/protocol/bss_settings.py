@@ -6,6 +6,8 @@ from ..bitfield import (
     bf_dyn,
     bf_str,
     bf_lit_int,
+    bf_map,
+    IntScale,
 )
 import typing as t
 from enum import IntEnum
@@ -31,7 +33,7 @@ class BSSSettings(Bitfield):
     _pad: t.Literal[0] = bf_lit_int(1, default=0)
     aprs_ssid: int = bf_int(4)
     _pad2: t.Literal[0] = bf_lit_int(4, default=0)
-    location_share_interval: int = bf_int(8)
+    location_share_interval: int = bf_map(bf_int(8), IntScale(10))
     bss_user_id: int = bf_int(32)
     ptt_release_id_info: str = bf_str(12)
     beacon_message: str = bf_str(18)
