@@ -52,17 +52,17 @@ class RadioClient:
 
         self._packet_settings = new_packet_settings
 
-    @ property
+    @property
     def settings(self):
         self._assert_conn()
         return self._settings
 
-    @ property
+    @property
     def device_info(self):
         self._assert_conn()
         return self._device_info
 
-    @ property
+    @property
     def channels(self):
         self._assert_conn()
         return self._channels
