@@ -12,6 +12,7 @@ from ..bitfield import (
 )
 import typing as t
 from .settings import Settings
+from .rf_ch import RfCh
 
 from enum import IntEnum
 
@@ -94,6 +95,10 @@ class DataRxdEvent(Bitfield):
     )
 
 
+class HTChChangedEvent(Bitfield):
+    rf_ch: RfCh
+
+
 def event_notification_disc(m: EventNotificationBody, n: int):
     match m.event_type:
         case EventType.HT_SETTINGS_CHANGED:
@@ -108,6 +113,8 @@ def event_notification_disc(m: EventNotificationBody, n: int):
             )
         case EventType.DATA_RXD:
             return bf_bitfield(DataRxdEvent, n)
+        case EventType.HT_CH_CHANGED:
+            return HTChChangedEvent
         case _:
             return bf_bitfield(UnknownEvent, n)
 
@@ -118,6 +125,7 @@ Event = t.Union[
     HTStatusChangedEvent,
     HTSettingsChangedEvent,
     HTStatusChangedEventExt,
+    HTChChangedEvent,
 ]
 
 
