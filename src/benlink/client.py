@@ -9,7 +9,9 @@ from .connection import (
     Settings,
     PacketSettings,
     PacketSettingsArgs,
+    RadioMessage,
     RadioMessageHandler,
+    EventNotificationHTSettingsChanged,
 )
 # from contextlib import contextmanager
 
@@ -22,6 +24,7 @@ class RadioClient:
     _packet_settings: PacketSettings
     _settings: Settings
     _channels: t.List[Channel]
+    _message_handler_unsubscribe: t.Callable[[], None]
 
     def __init__(self, device_uuid: str):
         self._device_uuid = device_uuid
@@ -120,11 +123,22 @@ class RadioClient:
 
         self._packet_settings = await self._conn.get_packet_settings()
 
+    def _on_radio_message(self, radio_message: RadioMessage):
+        match radio_message:
+            case EventNotificationHTSettingsChanged(settings):
+                self._settings = settings
+            case _:
+                pass
+
     async def connect(self):
         await self._conn.connect()
         await self._hydrate()
+        self._message_handler_unsubscribe = self._conn.register_message_handler(
+            self._on_radio_message
+        )
         self._is_connected = True
 
     async def disconnect(self):
+        self._message_handler_unsubscribe()
         await self._conn.disconnect()
         self._is_connected = False
