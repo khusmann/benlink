@@ -165,17 +165,21 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
             event=event
         ):
             match event:
-                case p.HTSettingsChanged(
+                case p.HTSettingsChangedEvent(
                     settings=settings
                 ):
                     return SettingsChangedEvent(Settings.from_protocol(settings))
-                case p.DataPacket(
+                case p.DataRxdEvent(
+                    is_final_packet=is_final_packet,
+                    packet_id=packet_id,
                     data=data,
                     channel_id=channel_id
                 ):
                     return PacketReceivedEvent(
-                        data=data,
-                        channel_id="current" if channel_id is None else channel_id,
+                        packet_id,
+                        data,
+                        is_final_packet,
+                        "current" if channel_id is None else channel_id,
                     )
                 case _:
                     return UnknownProtocolMessage(mf)
@@ -355,7 +359,9 @@ ReplyMessageT = t.TypeVar("ReplyMessageT", bound=ReplyMessage)
 
 
 class PacketReceivedEvent(t.NamedTuple):
+    packet_id: int
     data: bytes
+    is_final_packet: bool
     channel_id: int | t.Literal["current"]
 
 

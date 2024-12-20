@@ -37,11 +37,11 @@ class ChannelType(IntEnum):
     B = 2
 
 
-class HTSettingsChanged(Bitfield):
+class HTSettingsChangedEvent(Bitfield):
     settings: Settings
 
 
-class HTStatusChanged(Bitfield):
+class HTStatusChangedEvent(Bitfield):
     is_power_on: bool
     is_in_tx: bool
     is_sq: bool
@@ -56,7 +56,7 @@ class HTStatusChanged(Bitfield):
     _pad: t.Literal[0] = bf_lit_int(1, default=0)
 
 
-class HTStatusChangedExt(Bitfield):
+class HTStatusChangedEventExt(Bitfield):
     curr_channel_id: int = bf_int(8)
     is_power_on: bool
     is_in_tx: bool
@@ -82,7 +82,7 @@ class UnknownEvent(Bitfield):
     data: bytes = bf_dyn(lambda _, n: bf_bytes(n // 8))
 
 
-class DataPacket(Bitfield):
+class DataRxdEvent(Bitfield):
     is_final_packet: bool
     with_channel_id: bool
     packet_id: int = bf_int(6)
@@ -97,27 +97,27 @@ class DataPacket(Bitfield):
 def event_notification_disc(m: EventNotificationBody, n: int):
     match m.event_type:
         case EventType.HT_SETTINGS_CHANGED:
-            return HTSettingsChanged
+            return HTSettingsChangedEvent
         case EventType.HT_STATUS_CHANGED:
-            if n == HTStatusChanged.length():
-                return HTStatusChanged
-            if n == HTStatusChangedExt.length():
-                return HTStatusChangedExt
+            if n == HTStatusChangedEvent.length():
+                return HTStatusChangedEvent
+            if n == HTStatusChangedEventExt.length():
+                return HTStatusChangedEventExt
             raise ValueError(
                 f"Unknown size for HT_STATUS_CHANGED event ({n})"
             )
         case EventType.DATA_RXD:
-            return bf_bitfield(DataPacket, n)
+            return bf_bitfield(DataRxdEvent, n)
         case _:
             return bf_bitfield(UnknownEvent, n)
 
 
 Event = t.Union[
     UnknownEvent,
-    DataPacket,
-    HTStatusChanged,
-    HTSettingsChanged,
-    HTStatusChangedExt,
+    DataRxdEvent,
+    HTStatusChangedEvent,
+    HTSettingsChangedEvent,
+    HTStatusChangedEventExt,
 ]
 
 
