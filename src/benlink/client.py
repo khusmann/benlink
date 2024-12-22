@@ -4,7 +4,7 @@ import typing as t
 import sys
 
 from .connection import (
-    RadioConnection,
+    BleConnection,
     EventHandler,
 )
 
@@ -26,7 +26,7 @@ from .message import (
 class RadioClient:
     _device_uuid: str
     _is_connected: bool = False
-    _conn: RadioConnection
+    _conn: BleConnection
     _device_info: DeviceInfo
     _packet_settings: PacketSettings
     _settings: Settings
@@ -35,7 +35,7 @@ class RadioClient:
 
     def __init__(self, device_uuid: str):
         self._device_uuid = device_uuid
-        self._conn = RadioConnection(device_uuid)
+        self._conn = BleConnection(device_uuid)
 
     def __repr__(self):
         if not self._is_connected:

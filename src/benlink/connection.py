@@ -37,7 +37,7 @@ RadioMessageHandler = t.Callable[[RadioMessage], None]
 EventHandler = t.Callable[[EventMessage], None]
 
 
-class RadioConnection:
+class BleConnection:
     _client: BleakClient
     handlers: t.List[RadioMessageHandler] = []
 
