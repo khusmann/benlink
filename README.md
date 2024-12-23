@@ -78,6 +78,8 @@ To see what else you can do with this library, check out the examples the
 Things to do, in no particular order:
 
 - [ ] Implement more commands and settings
+- [ ] Make a higher-level interface for sending / receiving TNC data (right now
+      you have to break it into fragments)
 - [ ] Support more radios
 - [ ] Figure out firmware flashing process / protocol (this is key for long-term
       independence from the HT app)
