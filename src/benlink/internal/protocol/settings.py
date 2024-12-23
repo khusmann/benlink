@@ -13,8 +13,8 @@ class LocChMap:
 
 
 class Settings(Bitfield):
-    channel_a: int = bf_int(8)
-    channel_b: int = bf_int(8)
+    channel_a_lower: int = bf_int(4)
+    channel_b_lower: int = bf_int(4)
     scan: bool
     aghfp_call_mode: int = bf_int(1)
     double_channel: int = bf_int(2)
@@ -45,8 +45,8 @@ class Settings(Bitfield):
     screen_timeout: int = bf_int(5)
     vfo_x: int = bf_int(2)
     imperial_unit: bool
-    # channel_a_upper (reordered; 4)
-    # channel_b_upper (reordered; 4)
+    channel_a_upper: int = bf_int(4)
+    channel_b_upper: int = bf_int(4)
     wx_mode: int = bf_int(2)
     noaa_ch: int = bf_int(4)
     vfol_tx_power_x: int = bf_int(2)
@@ -57,13 +57,6 @@ class Settings(Bitfield):
     _pad: t.Literal[0] = bf_lit_int(3, default=0)
     vfo1_mod_freq_x: int = bf_int(32)
     vfo2_mod_freq_x: int = bf_int(32)
-
-    _reorder = [
-        *range(72, 72 + 4),  # channel_a_upper
-        *range(0, 4),  # channel_a_lower
-        *range(76, 76 + 4),  # channel_b_upper
-        *range(4, 4 + 4)  # channel_b_lower
-    ]
 
 
 class ReadSettingsBody(Bitfield):

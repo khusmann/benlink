@@ -20,6 +20,7 @@ class PacketFormat(IntEnum):
 
 
 # Really should be named "Packet Settings" or something
+# because it includes BSS and APRS
 class BSSSettings(Bitfield):
     max_fwd_times: int = bf_int(4)
     time_to_live: int = bf_int(4)
@@ -34,36 +35,15 @@ class BSSSettings(Bitfield):
     aprs_ssid: int = bf_int(4)
     _pad2: t.Literal[0] = bf_lit_int(4, default=0)
     location_share_interval: int = bf_map(bf_int(8), IntScale(10))
-    bss_user_id: int = bf_int(32)
+    bss_user_id_lower: int = bf_int(32)
     ptt_release_id_info: str = bf_str(12)
     beacon_message: str = bf_str(18)
     aprs_symbol: str = bf_str(2)
     aprs_callsign: str = bf_str(6)
 
 
-class BSSSettingsExt(Bitfield):
-    bss_user_id: int = bf_int(64)
-    max_fwd_times: int = bf_int(4)
-    time_to_live: int = bf_int(4)
-    ptt_release_send_location: bool
-    ptt_release_send_id_info: bool
-    ptt_release_send_bss_user_id: bool  # (Applies when BSS is turned on)
-    should_share_location: bool
-    send_pwr_voltage: bool
-    packet_format: PacketFormat = bf_int_enum(PacketFormat, 1)
-    allow_position_check: bool
-    _pad: t.Literal[0] = bf_lit_int(1, default=0)
-    aprs_ssid: int = bf_int(4)
-    _pad2: t.Literal[0] = bf_lit_int(4, default=0)
-    location_share_interval: int = bf_int(8)
-    # bss_user_id (reordered; 32)
-    ptt_release_id_info: str = bf_str(12)
-    beacon_message: str = bf_str(18)
-    aprs_symbol: str = bf_str(2)
-    aprs_callsign: str = bf_str(6)
-    # bss_user_id_upper (reordered; 32)
-
-    _reorder = [*range(368, 368+32), *range(32, 32+32)]
+class BSSSettingsExt(BSSSettings):
+    bss_user_id_upper: int = bf_int(32)
 
 
 class ReadBSSSettingsBody(Bitfield):

@@ -124,7 +124,7 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     reason=reply_status.name,
                 )
 
-            if isinstance(bss_settings, p.BSSSettings):
+            if not isinstance(bss_settings, p.BSSSettingsExt):
                 raise ValueError(
                     "Radio replied with old BSSSettings message version. Upgrade your firmware!"
                 )
@@ -426,6 +426,40 @@ RadioMessage = ReplyMessage | EventMessage
 # Protocol to data object conversions
 
 
+class IntSplit(t.NamedTuple):
+    """
+    A helper class for working with integers split into upper and lower parts
+    @private
+    """
+
+    n_upper: int
+    n_lower: int
+
+    def from_parts(self, upper: int, lower: int) -> int:
+        if upper >= 1 << self.n_upper:
+            raise ValueError(
+                f"Upper part {upper} is too large for {self.n_upper} bits")
+        if lower >= 1 << self.n_lower:
+            raise ValueError(
+                f"Lower part {lower} is too large for {self.n_lower} bits")
+
+        return (upper << self.n_lower) | lower
+
+    def get_upper(self, n: int) -> int:
+        if n >= 1 << (self.n_upper + self.n_lower):
+            raise ValueError(
+                f"Value {n} is too large for {self.n_upper + self.n_lower} bits"
+            )
+        return n >> self.n_lower
+
+    def get_lower(self, n: int) -> int:
+        if n >= 1 << (self.n_upper + self.n_lower):
+            raise ValueError(
+                f"Value {n} is too large for {self.n_upper + self.n_lower} bits"
+            )
+        return n & ((1 << self.n_lower) - 1)
+
+
 ModulationType = t.Literal["AM", "FM", "DMR"]
 
 BandwidthType = t.Literal["NARROW", "WIDE"]
@@ -591,6 +625,7 @@ class SettingsArgs(t.TypedDict, total=False):
 
 
 class Settings(ImmutableBaseModel):
+    _channel_split = IntSplit(4, 4)
     channel_a: int
     channel_b: int
     scan: bool
@@ -631,11 +666,15 @@ class Settings(ImmutableBaseModel):
     vfo1_mod_freq_x: int
     vfo2_mod_freq_x: int
 
-    @staticmethod
-    def from_protocol(rs: p.Settings) -> Settings:
+    @classmethod
+    def from_protocol(cls, rs: p.Settings) -> Settings:
         return Settings(
-            channel_a=rs.channel_a,
-            channel_b=rs.channel_b,
+            channel_a=cls._channel_split.from_parts(
+                rs.channel_a_upper, rs.channel_a_lower
+            ),
+            channel_b=cls._channel_split.from_parts(
+                rs.channel_b_upper, rs.channel_b_lower
+            ),
             scan=rs.scan,
             aghfp_call_mode=rs.aghfp_call_mode,
             double_channel=rs.double_channel,
@@ -677,8 +716,8 @@ class Settings(ImmutableBaseModel):
 
     def to_protocol(self):
         return p.Settings(
-            channel_a=self.channel_a,
-            channel_b=self.channel_b,
+            channel_a_lower=self._channel_split.get_lower(self.channel_a),
+            channel_b_lower=self._channel_split.get_lower(self.channel_b),
             scan=self.scan,
             aghfp_call_mode=self.aghfp_call_mode,
             double_channel=self.double_channel,
@@ -707,6 +746,8 @@ class Settings(ImmutableBaseModel):
             screen_timeout=self.screen_timeout,
             vfo_x=self.vfo_x,
             imperial_unit=self.imperial_unit,
+            channel_a_upper=self._channel_split.get_upper(self.channel_a),
+            channel_b_upper=self._channel_split.get_upper(self.channel_b),
             wx_mode=self.wx_mode,
             noaa_ch=self.noaa_ch,
             vfol_tx_power_x=self.vfol_tx_power_x,
@@ -802,6 +843,7 @@ class PacketSettingsArgs(t.TypedDict, total=False):
 
 
 class PacketSettings(ImmutableBaseModel):
+    _bss_user_id_split = IntSplit(32, 32)
     max_fwd_times: int
     time_to_live: int
     ptt_release_send_location: bool
@@ -819,8 +861,8 @@ class PacketSettings(ImmutableBaseModel):
     aprs_symbol: str
     aprs_callsign: str
 
-    @staticmethod
-    def from_protocol(bs: p.BSSSettingsExt) -> PacketSettings:
+    @classmethod
+    def from_protocol(cls, bs: p.BSSSettingsExt) -> PacketSettings:
         return PacketSettings(
             max_fwd_times=bs.max_fwd_times,
             time_to_live=bs.time_to_live,
@@ -833,7 +875,9 @@ class PacketSettings(ImmutableBaseModel):
             allow_position_check=bs.allow_position_check,
             aprs_ssid=bs.aprs_ssid,
             location_share_interval=bs.location_share_interval,
-            bss_user_id=bs.bss_user_id,
+            bss_user_id=cls._bss_user_id_split.from_parts(
+                bs.bss_user_id_upper, bs.bss_user_id_lower
+            ),
             ptt_release_id_info=bs.ptt_release_id_info,
             beacon_message=bs.beacon_message,
             aprs_symbol=bs.aprs_symbol,
@@ -853,9 +897,14 @@ class PacketSettings(ImmutableBaseModel):
             allow_position_check=self.allow_position_check,
             aprs_ssid=self.aprs_ssid,
             location_share_interval=self.location_share_interval,
-            bss_user_id=self.bss_user_id,
+            bss_user_id_lower=self._bss_user_id_split.get_lower(
+                self.bss_user_id
+            ),
             ptt_release_id_info=self.ptt_release_id_info,
             beacon_message=self.beacon_message,
             aprs_symbol=self.aprs_symbol,
-            aprs_callsign=self.aprs_callsign
+            aprs_callsign=self.aprs_callsign,
+            bss_user_id_upper=self._bss_user_id_split.get_upper(
+                self.bss_user_id
+            ),
         )
