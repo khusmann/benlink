@@ -1,3 +1,13 @@
+"""
+# Overview
+
+This module provides a high-level, stateful interface for communicating
+with and controlling Benshi radios over BLE.
+
+
+"""
+
+
 from __future__ import annotations
 from typing_extensions import Unpack
 import typing as t
