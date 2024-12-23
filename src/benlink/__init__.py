@@ -72,8 +72,8 @@ Things to do, in no particular order:
 
 - [ ] Implement more commands and settings
 - [ ] Support more radios
-- [ ] Figure out firmware flashing process / protocol (this is a big one, and
-      important for long-term independence from the HT app)
+- [ ] Figure out firmware flashing process / protocol (this is key for long-term
+      independence from the HT app)
 
 # Disclaimer
 
