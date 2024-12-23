@@ -33,6 +33,8 @@ from .message import (
     Settings,
     GetChannel, GetChannelReply,
     SetChannel, SetChannelReply,
+    SendTNCData, SendTNCDataReply,
+    TNCDataFragment,
     Channel,
     EventMessage,
 )
@@ -128,6 +130,23 @@ class BleConnection:
             handler(radio_message)
 
     # Commands
+
+    async def send_tnc_data(self, data: bytes) -> None:
+        """Send TNC data"""
+        if len(data) > 50:
+            raise ValueError("Data too long -- TODO: implement fragmentation")
+        reply = await self.send_command_expect_reply(
+            SendTNCData(
+                TNCDataFragment(
+                    is_final_fragment=True,
+                    fragment_id=0,
+                    data=data
+                )
+            ),
+            SendTNCDataReply
+        )
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
 
     async def get_packet_settings(self) -> PacketSettings:
         """Get the current packet settings"""

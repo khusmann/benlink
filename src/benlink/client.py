@@ -143,7 +143,7 @@ from .message import (
     PacketSettingsArgs,
     EventMessage,
     SettingsChangedEvent,
-    TNCDataReceivedEvent,
+    TNCDataFragmentReceivedEvent,
     ChannelChangedEvent,
     UnknownProtocolMessage,
 )
@@ -247,6 +247,10 @@ class RadioClient:
         self._assert_conn()
         return await self._conn.get_rc_battery_level()
 
+    async def send_tnc_data(self, data: bytes) -> None:
+        self._assert_conn()
+        await self._conn.send_tnc_data(data)
+
     def _assert_conn(self) -> None:
         if not self._is_connected:
             raise ValueError("Not connected")
@@ -273,7 +277,7 @@ class RadioClient:
                 self._channels[channel.channel_id] = channel
             case SettingsChangedEvent(settings):
                 self._settings = settings
-            case TNCDataReceivedEvent():
+            case TNCDataFragmentReceivedEvent():
                 pass
             case UnknownProtocolMessage(message):
                 print(

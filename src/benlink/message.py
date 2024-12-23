@@ -227,11 +227,11 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                 ):
                     return SettingsChangedEvent(Settings.from_protocol(settings))
                 case p.DataRxdEvent(
-                    tnc_data_packet=tnc_data_packet
+                    tnc_data_fragment=tnc_data_fragment
                 ):
-                    return TNCDataReceivedEvent(
-                        tnc_data_packet=TNCDataPacket.from_protocol(
-                            tnc_data_packet
+                    return TNCDataFragmentReceivedEvent(
+                        tnc_data_fragment=TNCDataFragment.from_protocol(
+                            tnc_data_fragment
                         )
                     )
                 case p.HTChChangedEvent(
@@ -341,7 +341,7 @@ class GetSettings(t.NamedTuple):
 
 
 class SendTNCData(t.NamedTuple):
-    tnc_data_packet: TNCDataPacket
+    tnc_data_packet: TNCDataFragment
 
 
 CommandMessage = t.Union[
@@ -457,8 +457,8 @@ class ChannelChangedEvent(t.NamedTuple):
     channel: Channel
 
 
-class TNCDataReceivedEvent(t.NamedTuple):
-    tnc_data_packet: TNCDataPacket
+class TNCDataFragmentReceivedEvent(t.NamedTuple):
+    tnc_data_fragment: TNCDataFragment
 
 
 class SettingsChangedEvent(t.NamedTuple):
@@ -470,7 +470,7 @@ class UnknownProtocolMessage(t.NamedTuple):
 
 
 EventMessage = t.Union[
-    TNCDataReceivedEvent,
+    TNCDataFragmentReceivedEvent,
     SettingsChangedEvent,
     UnknownProtocolMessage,
     ChannelChangedEvent,
@@ -513,29 +513,29 @@ class IntSplit(t.NamedTuple):
         return n & ((1 << self.n_lower) - 1)
 
 
-class TNCDataPacket(ImmutableBaseModel):
+class TNCDataFragment(ImmutableBaseModel):
     """A data object representing a message packet"""
-    is_final_packet: bool
-    packet_id: int
+    is_final_fragment: bool
+    fragment_id: int
     data: bytes
-    channel_id: int | None
+    channel_id: int | None = None
 
     @classmethod
-    def from_protocol(cls, mp: p.TNCDataPacket) -> TNCDataPacket:
+    def from_protocol(cls, mp: p.TNCDataFragment) -> TNCDataFragment:
         """@private (Protocol helper)"""
-        return TNCDataPacket(
-            is_final_packet=mp.is_final_packet,
-            packet_id=mp.packet_id,
+        return TNCDataFragment(
+            is_final_fragment=mp.is_final_fragment,
+            fragment_id=mp.fragment_id,
             data=mp.data,
             channel_id=mp.channel_id
         )
 
-    def to_protocol(self) -> p.TNCDataPacket:
+    def to_protocol(self) -> p.TNCDataFragment:
         """@private (Protocol helper)"""
-        return p.TNCDataPacket(
-            is_final_packet=self.is_final_packet,
+        return p.TNCDataFragment(
+            is_final_fragment=self.is_final_fragment,
             with_channel_id=self.channel_id is not None,
-            packet_id=self.packet_id,
+            fragment_id=self.fragment_id,
             data=self.data,
             channel_id=self.channel_id
         )

@@ -13,10 +13,10 @@ class ReplyStatus(IntEnum):
     IN_PROGRESS = 7
 
 
-class TNCDataPacket(Bitfield):
-    is_final_packet: bool
+class TNCDataFragment(Bitfield):
+    is_final_fragment: bool
     with_channel_id: bool
-    packet_id: int = bf_int(6)
+    fragment_id: int = bf_int(6)
     data: bytes = bf_dyn(
         lambda x, n: bf_bytes((n - 1 if x.with_channel_id else n) // 8)
     )
