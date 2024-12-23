@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing_extensions import Unpack
 import typing as t
+from typing_extensions import Self
 import sys
 
 from .connection import (
@@ -43,7 +44,7 @@ class RadioClient:
         return f"<{self.__class__.__name__} {self.device_uuid} (connected)>"
 
     @property
-    def packet_settings(self):
+    def packet_settings(self) -> PacketSettings:
         self._assert_conn()
         return self._packet_settings
 
@@ -59,17 +60,17 @@ class RadioClient:
         self._packet_settings = new_packet_settings
 
     @property
-    def settings(self):
+    def settings(self) -> Settings:
         self._assert_conn()
         return self._settings
 
     @property
-    def device_info(self):
+    def device_info(self) -> DeviceInfo:
         self._assert_conn()
         return self._device_info
 
     @property
-    def channels(self):
+    def channels(self) -> t.List[Channel]:
         self._assert_conn()
         return self._channels
 
@@ -87,37 +88,37 @@ class RadioClient:
         self._channels[channel_id] = new_channel
 
     @property
-    def device_uuid(self):
+    def device_uuid(self) -> str:
         return self._device_uuid
 
     @property
-    def is_connected(self):
+    def is_connected(self) -> bool:
         return self._is_connected
 
-    async def battery_voltage(self):
+    async def battery_voltage(self) -> float:
         self._assert_conn()
         return await self._conn.get_battery_voltage()
 
-    async def battery_level(self):
+    async def battery_level(self) -> int:
         self._assert_conn()
         return await self._conn.get_battery_level()
 
-    async def battery_level_as_percentage(self):
+    async def battery_level_as_percentage(self) -> int:
         self._assert_conn()
         return await self._conn.get_battery_level_as_percentage()
 
-    async def rc_battery_level(self):
+    async def rc_battery_level(self) -> int:
         self._assert_conn()
         return await self._conn.get_rc_battery_level()
 
-    def _assert_conn(self):
+    def _assert_conn(self) -> None:
         if not self._is_connected:
             raise ValueError("Not connected")
 
-    def register_event_handler(self, handler: EventHandler):
+    def register_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
         return self._conn.register_event_handler(handler)
 
-    async def _hydrate(self):
+    async def _hydrate(self) -> None:
         self._device_info = await self._conn.get_device_info()
 
         self._channels = []
@@ -130,7 +131,7 @@ class RadioClient:
 
         self._packet_settings = await self._conn.get_packet_settings()
 
-    def _on_event_message(self, event_message: EventMessage):
+    def _on_event_message(self, event_message: EventMessage) -> None:
         match event_message:
             case ChannelChangedEvent(channel):
                 self._channels[channel.channel_id] = channel
@@ -144,7 +145,7 @@ class RadioClient:
                     file=sys.stderr
                 )
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         await self.connect()
         return self
 
@@ -153,10 +154,10 @@ class RadioClient:
         exc_type: t.Type[BaseException],
         exc_value: t.Type[BaseException],
         traceback: t.Type[BaseException]
-    ):
+    ) -> None:
         await self.disconnect()
 
-    async def connect(self):
+    async def connect(self) -> None:
         await self._conn.connect()
         await self._hydrate()
         self._message_handler_unsubscribe = self._conn.register_event_handler(
@@ -164,7 +165,7 @@ class RadioClient:
         )
         self._is_connected = True
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         self._message_handler_unsubscribe()
         await self._conn.disconnect()
         self._is_connected = False
