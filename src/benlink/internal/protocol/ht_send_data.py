@@ -1,11 +1,11 @@
 from __future__ import annotations
 from ..bitfield import Bitfield, bf_int_enum, bf_dyn, bf_bitfield
-from .common import ReplyStatus, MessagePacket
+from .common import ReplyStatus, TNCDataPacket
 
 
 class HTSendDataBody(Bitfield):
-    message_packet: MessagePacket = bf_dyn(
-        lambda _, n: bf_bitfield(MessagePacket, n)
+    tnc_data_packet: TNCDataPacket = bf_dyn(
+        lambda _, n: bf_bitfield(TNCDataPacket, n)
     )
 
 

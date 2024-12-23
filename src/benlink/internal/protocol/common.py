@@ -13,7 +13,7 @@ class ReplyStatus(IntEnum):
     IN_PROGRESS = 7
 
 
-class MessagePacket(Bitfield):
+class TNCDataPacket(Bitfield):
     is_final_packet: bool
     with_channel_id: bool
     packet_id: int = bf_int(6)

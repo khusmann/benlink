@@ -143,7 +143,7 @@ from .message import (
     PacketSettingsArgs,
     EventMessage,
     SettingsChangedEvent,
-    PacketReceivedEvent,
+    TNCDataReceivedEvent,
     ChannelChangedEvent,
     UnknownProtocolMessage,
 )
@@ -273,7 +273,7 @@ class RadioClient:
                 self._channels[channel.channel_id] = channel
             case SettingsChangedEvent(settings):
                 self._settings = settings
-            case PacketReceivedEvent():
+            case TNCDataReceivedEvent():
                 pass
             case UnknownProtocolMessage(message):
                 print(

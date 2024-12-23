@@ -44,6 +44,15 @@ class ImmutableBaseModel(BaseModel):
 def command_message_to_protocol(m: CommandMessage) -> p.Message:
     """@private (Protocol helper)"""
     match m:
+        case SendTNCData(tnc_data_packet):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.HT_SEND_DATA,
+                body=p.HTSendDataBody(
+                    tnc_data_packet=tnc_data_packet.to_protocol()
+                )
+            )
         case GetPacketSettings():
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
@@ -140,6 +149,15 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
 def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
     """@private (Protocol helper)"""
     match mf.body:
+        case p.HTSendDataReplyBody(
+            reply_status=reply_status
+        ):
+            if reply_status != p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    message_type=SendTNCDataReply,
+                    reason=reply_status.name,
+                )
+            return SendTNCDataReply()
         case p.ReadBSSSettingsReplyBody(
             reply_status=reply_status,
             bss_settings=bss_settings,
@@ -208,17 +226,13 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     settings=settings
                 ):
                     return SettingsChangedEvent(Settings.from_protocol(settings))
-                case p.MessagePacket(
-                    is_final_packet=is_final_packet,
-                    packet_id=packet_id,
-                    data=data,
-                    channel_id=channel_id
+                case p.DataRxdEvent(
+                    tnc_data_packet=tnc_data_packet
                 ):
-                    return PacketReceivedEvent(
-                        packet_id,
-                        data,
-                        is_final_packet,
-                        "current" if channel_id is None else channel_id,
+                    return TNCDataReceivedEvent(
+                        tnc_data_packet=TNCDataPacket.from_protocol(
+                            tnc_data_packet
+                        )
                     )
                 case p.HTChChangedEvent(
                     rf_ch=rf_ch
@@ -326,6 +340,10 @@ class GetSettings(t.NamedTuple):
     pass
 
 
+class SendTNCData(t.NamedTuple):
+    tnc_data_packet: TNCDataPacket
+
+
 CommandMessage = t.Union[
     GetPacketSettings,
     SetPacketSettings,
@@ -338,10 +356,15 @@ CommandMessage = t.Union[
     SetChannel,
     GetSettings,
     SetSettings,
+    SendTNCData,
 ]
 
 #####################
 # ReplyMessage
+
+
+class SendTNCDataReply(t.NamedTuple):
+    pass
 
 
 class GetPacketSettingsReply(t.NamedTuple):
@@ -420,6 +443,7 @@ ReplyMessage = t.Union[
     SetChannelReply,
     GetSettingsReply,
     SetSettingsReply,
+    SendTNCDataReply,
     MessageReplyError,
 ]
 
@@ -433,11 +457,8 @@ class ChannelChangedEvent(t.NamedTuple):
     channel: Channel
 
 
-class PacketReceivedEvent(t.NamedTuple):
-    packet_id: int
-    data: bytes
-    is_final_packet: bool
-    channel_id: int | t.Literal["current"]
+class TNCDataReceivedEvent(t.NamedTuple):
+    tnc_data_packet: TNCDataPacket
 
 
 class SettingsChangedEvent(t.NamedTuple):
@@ -449,7 +470,7 @@ class UnknownProtocolMessage(t.NamedTuple):
 
 
 EventMessage = t.Union[
-    PacketReceivedEvent,
+    TNCDataReceivedEvent,
     SettingsChangedEvent,
     UnknownProtocolMessage,
     ChannelChangedEvent,
@@ -490,6 +511,34 @@ class IntSplit(t.NamedTuple):
                 f"Value {n} is too large for {self.n_upper + self.n_lower} bits"
             )
         return n & ((1 << self.n_lower) - 1)
+
+
+class TNCDataPacket(ImmutableBaseModel):
+    """A data object representing a message packet"""
+    is_final_packet: bool
+    packet_id: int
+    data: bytes
+    channel_id: int | None
+
+    @classmethod
+    def from_protocol(cls, mp: p.TNCDataPacket) -> TNCDataPacket:
+        """@private (Protocol helper)"""
+        return TNCDataPacket(
+            is_final_packet=mp.is_final_packet,
+            packet_id=mp.packet_id,
+            data=mp.data,
+            channel_id=mp.channel_id
+        )
+
+    def to_protocol(self) -> p.TNCDataPacket:
+        """@private (Protocol helper)"""
+        return p.TNCDataPacket(
+            is_final_packet=self.is_final_packet,
+            with_channel_id=self.channel_id is not None,
+            packet_id=self.packet_id,
+            data=self.data,
+            channel_id=self.channel_id
+        )
 
 
 ModulationType = t.Literal["AM", "FM", "DMR"]

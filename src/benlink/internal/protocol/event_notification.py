@@ -13,7 +13,7 @@ from ..bitfield import (
 import typing as t
 from .settings import Settings
 from .rf_ch import RfCh
-from .common import MessagePacket
+from .common import TNCDataPacket
 
 from enum import IntEnum
 
@@ -41,6 +41,12 @@ class ChannelType(IntEnum):
 
 class HTSettingsChangedEvent(Bitfield):
     settings: Settings
+
+
+class DataRxdEvent(Bitfield):
+    tnc_data_packet: TNCDataPacket = bf_dyn(
+        lambda _, n: bf_bitfield(TNCDataPacket, n)
+    )
 
 
 class HTStatusChangedEvent(Bitfield):
@@ -86,7 +92,7 @@ def event_notification_disc(m: EventNotificationBody, n: int):
                 f"Unknown size for HT_STATUS_CHANGED event ({n})"
             )
         case EventType.DATA_RXD:
-            return bf_bitfield(MessagePacket, n)
+            return bf_bitfield(DataRxdEvent, n)
         case EventType.HT_CH_CHANGED:
             return HTChChangedEvent
         case _:
@@ -95,7 +101,7 @@ def event_notification_disc(m: EventNotificationBody, n: int):
 
 Event = t.Union[
     UnknownEvent,
-    MessagePacket,
+    DataRxdEvent,
     HTStatusChangedEvent,
     HTSettingsChangedEvent,
     HTStatusChangedEventExt,
