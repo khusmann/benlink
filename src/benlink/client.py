@@ -4,7 +4,13 @@
 This module provides a high-level async interface for communicating
 with and controlling Benshi radios over BLE.
 
-# Quick start
+# Examples
+
+To run the examples below, you will need to pair your radio with your computer,
+locate the radio's device UUID (e.g. `XX:XX:XX:XX:XX:XX`), and substitute it
+into the example code.
+
+## Connecting to the device
 
 The following will connect to a radio and print its device info:
 
@@ -19,7 +25,7 @@ async def main():
 asyncio.run(main())
 ```
 
-# Changing settings
+## Changing settings
 
 The following will connect to a radio and change the name of the first channel:
 
@@ -38,7 +44,7 @@ async def main():
 asyncio.run(main())
 ```
 
-# Handling events
+## Handling events
 
 The `RadioClient` class provides a `register_event_handler` method for
 registering a callback function to handle events. The callback function
@@ -68,13 +74,16 @@ asyncio.run(main())
 
 # Interactive Usage
 
-Python's async REPL a great tool for interactively
-exploring the radio's capabilities. To run Python's REPL in async mode,
-run:
+Python's async REPL a great tool for interactively exploring the radio's
+capabilities. To run Python's REPL in async mode, run:
 
 ```bash
 python -m asyncio
 ```
+
+Instead of using the async context manager (`async with RadioClient(...) as radio:`),
+you can use `await radio.connect()` and `await radio.disconnect()` to manage the
+connection manually:
 
 ```python
 from benlink.client import RadioClient
@@ -87,10 +96,10 @@ print(radio.device_info) # Prints device info
 
 print(await radio.battery_voltage()) # Prints battery voltage
 
-await radio.disconnect()
+await radio.disconnect() # When you're done with your session disconnect nicely
 ```
 
-Events registered with `register_event_handler` and run in the background:
+Events registered with `register_event_handler` will run in the background:
 
 ```python
 import asyncio
@@ -104,12 +113,12 @@ radio.register_event_handler(lambda x: print(f"Received event: {x}"))
 
 # Change the channel on the radio a few times to generate some events
 
-await radio.disconnect()
+await radio.disconnect() # When you're done with your session disconnect nicely
 ```
 
 (Note for IPython users: The IPython async REPL blocks the async event
 loop while waiting for a prompt, so events will queue up until you defer 
-o the event loop by running something like `await asyncio.sleep(0)`.)
+execution to the event loop by running something like `await asyncio.sleep(0)`.)
 """
 
 
