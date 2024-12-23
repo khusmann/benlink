@@ -4,6 +4,6 @@ from .message import *
 from .dev_info import *
 from .settings import *
 from .rf_ch import *
-from .event_notification import *
+from .notification import *
 from .pf import *
 from .status import *

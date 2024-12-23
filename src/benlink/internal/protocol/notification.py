@@ -114,3 +114,7 @@ class EventNotificationBody(Bitfield):
     event: Event = bf_dyn(
         event_notification_disc
     )
+
+
+class RegisterNotificationBody(Bitfield):
+    event_type: EventType

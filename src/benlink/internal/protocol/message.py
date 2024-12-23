@@ -5,7 +5,7 @@ import sys
 from enum import IntEnum
 
 from .dev_info import GetDevInfoBody, GetDevInfoReplyBody
-from .event_notification import EventNotificationBody
+from .notification import EventNotificationBody, RegisterNotificationBody
 from .settings import (
     ReadSettingsBody,
     ReadSettingsReplyBody,
@@ -165,6 +165,12 @@ def body_disc(m: Message, n: int):
                     if m.is_reply:
                         raise ValueError("EventNotification cannot be a reply")
                     out = EventNotificationBody
+                case BasicCommand.REGISTER_NOTIFICATION:
+                    if m.is_reply:
+                        raise ValueError(
+                            "RegisterNotification cannot be a reply"
+                        )
+                    out = RegisterNotificationBody
                 case BasicCommand.HT_SEND_DATA:
                     out = HTSendDataReplyBody if m.is_reply else HTSendDataBody
                 case _:
@@ -199,6 +205,7 @@ MessageBody = t.Union[
     EventNotificationBody,
     HTSendDataBody,
     HTSendDataReplyBody,
+    RegisterNotificationBody,
 ]
 
 
