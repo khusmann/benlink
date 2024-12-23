@@ -80,7 +80,7 @@ Things to do, in no particular order:
 - [ ] Implement more commands and settings
 - [ ] Make a higher-level interface for sending / receiving TNC data (right now
       you have to break it into fragments)
-- [ ] Support more radios
+- [ ] Find more radios that use this protocol and test them with this library
 - [ ] Figure out firmware flashing process / protocol (this is key for long-term
       independence from the HT app)
 
