@@ -19,9 +19,9 @@ from .message import (
     RadioMessage,
     MessageReplyError,
     ReplyMessageT,
-    GetTNCSettings, GetTNCSettingsReply,
-    TNCSettings,
-    SetTNCSettings, SetTNCSettingsReply,
+    GetTncSettings, GetTncSettingsReply,
+    TncSettings,
+    SetTncSettings, SetTncSettingsReply,
     GetBatteryLevel, GetBatteryLevelReply,
     GetBatteryLevelAsPercentage, GetBatteryLevelAsPercentageReply,
     GetRCBatteryLevel, GetRCBatteryLevelReply,
@@ -33,8 +33,8 @@ from .message import (
     Settings,
     GetChannel, GetChannelReply,
     SetChannel, SetChannelReply,
-    SendTNCData, SendTNCDataReply,
-    TNCDataFragment,
+    SendTncData, SendTncDataReply,
+    TncDataFragment,
     Channel,
     EventMessage,
 )
@@ -132,32 +132,32 @@ class BleConnection:
     # Commands
 
     async def send_tnc_data(self, data: bytes) -> None:
-        """Send TNC data"""
+        """Send Tnc data"""
         if len(data) > 50:
             raise ValueError("Data too long -- TODO: implement fragmentation")
         reply = await self.send_command_expect_reply(
-            SendTNCData(
-                TNCDataFragment(
+            SendTncData(
+                TncDataFragment(
                     is_final_fragment=True,
                     fragment_id=0,
                     data=data
                 )
             ),
-            SendTNCDataReply
+            SendTncDataReply
         )
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
-    async def get_tnc_settings(self) -> TNCSettings:
+    async def get_tnc_settings(self) -> TncSettings:
         """Get the current packet settings"""
-        reply = await self.send_command_expect_reply(GetTNCSettings(), GetTNCSettingsReply)
+        reply = await self.send_command_expect_reply(GetTncSettings(), GetTncSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.tnc_settings
 
-    async def set_tnc_settings(self, packet_settings: TNCSettings):
+    async def set_tnc_settings(self, packet_settings: TncSettings):
         """Set the packet settings"""
-        reply = await self.send_command_expect_reply(SetTNCSettings(packet_settings), SetTNCSettingsReply)
+        reply = await self.send_command_expect_reply(SetTncSettings(packet_settings), SetTncSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 

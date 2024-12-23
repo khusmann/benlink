@@ -13,7 +13,7 @@ from ..bitfield import (
 import typing as t
 from .settings import Settings
 from .rf_ch import RfCh
-from .common import TNCDataFragment
+from .common import TncDataFragment
 
 from enum import IntEnum
 
@@ -44,8 +44,8 @@ class HTSettingsChangedEvent(Bitfield):
 
 
 class DataRxdEvent(Bitfield):
-    tnc_data_fragment: TNCDataFragment = bf_dyn(
-        lambda _, n: bf_bitfield(TNCDataFragment, n)
+    tnc_data_fragment: TncDataFragment = bf_dyn(
+        lambda _, n: bf_bitfield(TncDataFragment, n)
     )
 
 

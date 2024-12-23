@@ -44,7 +44,7 @@ class ImmutableBaseModel(BaseModel):
 def command_message_to_protocol(m: CommandMessage) -> p.Message:
     """@private (Protocol helper)"""
     match m:
-        case SendTNCData(tnc_data_packet):
+        case SendTncData(tnc_data_packet):
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
@@ -53,14 +53,14 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                     tnc_data_packet=tnc_data_packet.to_protocol()
                 )
             )
-        case GetTNCSettings():
+        case GetTncSettings():
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_BSS_SETTINGS,
                 body=p.ReadBSSSettingsBody()
             )
-        case SetTNCSettings(packet_settings):
+        case SetTncSettings(packet_settings):
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
@@ -154,17 +154,17 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
         ):
             if reply_status != p.ReplyStatus.SUCCESS:
                 return MessageReplyError(
-                    message_type=SendTNCDataReply,
+                    message_type=SendTncDataReply,
                     reason=reply_status.name,
                 )
-            return SendTNCDataReply()
+            return SendTncDataReply()
         case p.ReadBSSSettingsReplyBody(
             reply_status=reply_status,
             bss_settings=bss_settings,
         ):
             if bss_settings is None:
                 return MessageReplyError(
-                    message_type=GetTNCSettingsReply,
+                    message_type=GetTncSettingsReply,
                     reason=reply_status.name,
                 )
 
@@ -173,16 +173,16 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     "Radio replied with old BSSSettings message version. Upgrade your firmware!"
                 )
 
-            return GetTNCSettingsReply(TNCSettings.from_protocol(bss_settings))
+            return GetTncSettingsReply(TncSettings.from_protocol(bss_settings))
         case p.WriteBSSSettingsReplyBody(
             reply_status=reply_status,
         ):
             if reply_status != p.ReplyStatus.SUCCESS:
                 return MessageReplyError(
-                    message_type=SetTNCSettingsReply,
+                    message_type=SetTncSettingsReply,
                     reason=reply_status.name,
                 )
-            return SetTNCSettingsReply()
+            return SetTncSettingsReply()
         case p.ReadStatusReplyBody(
             reply_status=reply_status,
             status=status
@@ -229,8 +229,8 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                 case p.DataRxdEvent(
                     tnc_data_fragment=tnc_data_fragment
                 ):
-                    return TNCDataFragmentReceivedEvent(
-                        tnc_data_fragment=TNCDataFragment.from_protocol(
+                    return TncDataFragmentReceivedEvent(
+                        tnc_data_fragment=TncDataFragment.from_protocol(
                             tnc_data_fragment
                         )
                     )
@@ -296,12 +296,12 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
 #####################
 # CommandMessage
 
-class GetTNCSettings(t.NamedTuple):
+class GetTncSettings(t.NamedTuple):
     pass
 
 
-class SetTNCSettings(t.NamedTuple):
-    tnc_settings: TNCSettings
+class SetTncSettings(t.NamedTuple):
+    tnc_settings: TncSettings
 
 
 class SetSettings(t.NamedTuple):
@@ -340,13 +340,13 @@ class GetSettings(t.NamedTuple):
     pass
 
 
-class SendTNCData(t.NamedTuple):
-    tnc_data_packet: TNCDataFragment
+class SendTncData(t.NamedTuple):
+    tnc_data_packet: TncDataFragment
 
 
 CommandMessage = t.Union[
-    GetTNCSettings,
-    SetTNCSettings,
+    GetTncSettings,
+    SetTncSettings,
     GetRCBatteryLevel,
     GetBatteryLevelAsPercentage,
     GetBatteryLevel,
@@ -356,22 +356,22 @@ CommandMessage = t.Union[
     SetChannel,
     GetSettings,
     SetSettings,
-    SendTNCData,
+    SendTncData,
 ]
 
 #####################
 # ReplyMessage
 
 
-class SendTNCDataReply(t.NamedTuple):
+class SendTncDataReply(t.NamedTuple):
     pass
 
 
-class GetTNCSettingsReply(t.NamedTuple):
-    tnc_settings: TNCSettings
+class GetTncSettingsReply(t.NamedTuple):
+    tnc_settings: TncSettings
 
 
-class SetTNCSettingsReply(t.NamedTuple):
+class SetTncSettingsReply(t.NamedTuple):
     pass
 
 
@@ -432,8 +432,8 @@ class MessageReplyError(t.NamedTuple):
 
 
 ReplyMessage = t.Union[
-    GetTNCSettingsReply,
-    SetTNCSettingsReply,
+    GetTncSettingsReply,
+    SetTncSettingsReply,
     GetBatteryLevelAsPercentageReply,
     GetRCBatteryLevelReply,
     GetBatteryLevelReply,
@@ -443,7 +443,7 @@ ReplyMessage = t.Union[
     SetChannelReply,
     GetSettingsReply,
     SetSettingsReply,
-    SendTNCDataReply,
+    SendTncDataReply,
     MessageReplyError,
 ]
 
@@ -457,8 +457,8 @@ class ChannelChangedEvent(t.NamedTuple):
     channel: Channel
 
 
-class TNCDataFragmentReceivedEvent(t.NamedTuple):
-    tnc_data_fragment: TNCDataFragment
+class TncDataFragmentReceivedEvent(t.NamedTuple):
+    tnc_data_fragment: TncDataFragment
 
 
 class SettingsChangedEvent(t.NamedTuple):
@@ -470,7 +470,7 @@ class UnknownProtocolMessage(t.NamedTuple):
 
 
 EventMessage = t.Union[
-    TNCDataFragmentReceivedEvent,
+    TncDataFragmentReceivedEvent,
     SettingsChangedEvent,
     UnknownProtocolMessage,
     ChannelChangedEvent,
@@ -513,7 +513,7 @@ class IntSplit(t.NamedTuple):
         return n & ((1 << self.n_lower) - 1)
 
 
-class TNCDataFragment(ImmutableBaseModel):
+class TncDataFragment(ImmutableBaseModel):
     """A data object representing a message packet"""
     is_final_fragment: bool
     fragment_id: int
@@ -521,18 +521,18 @@ class TNCDataFragment(ImmutableBaseModel):
     channel_id: int | None = None
 
     @classmethod
-    def from_protocol(cls, mp: p.TNCDataFragment) -> TNCDataFragment:
+    def from_protocol(cls, mp: p.TncDataFragment) -> TncDataFragment:
         """@private (Protocol helper)"""
-        return TNCDataFragment(
+        return TncDataFragment(
             is_final_fragment=mp.is_final_fragment,
             fragment_id=mp.fragment_id,
             data=mp.data,
             channel_id=mp.channel_id
         )
 
-    def to_protocol(self) -> p.TNCDataFragment:
+    def to_protocol(self) -> p.TncDataFragment:
         """@private (Protocol helper)"""
-        return p.TNCDataFragment(
+        return p.TncDataFragment(
             is_final_fragment=self.is_final_fragment,
             with_channel_id=self.channel_id is not None,
             fragment_id=self.fragment_id,
@@ -917,7 +917,7 @@ class DeviceInfo(ImmutableBaseModel):
         )
 
 
-class TNCSettingsArgs(t.TypedDict, total=False):
+class TncSettingsArgs(t.TypedDict, total=False):
     """A dictionary of the parameters that can be set in the tnc settings"""
     max_fwd_times: int
     time_to_live: int
@@ -937,7 +937,7 @@ class TNCSettingsArgs(t.TypedDict, total=False):
     aprs_callsign: str
 
 
-class TNCSettings(ImmutableBaseModel):
+class TncSettings(ImmutableBaseModel):
     """A data object representing the tnc settings"""
     _bss_user_id_split: t.ClassVar[IntSplit] = IntSplit(32, 32)
     max_fwd_times: int
@@ -958,9 +958,9 @@ class TNCSettings(ImmutableBaseModel):
     aprs_callsign: str
 
     @classmethod
-    def from_protocol(cls, bs: p.BSSSettingsExt) -> TNCSettings:
+    def from_protocol(cls, bs: p.BSSSettingsExt) -> TncSettings:
         """@private (Protocol helper)"""
-        return TNCSettings(
+        return TncSettings(
             max_fwd_times=bs.max_fwd_times,
             time_to_live=bs.time_to_live,
             ptt_release_send_location=bs.ptt_release_send_location,

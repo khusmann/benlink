@@ -13,7 +13,7 @@ class ReplyStatus(IntEnum):
     IN_PROGRESS = 7
 
 
-class TNCDataFragment(Bitfield):
+class TncDataFragment(Bitfield):
     is_final_fragment: bool
     with_channel_id: bool
     fragment_id: int = bf_int(6)
