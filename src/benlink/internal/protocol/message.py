@@ -20,6 +20,7 @@ from .rf_ch import (
     WriteRFChReplyBody,
 )
 from .pf import GetPFBody, GetPFReplyBody
+from .ht_send_data import HTSendDataBody, HTSendDataReplyBody
 from .bss_settings import (
     ReadBSSSettingsBody,
     ReadBSSSettingsReplyBody,
@@ -164,6 +165,8 @@ def body_disc(m: Message, n: int):
                     if m.is_reply:
                         raise ValueError("EventNotification cannot be a reply")
                     out = EventNotificationBody
+                case BasicCommand.HT_SEND_DATA:
+                    out = HTSendDataReplyBody if m.is_reply else HTSendDataBody
                 case _:
                     return bf_bytes(n // 8)
         case CommandGroup.EXTENDED:
@@ -194,6 +197,8 @@ MessageBody = t.Union[
     WriteBSSSettingsBody,
     WriteBSSSettingsReplyBody,
     EventNotificationBody,
+    HTSendDataBody,
+    HTSendDataReplyBody,
 ]
 
 

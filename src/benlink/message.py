@@ -208,7 +208,7 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     settings=settings
                 ):
                     return SettingsChangedEvent(Settings.from_protocol(settings))
-                case p.DataRxdEvent(
+                case p.MessagePacket(
                     is_final_packet=is_final_packet,
                     packet_id=packet_id,
                     data=data,
