@@ -39,8 +39,8 @@ class RadioClient:
 
     def __repr__(self):
         if not self._is_connected:
-            return f"<RadioClient {self.device_uuid} (disconnected)>"
-        return f"<RadioClient {self.device_uuid} (connected)>"
+            return f"<{self.__class__.__name__} {self.device_uuid} (disconnected)>"
+        return f"<{self.__class__.__name__} {self.device_uuid} (connected)>"
 
     @property
     def packet_settings(self):
