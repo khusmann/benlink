@@ -1,8 +1,12 @@
 from __future__ import annotations
 from .internal import protocol as p
-from .common import DCS, ImmutableBaseModel
-
 import typing as t
+from pydantic import BaseModel, ConfigDict
+
+
+class ImmutableBaseModel(BaseModel):
+    """@private"""
+    model_config = ConfigDict(frozen=True)
 
 
 def radio_message_from_bytes(data: t.ByteString) -> RadioMessage:
@@ -399,6 +403,29 @@ ModulationType = t.Literal["AM", "FM", "DMR"]
 BandwidthType = t.Literal["NARROW", "WIDE"]
 
 
+class DCS(t.NamedTuple):
+    """A type for setting Digital Coded Squelch (DCS) on channels"""
+
+    n: int
+    """The DCS Normal (N) code"""
+
+
+def sub_audio_from_protocol(x: float | p.DCS | None) -> float | DCS | None:
+    match x:
+        case p.DCS(n):
+            return DCS(n=n)
+        case _:
+            return x
+
+
+def sub_audio_to_protocol(x: float | DCS | None) -> float | p.DCS | None:
+    match x:
+        case DCS(n):
+            return p.DCS(n=n)
+        case _:
+            return x
+
+
 class ChannelArgs(t.TypedDict, total=False):
     tx_mod: ModulationType
     tx_freq: float
@@ -451,8 +478,8 @@ class Channel(ImmutableBaseModel):
             tx_freq=cs.tx_freq,
             rx_mod=cs.rx_mod.name,
             rx_freq=cs.rx_freq,
-            tx_sub_audio=cs.tx_sub_audio,
-            rx_sub_audio=cs.rx_sub_audio,
+            tx_sub_audio=sub_audio_from_protocol(cs.tx_sub_audio),
+            rx_sub_audio=sub_audio_from_protocol(cs.rx_sub_audio),
             scan=cs.scan,
             tx_at_max_power=cs.tx_at_max_power,
             talk_around=cs.talk_around,
@@ -475,8 +502,8 @@ class Channel(ImmutableBaseModel):
             tx_freq=self.tx_freq,
             rx_mod=p.ModulationType[self.rx_mod],
             rx_freq=self.rx_freq,
-            tx_sub_audio=self.tx_sub_audio,
-            rx_sub_audio=self.rx_sub_audio,
+            tx_sub_audio=sub_audio_to_protocol(self.tx_sub_audio),
+            rx_sub_audio=sub_audio_to_protocol(self.rx_sub_audio),
             scan=self.scan,
             tx_at_max_power=self.tx_at_max_power,
             talk_around=self.talk_around,

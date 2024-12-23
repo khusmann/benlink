@@ -2,7 +2,6 @@ from __future__ import annotations
 from ..bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_map, bf_lit_int, Scale, bf_str
 import typing as t
 from enum import IntEnum
-from ...common import DCS
 from .common import ReplyStatus
 
 
@@ -15,6 +14,10 @@ class ModulationType(IntEnum):
 class BandwidthType(IntEnum):
     NARROW = 0
     WIDE = 1
+
+
+class DCS(t.NamedTuple):
+    n: int
 
 
 class SubAudioMap:
