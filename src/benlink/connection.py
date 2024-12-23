@@ -1,3 +1,13 @@
+"""
+# Overview
+
+This module defines a low-level, stateless interface for communicating
+with a radio over BLE.
+
+Unless you know what you are doing, you probably want to use the
+`benlink.client` module instead.
+"""
+
 from __future__ import annotations
 import asyncio
 from bleak import BleakClient
