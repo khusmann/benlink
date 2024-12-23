@@ -1,27 +1,26 @@
 """
-# Overview
+## Overview
 
-`benlink` is a Python library for communicating with and controlling
-Benshi radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro)
-over BLE. 
+`benlink` is a Python library for communicating with and controlling Benshi
+radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro) over BLE.
 
-In addition to providing a high-level async Python interface for
-controlling Benshi radios, the larger goal of this project is to
-document the BLE protocol used to control them. An understanding
-of the BLE protocol used by these radios will empower 
-Benshi radio owners and the wider open source community to:
+In addition to providing a high-level async Python interface for controlling
+Benshi radios, the larger goal of this project is to document the BLE protocol
+used to control them. An understanding of the BLE protocol used by these radios
+will empower Benshi radio owners and the wider open source community to:
 
 1. Control their radios without relying on proprietary apps or software.
 
-2. Extend the functionality of their radios through custom software and integrations.
+2. Extend the functionality of their radios through custom software and
+   integrations.
 
-3. Preserve the usability of their radios, even when the official "HT" app
-   is no longer supported or updated.
+3. Preserve the usability of their radios, even when the official "HT" app is no
+   longer supported or updated.
 
 It is a work in progress and is nowhere close to feature complete.
 [Pull requests](https://github.com/khusmann/benlink) are welcome!
 
-## Radio Support
+### Radio Support
 
 The following radios should work with this library:
 
@@ -34,22 +33,22 @@ The following radios should work with this library:
 If you know of other radios that use the same Benshi BLE protocol, please
 [open an issue](https://github.com/khusmann/benlink/issues) to let me know!
 
-# Installation
+## Installation
 
-I plan to publish this package on PyPI once it is more complete. For now,
-clone the repo and install it locally:
+I plan to publish this package on PyPI once it is more complete. For now, clone
+the repo and install it locally:
 
 ```bash
 pip install .
 ```
 
-(If you are developing the package, you can use `pip install -e .` to
-install it in "editable" mode.)
+(If you are developing the package, you can use `pip install -e .` to install it
+in "editable" mode.)
 
-# Quick start
+## Quick start
 
-First, make sure your radio is paired with your computer, and get
-its device UUID (e.g. `XX:XX:XX:XX:XX:XX`).
+First, make sure your radio is paired with your computer, and get its device
+UUID (e.g. `XX:XX:XX:XX:XX:XX`).
 
 The following will connect to the radio and print its device info:
 
@@ -64,26 +63,25 @@ async def main():
 asyncio.run(main())
 ```
 
-To see what else you can do with this library, check out the
-examples the `benlink.client` module documentation.
+To see what else you can do with this library, check out the examples the
+`benlink.client` module documentation.
 
-# Roadmap
+## Roadmap
 
 Things to do, in no particular order:
 
 - [ ] Implement more commands and settings
 - [ ] Support more radios
-- [ ] Figure out firmware flashing process / protocol 
-  (this is a big one, and important for long-term independence from the HT app)
+- [ ] Figure out firmware flashing process / protocol (this is a big one, and
+      important for long-term independence from the HT app)
 
-# Disclaimer
+## Disclaimer
 
-This project is an independent grassroots effort, and is *not* affiliated
-with or endorsed by Benshi, Vero, RadioOddity, BTech, or any other radio company.
+This project is an independent grassroots effort, and is **not** affiliated with
+or endorsed by Benshi, Vero, RadioOddity, BTech, or any other radio company.
 
-Use this library at your own risk. I am not responsible for any damage
-caused to your radio or any other equipment while using this library.
-
+Use this library at your own risk. I am **not** responsible for any damage caused to
+your radio or any other equipment while using this library.
 """
 
 from . import client
