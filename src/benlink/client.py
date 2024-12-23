@@ -139,8 +139,8 @@ from .message import (
     ChannelArgs,
     Settings,
     SettingsArgs,
-    PacketSettings,
-    PacketSettingsArgs,
+    TNCSettings,
+    TNCSettingsArgs,
     EventMessage,
     SettingsChangedEvent,
     TNCDataFragmentReceivedEvent,
@@ -154,7 +154,7 @@ class RadioClient:
     _is_connected: bool = False
     _conn: BleConnection
     _device_info: DeviceInfo
-    _packet_settings: PacketSettings
+    _tnc_settings: TNCSettings
     _settings: Settings
     _channels: t.List[Channel]
     _message_handler_unsubscribe: t.Callable[[], None]
@@ -169,20 +169,20 @@ class RadioClient:
         return f"<{self.__class__.__name__} {self.device_uuid} (connected)>"
 
     @property
-    def packet_settings(self) -> PacketSettings:
+    def tnc_settings(self) -> TNCSettings:
         self._assert_conn()
-        return self._packet_settings
+        return self._tnc_settings
 
-    async def set_packet_settings(self, **packet_settings_args: Unpack[PacketSettingsArgs]):
+    async def set_tnc_settings(self, **packet_settings_args: Unpack[TNCSettingsArgs]):
         self._assert_conn()
 
-        new_packet_settings = self._packet_settings.model_copy(
+        new_packet_settings = self._tnc_settings.model_copy(
             update=dict(packet_settings_args)
         )
 
-        await self._conn.set_packet_settings(new_packet_settings)
+        await self._conn.set_tnc_settings(new_packet_settings)
 
-        self._packet_settings = new_packet_settings
+        self._tnc_settings = new_packet_settings
 
     @property
     def settings(self) -> Settings:
@@ -269,7 +269,7 @@ class RadioClient:
 
         self._settings = await self._conn.get_settings()
 
-        self._packet_settings = await self._conn.get_packet_settings()
+        self._tnc_settings = await self._conn.get_tnc_settings()
 
     def _on_event_message(self, event_message: EventMessage) -> None:
         match event_message:

@@ -53,14 +53,14 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                     tnc_data_packet=tnc_data_packet.to_protocol()
                 )
             )
-        case GetPacketSettings():
+        case GetTNCSettings():
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_BSS_SETTINGS,
                 body=p.ReadBSSSettingsBody()
             )
-        case SetPacketSettings(packet_settings):
+        case SetTNCSettings(packet_settings):
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
@@ -164,7 +164,7 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
         ):
             if bss_settings is None:
                 return MessageReplyError(
-                    message_type=GetPacketSettingsReply,
+                    message_type=GetTNCSettingsReply,
                     reason=reply_status.name,
                 )
 
@@ -173,16 +173,16 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     "Radio replied with old BSSSettings message version. Upgrade your firmware!"
                 )
 
-            return GetPacketSettingsReply(PacketSettings.from_protocol(bss_settings))
+            return GetTNCSettingsReply(TNCSettings.from_protocol(bss_settings))
         case p.WriteBSSSettingsReplyBody(
             reply_status=reply_status,
         ):
             if reply_status != p.ReplyStatus.SUCCESS:
                 return MessageReplyError(
-                    message_type=SetPacketSettingsReply,
+                    message_type=SetTNCSettingsReply,
                     reason=reply_status.name,
                 )
-            return SetPacketSettingsReply()
+            return SetTNCSettingsReply()
         case p.ReadStatusReplyBody(
             reply_status=reply_status,
             status=status
@@ -296,12 +296,12 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
 #####################
 # CommandMessage
 
-class GetPacketSettings(t.NamedTuple):
+class GetTNCSettings(t.NamedTuple):
     pass
 
 
-class SetPacketSettings(t.NamedTuple):
-    packet_settings: PacketSettings
+class SetTNCSettings(t.NamedTuple):
+    tnc_settings: TNCSettings
 
 
 class SetSettings(t.NamedTuple):
@@ -345,8 +345,8 @@ class SendTNCData(t.NamedTuple):
 
 
 CommandMessage = t.Union[
-    GetPacketSettings,
-    SetPacketSettings,
+    GetTNCSettings,
+    SetTNCSettings,
     GetRCBatteryLevel,
     GetBatteryLevelAsPercentage,
     GetBatteryLevel,
@@ -367,11 +367,11 @@ class SendTNCDataReply(t.NamedTuple):
     pass
 
 
-class GetPacketSettingsReply(t.NamedTuple):
-    packet_settings: PacketSettings
+class GetTNCSettingsReply(t.NamedTuple):
+    tnc_settings: TNCSettings
 
 
-class SetPacketSettingsReply(t.NamedTuple):
+class SetTNCSettingsReply(t.NamedTuple):
     pass
 
 
@@ -432,8 +432,8 @@ class MessageReplyError(t.NamedTuple):
 
 
 ReplyMessage = t.Union[
-    GetPacketSettingsReply,
-    SetPacketSettingsReply,
+    GetTNCSettingsReply,
+    SetTNCSettingsReply,
     GetBatteryLevelAsPercentageReply,
     GetRCBatteryLevelReply,
     GetBatteryLevelReply,
@@ -917,8 +917,8 @@ class DeviceInfo(ImmutableBaseModel):
         )
 
 
-class PacketSettingsArgs(t.TypedDict, total=False):
-    """A dictionary of the parameters that can be set in the packet settings"""
+class TNCSettingsArgs(t.TypedDict, total=False):
+    """A dictionary of the parameters that can be set in the tnc settings"""
     max_fwd_times: int
     time_to_live: int
     ptt_release_send_location: bool
@@ -937,8 +937,8 @@ class PacketSettingsArgs(t.TypedDict, total=False):
     aprs_callsign: str
 
 
-class PacketSettings(ImmutableBaseModel):
-    """A data object representing the packet settings"""
+class TNCSettings(ImmutableBaseModel):
+    """A data object representing the tnc settings"""
     _bss_user_id_split: t.ClassVar[IntSplit] = IntSplit(32, 32)
     max_fwd_times: int
     time_to_live: int
@@ -958,9 +958,9 @@ class PacketSettings(ImmutableBaseModel):
     aprs_callsign: str
 
     @classmethod
-    def from_protocol(cls, bs: p.BSSSettingsExt) -> PacketSettings:
+    def from_protocol(cls, bs: p.BSSSettingsExt) -> TNCSettings:
         """@private (Protocol helper)"""
-        return PacketSettings(
+        return TNCSettings(
             max_fwd_times=bs.max_fwd_times,
             time_to_live=bs.time_to_live,
             ptt_release_send_location=bs.ptt_release_send_location,

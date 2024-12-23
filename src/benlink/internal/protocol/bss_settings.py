@@ -19,8 +19,6 @@ class PacketFormat(IntEnum):
     APRS = 1
 
 
-# Really should be named "Packet Settings" or something
-# because it includes BSS and APRS
 class BSSSettings(Bitfield):
     max_fwd_times: int = bf_int(4)
     time_to_live: int = bf_int(4)
