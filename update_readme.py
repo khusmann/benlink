@@ -24,10 +24,14 @@ readme_start = readme_content.index('## Overview')
 if readme_start == -1:
     raise ValueError("No Overview section found in README.md.")
 
+readme_content_stripped = [
+    line[1:] if line.startswith("##") else line
+    for line in readme_content[readme_start:]
+]
 
 updated_content = [
     *init_content[:docstring_start + 1],
-    *readme_content[readme_start:],
+    *readme_content_stripped,
     *init_content[docstring_end:]
 ]
 
