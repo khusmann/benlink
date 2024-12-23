@@ -665,7 +665,7 @@ class SettingsArgs(t.TypedDict, total=False):
 
 class Settings(ImmutableBaseModel):
     """A data object representing the radio settings"""
-    _channel_split = IntSplit(4, 4)
+    _channel_split: t.ClassVar[IntSplit] = IntSplit(4, 4)
     channel_a: int
     channel_b: int
     scan: bool
@@ -890,7 +890,7 @@ class PacketSettingsArgs(t.TypedDict, total=False):
 
 class PacketSettings(ImmutableBaseModel):
     """A data object representing the packet settings"""
-    _bss_user_id_split = IntSplit(32, 32)
+    _bss_user_id_split: t.ClassVar[IntSplit] = IntSplit(32, 32)
     max_fwd_times: int
     time_to_live: int
     ptt_release_send_location: bool
