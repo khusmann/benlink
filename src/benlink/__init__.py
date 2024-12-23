@@ -80,8 +80,8 @@ Things to do, in no particular order:
 This project is an independent grassroots effort, and is **not** affiliated with
 or endorsed by Benshi, Vero, RadioOddity, BTech, or any other radio company.
 
-Use this library at your own risk. I am **not** responsible for any damage caused to
-your radio or any other equipment while using this library.
+Use this library at your own risk. I am **not** responsible for any damage
+caused to your radio or any other equipment while using this library.
 """
 
 from . import client
