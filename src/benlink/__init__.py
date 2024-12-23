@@ -1,5 +1,5 @@
 """
-## Overview
+# Overview
 
 `benlink` is a Python library for communicating with and controlling Benshi
 radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro) over BLE.
@@ -20,7 +20,7 @@ will empower Benshi radio owners and the wider open source community to:
 It is a work in progress and is nowhere close to feature complete.
 [Pull requests](https://github.com/khusmann/benlink) are welcome!
 
-### Radio Support
+## Radio Support
 
 The following radios should work with this library:
 
@@ -33,7 +33,7 @@ The following radios should work with this library:
 If you know of other radios that use the same Benshi BLE protocol, please
 [open an issue](https://github.com/khusmann/benlink/issues) to let me know!
 
-## Installation
+# Installation
 
 I plan to publish this package on PyPI once it is more complete. For now, clone
 the repo and install it locally:
@@ -45,7 +45,7 @@ pip install .
 (If you are developing the package, you can use `pip install -e .` to install it
 in "editable" mode.)
 
-## Quick start
+# Quick start
 
 First, make sure your radio is paired with your computer, and get its device
 UUID (e.g. `XX:XX:XX:XX:XX:XX`).
@@ -66,7 +66,7 @@ asyncio.run(main())
 To see what else you can do with this library, check out the examples the
 `benlink.client` module documentation.
 
-## Roadmap
+# Roadmap
 
 Things to do, in no particular order:
 
@@ -75,7 +75,7 @@ Things to do, in no particular order:
 - [ ] Figure out firmware flashing process / protocol (this is a big one, and
       important for long-term independence from the HT app)
 
-## Disclaimer
+# Disclaimer
 
 This project is an independent grassroots effort, and is **not** affiliated with
 or endorsed by Benshi, Vero, RadioOddity, BTech, or any other radio company.
