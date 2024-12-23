@@ -271,6 +271,8 @@ class RadioClient:
 
         self._tnc_settings = await self._conn.get_tnc_settings()
 
+        await self._conn.enable_events()
+
     def _on_event_message(self, event_message: EventMessage) -> None:
         match event_message:
             case ChannelChangedEvent(channel):

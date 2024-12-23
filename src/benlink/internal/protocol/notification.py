@@ -117,4 +117,4 @@ class EventNotificationBody(Bitfield):
 
 
 class RegisterNotificationBody(Bitfield):
-    event_type: EventType
+    event_type: EventType = bf_int_enum(EventType, 8)

@@ -44,6 +44,18 @@ class ImmutableBaseModel(BaseModel):
 def command_message_to_protocol(m: CommandMessage) -> p.Message:
     """@private (Protocol helper)"""
     match m:
+        case EnableEvents():
+            # For some reason, enabling the HT_STATUS_CHANGED event
+            # also enables the DATA_RXD event, and maybe others...
+            # need to investigate further.
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.REGISTER_NOTIFICATION,
+                body=p.RegisterNotificationBody(
+                    event_type=p.EventType.HT_STATUS_CHANGED,
+                )
+            )
         case SendTncData(tnc_data_packet):
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
@@ -296,6 +308,10 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
 #####################
 # CommandMessage
 
+class EnableEvents(t.NamedTuple):
+    pass
+
+
 class GetTncSettings(t.NamedTuple):
     pass
 
@@ -357,6 +373,7 @@ CommandMessage = t.Union[
     GetSettings,
     SetSettings,
     SendTncData,
+    EnableEvents,
 ]
 
 #####################

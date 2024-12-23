@@ -37,6 +37,7 @@ from .message import (
     TncDataFragment,
     Channel,
     EventMessage,
+    EnableEvents,
 )
 
 import typing as t
@@ -130,6 +131,11 @@ class BleConnection:
             handler(radio_message)
 
     # Commands
+
+    async def enable_events(self) -> None:
+        """Enable an event"""
+        # Interestingly, this doesn't get a reply
+        await self.send_command(EnableEvents())
 
     async def send_tnc_data(self, data: bytes) -> None:
         """Send Tnc data"""
