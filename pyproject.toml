@@ -9,7 +9,11 @@ description = "A library for Bluetooth communication with Benshi radios like the
 authors = [{name = "Kyle Husmann", email = "kyle.husmann@gmail.com"}]
 readme = "README.md"
 license = {file = "LICENSE"}
-dependencies = []
+dependencies = [
+    "typing_extensions >=4.1.0",
+    "bleak >=0.22.0",
+    "pydantic >=2.6.0"
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
