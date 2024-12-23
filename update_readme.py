@@ -19,10 +19,10 @@ docstring_end = init_content.index('"""', docstring_start + 1)
 if docstring_end == -1:
     raise ValueError("No end of docstring found in __init__.py.")
 
-readme_start = readme_content.index('## Overview')
+readme_start = readme_content.index('<!-- BEGIN CONTENT -->')
 
 if readme_start == -1:
-    raise ValueError("No Overview section found in README.md.")
+    raise ValueError("No content section found in README.md.")
 
 readme_content_stripped = [
     line[1:] if line.startswith("##") else line
@@ -31,6 +31,7 @@ readme_content_stripped = [
 
 updated_content = [
     *init_content[:docstring_start + 1],
+    "# Overview",
     *readme_content_stripped,
     *init_content[docstring_end:]
 ]

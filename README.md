@@ -4,7 +4,7 @@
 has not yet been a stable, usable release suitable for the
 public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
 
-## Overview
+<!-- BEGIN CONTENT -->
 
 `benlink` is a Python library for communicating with and controlling Benshi
 radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro) over BLE.
