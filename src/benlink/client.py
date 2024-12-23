@@ -1,10 +1,115 @@
 """
 # Overview
 
-This module provides a high-level, stateful interface for communicating
+This module provides a high-level async interface for communicating
 with and controlling Benshi radios over BLE.
 
+# Quick start
 
+The following will connect to a radio and print its device info:
+
+```python
+import asyncio
+from benlink.client import RadioClient
+
+async def main():
+    async with RadioClient("XX:XX:XX:XX:XX:XX") as radio:
+        print(radio.device_info)
+
+asyncio.run(main())
+```
+
+# Changing settings
+
+The following will connect to a radio and change the name of the first channel:
+
+```python
+import asyncio
+from benlink.client import RadioClient
+
+
+async def main():
+    async with RadioClient("XX:XX:XX:XX:XX:XX") as radio:
+        print(f"Channel 0 name: {radio.channels[0].name}")
+        print("Setting 0 name to Foo...")
+        await radio.set_channel(0, name="Foo")
+        print("Done")
+
+asyncio.run(main())
+```
+
+# Handling events
+
+The `RadioClient` class provides a `register_event_handler` method for
+registering a callback function to handle events. The callback function
+will be called with an `EventMessage` object whenever an event is
+received from the radio.
+
+Note that `register_event_handler` returns a function that can be called
+to unregister the event handler.
+
+```python
+import asyncio
+from benlink.client import RadioClient
+
+async def main():
+    async with RadioClient("XX:XX:XX:XX:XX:XX") as radio:
+        def handle_event(event):
+            print(f"Received event: {event}")
+
+        unregister = radio.register_event_handler(handle_event)
+
+        while True:
+            print("Try changing the channel or updating a radio setting...")
+            await asyncio.sleep(5)
+
+asyncio.run(main())
+```
+
+# Interactive Usage
+
+IPython's support of `asyncio` makes it a great tool for interactively
+exploring the radio's capabilities. Here's an example session:
+
+```python
+from benlink.client import RadioClient
+
+radio = RadioClient("XX:XX:XX:XX:XX:XX")
+
+await radio.connect()
+
+print(radio.device_info) # Prints device info
+
+print(await radio.battery_voltage()) # Prints battery voltage
+
+await radio.disconnect()
+```
+
+Note that the IPython interactive prompt blocks the asyncio event loop,
+so you need to explicitly defer execution back to the asyncio event loop
+using `await async.sleep(0)` or similar to allow event handlers to run.
+
+Example:
+
+```python
+import asyncio
+from benlink.client import RadioClient
+
+radio = RadioClient("XX:XX:XX:XX:XX:XX")
+
+await radio.connect()
+
+def handle_event(event):
+    print(f"Received event: {event}")
+
+radio.register_event_handler(handle_event)
+
+# Change the channel on the radio a few times to generate some events
+
+await asyncio.sleep(0) # Allow event handlers to run
+
+await radio.disconnect()
+```
 """
 
 
