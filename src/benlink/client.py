@@ -68,8 +68,13 @@ asyncio.run(main())
 
 # Interactive Usage
 
-IPython's support of `asyncio` makes it a great tool for interactively
-exploring the radio's capabilities. Here's an example session:
+Python's async REPL a great tool for interactively
+exploring the radio's capabilities. To run Python's REPL in async mode,
+run:
+
+```bash
+python -m asyncio
+```
 
 ```python
 from benlink.client import RadioClient
@@ -85,11 +90,7 @@ print(await radio.battery_voltage()) # Prints battery voltage
 await radio.disconnect()
 ```
 
-Note that the IPython interactive prompt blocks the asyncio event loop,
-so you need to explicitly defer execution back to the asyncio event loop
-using `await async.sleep(0)` or similar to allow event handlers to run.
-
-Example:
+Events registered with `register_event_handler` and run in the background:
 
 ```python
 import asyncio
@@ -99,17 +100,16 @@ radio = RadioClient("XX:XX:XX:XX:XX:XX")
 
 await radio.connect()
 
-def handle_event(event):
-    print(f"Received event: {event}")
-
-radio.register_event_handler(handle_event)
+radio.register_event_handler(lambda x: print(f"Received event: {x}"))
 
 # Change the channel on the radio a few times to generate some events
 
-await asyncio.sleep(0) # Allow event handlers to run
-
 await radio.disconnect()
 ```
+
+(Note for IPython users: The IPython async REPL blocks the async event
+loop while waiting for a prompt, so events will queue up until you defer 
+o the event loop by running something like `await asyncio.sleep(0)`.)
 """
 
 
