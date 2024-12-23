@@ -1,4 +1,4 @@
-# benlink; Control your Benshi radio with Python
+# benlink: A Python Implementation of the Benshi BLE Protocol
 
 ## Overview
 
