@@ -7,9 +7,9 @@ over BLE.
 
 In addition to providing a high-level async Python interface for
 controlling Benshi radios, the larger goal of this project is to
-document the BLE protocol used by these radios. An understanding
-of the BLE protocol used by these radios will empower owners of
-these radios and the wider open source community to:
+document the BLE protocol used to control them. An understanding
+of the BLE protocol used by these radios will empower 
+Benshi radio owners and the wider open source community to:
 
 1. Control their radios without relying on proprietary apps or software.
 
@@ -63,6 +63,27 @@ async def main():
 
 asyncio.run(main())
 ```
+
+To see what else you can do with this library, check out the
+examples the `benlink.client` module documentation.
+
+# Roadmap
+
+Things to do, in no particular order:
+
+- [ ] Implement more commands and settings
+- [ ] Support more radios
+- [ ] Figure out firmware flashing process / protocol 
+  (this is a big one, and important for long-term independence from the HT app)
+
+# Disclaimer
+
+This project is an independent grassroots effort, and is *not* affiliated
+with or endorsed by Benshi, Vero, RadioOddity, BTech, or any other radio company.
+
+Use this library at your own risk. I am not responsible for any damage
+caused to your radio or any other equipment while using this library.
+
 """
 
 from . import client
