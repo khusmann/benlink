@@ -42,6 +42,15 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 command=p.BasicCommand.READ_SETTINGS,
                 body=p.ReadSettingsBody()
             )
+        case SetSettings(settings):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.WRITE_SETTINGS,
+                body=p.WriteSettingsBody(
+                    settings=settings.to_protocol()
+                )
+            )
         case GetDeviceInfo():
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
@@ -201,6 +210,15 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     reason=reply_status.name,
                 )
             return GetSettingsReply(Settings.from_protocol(settings))
+        case p.WriteSettingsReplyBody(
+            reply_status=reply_status,
+        ):
+            if reply_status != p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    message_type=SetSettingsReply,
+                    reason=reply_status.name,
+                )
+            return SetSettingsReply()
         case p.GetDevInfoReplyBody(
             reply_status=reply_status,
             dev_info=dev_info
@@ -241,6 +259,10 @@ class GetPacketSettings(t.NamedTuple):
 
 class SetPacketSettings(t.NamedTuple):
     packet_settings: PacketSettings
+
+
+class SetSettings(t.NamedTuple):
+    settings: Settings
 
 
 class GetBatteryLevelAsPercentage(t.NamedTuple):
@@ -286,6 +308,7 @@ CommandMessage = t.Union[
     GetChannel,
     SetChannel,
     GetSettings,
+    SetSettings,
 ]
 
 
@@ -294,6 +317,10 @@ class GetPacketSettingsReply(t.NamedTuple):
 
 
 class SetPacketSettingsReply(t.NamedTuple):
+    pass
+
+
+class SetSettingsReply(t.NamedTuple):
     pass
 
 
@@ -360,6 +387,7 @@ ReplyMessage = t.Union[
     GetChannelReply,
     SetChannelReply,
     GetSettingsReply,
+    SetSettingsReply,
     MessageReplyError,
 ]
 
@@ -518,6 +546,48 @@ class Channel(ImmutableBaseModel):
             mute=self.mute,
             name_str=self.name
         )
+
+
+class SettingsArgs(t.TypedDict, total=False):
+    channel_a: int
+    channel_b: int
+    scan: bool
+    aghfp_call_mode: int
+    double_channel: int
+    squelch_level: int
+    tail_elim: bool
+    auto_relay_en: bool
+    auto_power_on: bool
+    keep_aghfp_link: bool
+    mic_gain: int
+    tx_hold_time: int
+    tx_time_limit: int
+    local_speaker: int
+    bt_mic_gain: int
+    adaptive_response: bool
+    dis_tone: bool
+    power_saving_mode: bool
+    auto_power_off: int
+    auto_share_loc_ch: int | t.Literal["current"]
+    hm_speaker: int
+    positioning_system: int
+    time_offset: int
+    use_freq_range_2: bool
+    ptt_lock: bool
+    leading_sync_bit_en: bool
+    pairing_at_power_on: bool
+    screen_timeout: int
+    vfo_x: int
+    imperial_unit: bool
+    wx_mode: int
+    noaa_ch: int
+    vfol_tx_power_x: int
+    vfo2_tx_power_x: int
+    dis_digital_mute: bool
+    signaling_ecc_en: bool
+    ch_data_lock: bool
+    vfo1_mod_freq_x: int
+    vfo2_mod_freq_x: int
 
 
 class Settings(ImmutableBaseModel):

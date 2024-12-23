@@ -14,6 +14,7 @@ from .message import (
     Channel,
     ChannelArgs,
     Settings,
+    SettingsArgs,
     PacketSettings,
     PacketSettingsArgs,
     EventMessage,
@@ -63,6 +64,17 @@ class RadioClient:
     def settings(self) -> Settings:
         self._assert_conn()
         return self._settings
+
+    async def set_settings(self, **settings_args: Unpack[SettingsArgs]):
+        self._assert_conn()
+
+        new_settings = self._settings.model_copy(
+            update=dict(settings_args)
+        )
+
+        await self._conn.set_settings(new_settings)
+
+        self._settings = new_settings
 
     @property
     def device_info(self) -> DeviceInfo:

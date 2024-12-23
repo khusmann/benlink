@@ -19,6 +19,7 @@ from .message import (
     GetDeviceInfo, GetDeviceInfoReply,
     DeviceInfo,
     GetSettings, GetSettingsReply,
+    SetSettings, SetSettingsReply,
     Settings,
     GetChannel, GetChannelReply,
     SetChannel, SetChannelReply,
@@ -172,6 +173,12 @@ class BleConnection:
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.settings
+
+    async def set_settings(self, settings: Settings) -> None:
+        """Set the settings"""
+        reply = await self.send_command_expect_reply(SetSettings(settings), SetSettingsReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
 
     async def get_channel(self, channel_id: int) -> Channel:
         """Get a channel"""
