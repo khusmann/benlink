@@ -1,3 +1,35 @@
+"""
+# Overview
+
+This modules defines the data classes that represent the messages
+and data that can be sent to and received from the radio.
+
+# Messages
+
+The `RadioMessage` type is a union of all the possible messages that can
+sent or received from the radio.
+
+It `RadioMessage`s are divided into three categories:
+
+1. `CommandMessage`: Messages that are sent to the radio to request
+    information or to change settings.
+
+2. `ReplyMessage`: Messages that are received in response to a
+    `CommandMessage`.
+
+3. `EventMessage`: Messages that are received from the radio to indicate
+    that an event has occurred. (e.g. a channel has changed, a packet has
+    been received)
+
+# Data
+
+The data objects (e.g. `DeviceStatus`, `Settings`) are used to represent
+the data that is sent or received in the messages. Some of these data
+objects have accompanying `Args` types that are used in the API to allow
+for functions that take keyword arguments to set these parameters.
+"""
+
+
 from __future__ import annotations
 from .internal import protocol as p
 import typing as t
@@ -5,19 +37,12 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ImmutableBaseModel(BaseModel):
-    """@private"""
+    """@private (A base class for immutable data objects)"""
     model_config = ConfigDict(frozen=True)
 
 
-def radio_message_from_bytes(data: t.ByteString) -> RadioMessage:
-    return radio_message_from_protocol(p.Message.from_bytes(data))
-
-
-def command_message_to_bytes(m: CommandMessage) -> bytes:
-    return command_message_to_protocol(m).to_bytes()
-
-
 def command_message_to_protocol(m: CommandMessage) -> p.Message:
+    """@private (Protocol helper)"""
     match m:
         case GetPacketSettings():
             return p.Message(
@@ -113,6 +138,7 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
 
 
 def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
+    """@private (Protocol helper)"""
     match mf.body:
         case p.ReadBSSSettingsReplyBody(
             reply_status=reply_status,
@@ -253,6 +279,9 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
             return UnknownProtocolMessage(mf)
 
 
+#####################
+# CommandMessage
+
 class GetPacketSettings(t.NamedTuple):
     pass
 
@@ -310,6 +339,9 @@ CommandMessage = t.Union[
     GetSettings,
     SetSettings,
 ]
+
+#####################
+# ReplyMessage
 
 
 class GetPacketSettingsReply(t.NamedTuple):
@@ -393,6 +425,9 @@ ReplyMessage = t.Union[
 
 ReplyMessageT = t.TypeVar("ReplyMessageT", bound=ReplyMessage)
 
+#####################
+# EventMessage
+
 
 class ChannelChangedEvent(t.NamedTuple):
     channel: Channel
@@ -427,10 +462,7 @@ RadioMessage = ReplyMessage | EventMessage
 
 
 class IntSplit(t.NamedTuple):
-    """
-    A helper class for working with integers split into upper and lower parts
-    @private
-    """
+    """@private (A helper for working with integers split into upper and lower parts)"""
 
     n_upper: int
     n_lower: int
@@ -473,6 +505,7 @@ class DCS(t.NamedTuple):
 
 
 def sub_audio_from_protocol(x: float | p.DCS | None) -> float | DCS | None:
+    """@private (Protocol helper)"""
     match x:
         case p.DCS(n):
             return DCS(n=n)
@@ -481,6 +514,7 @@ def sub_audio_from_protocol(x: float | p.DCS | None) -> float | DCS | None:
 
 
 def sub_audio_to_protocol(x: float | DCS | None) -> float | p.DCS | None:
+    """@private (Protocol helper)"""
     match x:
         case DCS(n):
             return p.DCS(n=n)
@@ -489,6 +523,7 @@ def sub_audio_to_protocol(x: float | DCS | None) -> float | p.DCS | None:
 
 
 class ChannelArgs(t.TypedDict, total=False):
+    """A dictionary of the parameters that can be set on a channel"""
     tx_mod: ModulationType
     tx_freq: float
     rx_mod: ModulationType
@@ -511,6 +546,7 @@ class ChannelArgs(t.TypedDict, total=False):
 
 
 class Channel(ImmutableBaseModel):
+    """A data object representing a radio channel"""
     channel_id: int
     tx_mod: ModulationType
     tx_freq: float
@@ -532,8 +568,9 @@ class Channel(ImmutableBaseModel):
     mute: bool
     name: str
 
-    @ staticmethod
-    def from_protocol(cs: p.RfCh) -> Channel:
+    @classmethod
+    def from_protocol(cls, cs: p.RfCh) -> Channel:
+        """@private (Protocol helper)"""
         return Channel(
             channel_id=cs.channel_id,
             tx_mod=cs.tx_mod.name,
@@ -558,6 +595,7 @@ class Channel(ImmutableBaseModel):
         )
 
     def to_protocol(self) -> p.RfCh:
+        """@private (Protocol helper)"""
         return p.RfCh(
             channel_id=self.channel_id,
             tx_mod=p.ModulationType[self.tx_mod],
@@ -583,6 +621,7 @@ class Channel(ImmutableBaseModel):
 
 
 class SettingsArgs(t.TypedDict, total=False):
+    """A dictionary of the parameters that can be set in the radio settings"""
     channel_a: int
     channel_b: int
     scan: bool
@@ -625,6 +664,7 @@ class SettingsArgs(t.TypedDict, total=False):
 
 
 class Settings(ImmutableBaseModel):
+    """A data object representing the radio settings"""
     _channel_split = IntSplit(4, 4)
     channel_a: int
     channel_b: int
@@ -668,6 +708,7 @@ class Settings(ImmutableBaseModel):
 
     @classmethod
     def from_protocol(cls, rs: p.Settings) -> Settings:
+        """@private (Protocol helper)"""
         return Settings(
             channel_a=cls._channel_split.from_parts(
                 rs.channel_a_upper, rs.channel_a_lower
@@ -715,6 +756,7 @@ class Settings(ImmutableBaseModel):
         )
 
     def to_protocol(self):
+        """@private (Protocol helper)"""
         return p.Settings(
             channel_a_lower=self._channel_split.get_lower(self.channel_a),
             channel_b_lower=self._channel_split.get_lower(self.channel_b),
@@ -761,6 +803,7 @@ class Settings(ImmutableBaseModel):
 
 
 class DeviceInfo(ImmutableBaseModel):
+    """A data object representing the device information"""
     vendor_id: int
     product_id: int
     hardware_version: int
@@ -779,8 +822,9 @@ class DeviceInfo(ImmutableBaseModel):
     channel_count: int
     frequency_range_count: int
 
-    @staticmethod
-    def from_protocol(info: p.DevInfo) -> DeviceInfo:
+    @classmethod
+    def from_protocol(cls, info: p.DevInfo) -> DeviceInfo:
+        """@private (Protocol helper)"""
         return DeviceInfo(
             vendor_id=info.vendor_id,
             product_id=info.product_id,
@@ -802,6 +846,7 @@ class DeviceInfo(ImmutableBaseModel):
         )
 
     def to_protocol(self) -> p.DevInfo:
+        """@private (Protocol helper)"""
         return p.DevInfo(
             vendor_id=self.vendor_id,
             product_id=self.product_id,
@@ -824,6 +869,7 @@ class DeviceInfo(ImmutableBaseModel):
 
 
 class PacketSettingsArgs(t.TypedDict, total=False):
+    """A dictionary of the parameters that can be set in the packet settings"""
     max_fwd_times: int
     time_to_live: int
     ptt_release_send_location: bool
@@ -843,6 +889,7 @@ class PacketSettingsArgs(t.TypedDict, total=False):
 
 
 class PacketSettings(ImmutableBaseModel):
+    """A data object representing the packet settings"""
     _bss_user_id_split = IntSplit(32, 32)
     max_fwd_times: int
     time_to_live: int
@@ -863,6 +910,7 @@ class PacketSettings(ImmutableBaseModel):
 
     @classmethod
     def from_protocol(cls, bs: p.BSSSettingsExt) -> PacketSettings:
+        """@private (Protocol helper)"""
         return PacketSettings(
             max_fwd_times=bs.max_fwd_times,
             time_to_live=bs.time_to_live,
@@ -885,6 +933,7 @@ class PacketSettings(ImmutableBaseModel):
         )
 
     def to_protocol(self) -> p.BSSSettingsExt:
+        """@private (Protocol helper)"""
         return p.BSSSettingsExt(
             max_fwd_times=self.max_fwd_times,
             time_to_live=self.time_to_live,
@@ -908,3 +957,16 @@ class PacketSettings(ImmutableBaseModel):
                 self.bss_user_id
             ),
         )
+
+#####################
+# Low-level conversion functions
+
+
+def radio_message_from_bytes(data: t.ByteString) -> RadioMessage:
+    """Convert a byte string to a RadioMessage"""
+    return radio_message_from_protocol(p.Message.from_bytes(data))
+
+
+def command_message_to_bytes(m: CommandMessage) -> bytes:
+    """Convert a CommandMessage to a byte string"""
+    return command_message_to_protocol(m).to_bytes()
