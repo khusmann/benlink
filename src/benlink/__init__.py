@@ -6,9 +6,9 @@
 radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro) over BLE.
 
 In addition to providing a high-level async Python interface for controlling
-Benshi radios, the larger goal of this project is to document the BLE protocol
-used to control them. An understanding of the BLE protocol used by these radios
-will empower Benshi radio owners and the wider open source community to:
+Benshi radios, the larger goal of this project is to document their BLE
+protocol. An understanding of the BLE protocol used by these radios will empower
+Benshi radio owners and the wider open source community to:
 
 1. Control their radios without relying on proprietary apps or software.
 
