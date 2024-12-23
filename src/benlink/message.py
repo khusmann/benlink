@@ -1,5 +1,5 @@
 from __future__ import annotations
-from . import protocol as p
+from .internal import protocol as p
 from .common import DCS, ImmutableBaseModel
 
 import typing as t

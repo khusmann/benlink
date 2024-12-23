@@ -4,8 +4,8 @@ import csv
 import sys
 import typing as t
 
-from benlink.protocol import GaiaFrame
-from benlink.bitfield import BitStream
+from benlink.internal.protocol import GaiaFrame
+from benlink.internal.bitfield import BitStream
 
 
 class GaiaFrameStream:
