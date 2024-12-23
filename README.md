@@ -4,9 +4,7 @@
 has not yet been a stable, usable release suitable for the
 public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
 
-<div style="float: right; margin-left: 20px; margin-bottom: 10px;">
-    <img src="logo.svg" style="align: right" height="140" />
-</div>
+<img src="logo.svg" align="right" height="140" />
 
 <!-- BEGIN CONTENT -->
 
