@@ -5,6 +5,10 @@ import typing as t
 from ..bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_bitfield
 from .message import Message
 
+# GaiaFrames hold messages sent to and from the radio when in Blueooth classic
+# mode. After figuring out the GaiaFrame structure, I later found it randomly
+# documented here: https://slideplayer.com/slide/12945885/
+
 
 class GaiaFlags(IntFlag):
     NONE = 0
