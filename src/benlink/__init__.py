@@ -63,6 +63,8 @@ async def main():
 asyncio.run(main())
 ```
 
+## Next steps
+
 To see what else you can do with this library, check out the examples in the
 `benlink.client` module documentation.
 
