@@ -9,6 +9,7 @@ class SetPhoneStatusBody(Bitfield):
     is_linked: bool
     _pad: t.Literal[0] = bf_lit_int(1, default=0)
     is_channel_bonded_upper: t.List[bool] = bf_list(bf_bool(), 16)
+    _pad2: t.Literal[0] = bf_lit_int(14, default=0)
 
 
 class SetPhoneStatusReplyBody(Bitfield):
