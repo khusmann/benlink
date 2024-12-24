@@ -77,6 +77,7 @@ class BleConnection:
         )
 
     async def disconnect(self) -> None:
+        self._handlers.clear()
         await self._client.disconnect()
 
     async def send_command(self, command: CommandMessage) -> None:
