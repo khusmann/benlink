@@ -109,9 +109,14 @@ radio = RadioClient("XX:XX:XX:XX:XX:XX")
 
 await radio.connect()
 
-radio.register_event_handler(lambda x: print(f"Received event: {x}"))
+unsubscribe = radio.register_event_handler(lambda x: print(f"Received event: {x}\n"))
 
 # Change the channel on the radio a few times to generate some events
+
+unsubscribe() # Unsubscribe the event handler
+
+# Change the channel on the radio a few times to generate some events and
+# observe that the event handler is no longer called
 
 await radio.disconnect() # When you're done with your session disconnect nicely
 ```
