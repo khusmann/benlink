@@ -38,7 +38,9 @@ from pydantic import BaseModel, ConfigDict
 
 class ImmutableBaseModel(BaseModel):
     """@private (A base class for immutable data objects)"""
+
     model_config = ConfigDict(frozen=True)
+    """@private"""
 
 
 def command_message_to_protocol(m: CommandMessage) -> p.Message:
