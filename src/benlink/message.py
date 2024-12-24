@@ -67,14 +67,14 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                     tnc_data_packet=tnc_data_packet.to_protocol()
                 )
             )
-        case GetTncSettings():
+        case GetBeaconSettings():
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_BSS_SETTINGS,
                 body=p.ReadBSSSettingsBody()
             )
-        case SetTncSettings(packet_settings):
+        case SetBeaconSettings(packet_settings):
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
@@ -178,20 +178,20 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
         ):
             if bss_settings is None:
                 return MessageReplyError(
-                    message_type=GetTncSettingsReply,
+                    message_type=GetBeaconSettingsReply,
                     reason=reply_status.name,
                 )
 
-            return GetTncSettingsReply(TncSettings.from_protocol(bss_settings))
+            return GetBeaconSettingsReply(BeaconSettings.from_protocol(bss_settings))
         case p.WriteBSSSettingsReplyBody(
             reply_status=reply_status,
         ):
             if reply_status != p.ReplyStatus.SUCCESS:
                 return MessageReplyError(
-                    message_type=SetTncSettingsReply,
+                    message_type=SetBeaconSettingsReply,
                     reason=reply_status.name,
                 )
-            return SetTncSettingsReply()
+            return SetBeaconSettingsReply()
         case p.ReadPowerStatusReplyBody(
             reply_status=reply_status,
             status=power_status
@@ -313,12 +313,12 @@ class EnableEvents(t.NamedTuple):
     pass
 
 
-class GetTncSettings(t.NamedTuple):
+class GetBeaconSettings(t.NamedTuple):
     pass
 
 
-class SetTncSettings(t.NamedTuple):
-    tnc_settings: TncSettings
+class SetBeaconSettings(t.NamedTuple):
+    tnc_settings: BeaconSettings
 
 
 class SetSettings(t.NamedTuple):
@@ -362,8 +362,8 @@ class SendTncData(t.NamedTuple):
 
 
 CommandMessage = t.Union[
-    GetTncSettings,
-    SetTncSettings,
+    GetBeaconSettings,
+    SetBeaconSettings,
     GetRCBatteryLevel,
     GetBatteryLevelAsPercentage,
     GetBatteryLevel,
@@ -385,11 +385,11 @@ class SendTncDataReply(t.NamedTuple):
     pass
 
 
-class GetTncSettingsReply(t.NamedTuple):
-    tnc_settings: TncSettings
+class GetBeaconSettingsReply(t.NamedTuple):
+    tnc_settings: BeaconSettings
 
 
-class SetTncSettingsReply(t.NamedTuple):
+class SetBeaconSettingsReply(t.NamedTuple):
     pass
 
 
@@ -450,8 +450,8 @@ class MessageReplyError(t.NamedTuple):
 
 
 ReplyMessage = t.Union[
-    GetTncSettingsReply,
-    SetTncSettingsReply,
+    GetBeaconSettingsReply,
+    SetBeaconSettingsReply,
     GetBatteryLevelAsPercentageReply,
     GetRCBatteryLevelReply,
     GetBatteryLevelReply,
@@ -960,7 +960,7 @@ class TncSettingsArgs(t.TypedDict, total=False):
     aprs_callsign: str
 
 
-class TncSettings(ImmutableBaseModel):
+class BeaconSettings(ImmutableBaseModel):
     """A data object representing the tnc settings"""
     _bss_user_id_split: t.ClassVar[IntSplit] = IntSplit(32, 32)
     max_fwd_times: int
@@ -981,7 +981,7 @@ class TncSettings(ImmutableBaseModel):
     aprs_callsign: str
 
     @classmethod
-    def from_protocol(cls, bs: p.BSSSettingsExt | p.BSSSettings) -> TncSettings:
+    def from_protocol(cls, bs: p.BSSSettingsExt | p.BSSSettings) -> BeaconSettings:
         """@private (Protocol helper)"""
 
         if not isinstance(bs, p.BSSSettingsExt):
@@ -989,7 +989,7 @@ class TncSettings(ImmutableBaseModel):
                 "Radio replied with old BSSSettings message version. Upgrade your firmware!"
             )
 
-        return TncSettings(
+        return BeaconSettings(
             max_fwd_times=bs.max_fwd_times,
             time_to_live=bs.time_to_live,
             ptt_release_send_location=bs.ptt_release_send_location,

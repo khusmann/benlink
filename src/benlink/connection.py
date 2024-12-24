@@ -19,9 +19,9 @@ from .message import (
     RadioMessage,
     MessageReplyError,
     ReplyMessageT,
-    GetTncSettings, GetTncSettingsReply,
-    TncSettings,
-    SetTncSettings, SetTncSettingsReply,
+    GetBeaconSettings, GetBeaconSettingsReply,
+    BeaconSettings,
+    SetBeaconSettings, SetBeaconSettingsReply,
     GetBatteryLevel, GetBatteryLevelReply,
     GetBatteryLevelAsPercentage, GetBatteryLevelAsPercentageReply,
     GetRCBatteryLevel, GetRCBatteryLevelReply,
@@ -155,16 +155,16 @@ class BleConnection:
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
-    async def get_tnc_settings(self) -> TncSettings:
+    async def get_beacon_settings(self) -> BeaconSettings:
         """Get the current packet settings"""
-        reply = await self.send_command_expect_reply(GetTncSettings(), GetTncSettingsReply)
+        reply = await self.send_command_expect_reply(GetBeaconSettings(), GetBeaconSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.tnc_settings
 
-    async def set_tnc_settings(self, packet_settings: TncSettings):
+    async def set_beacon_settings(self, packet_settings: BeaconSettings):
         """Set the packet settings"""
-        reply = await self.send_command_expect_reply(SetTncSettings(packet_settings), SetTncSettingsReply)
+        reply = await self.send_command_expect_reply(SetBeaconSettings(packet_settings), SetBeaconSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 

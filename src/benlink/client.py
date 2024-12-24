@@ -144,7 +144,7 @@ from .message import (
     ChannelArgs,
     Settings,
     SettingsArgs,
-    TncSettings,
+    BeaconSettings,
     TncSettingsArgs,
     EventMessage,
     SettingsChangedEvent,
@@ -161,7 +161,7 @@ class RadioClient:
     _is_connected: bool = False
     _conn: BleConnection
     _device_info: DeviceInfo
-    _tnc_settings: TncSettings
+    _beacon_settings: BeaconSettings
     _status: Status
     _settings: Settings
     _channels: t.List[Channel]
@@ -177,20 +177,20 @@ class RadioClient:
         return f"<{self.__class__.__name__} {self.device_uuid} (connected)>"
 
     @property
-    def tnc_settings(self) -> TncSettings:
+    def beacon_settings(self) -> BeaconSettings:
         self._assert_conn()
-        return self._tnc_settings
+        return self._beacon_settings
 
-    async def set_tnc_settings(self, **packet_settings_args: Unpack[TncSettingsArgs]):
+    async def set_beacon_settings(self, **packet_settings_args: Unpack[TncSettingsArgs]):
         self._assert_conn()
 
-        new_packet_settings = self._tnc_settings.model_copy(
+        new_beacon_settings = self._beacon_settings.model_copy(
             update=dict(packet_settings_args)
         )
 
-        await self._conn.set_tnc_settings(new_packet_settings)
+        await self._conn.set_beacon_settings(new_beacon_settings)
 
-        self._tnc_settings = new_packet_settings
+        self._beacon_settings = new_beacon_settings
 
     @property
     def settings(self) -> Settings:
@@ -277,7 +277,7 @@ class RadioClient:
 
         self._settings = await self._conn.get_settings()
 
-        self._tnc_settings = await self._conn.get_tnc_settings()
+        self._beacon_settings = await self._conn.get_beacon_settings()
 
         # TODO add an explicit "get status" (even though it gets set on the first event
         # from enable events)
