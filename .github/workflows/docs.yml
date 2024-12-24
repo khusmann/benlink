@@ -27,8 +27,8 @@ jobs:
       - run: pip install -e .
       - run: pip install pdoc
       # Build the documentation
-      - run: pdoc src/benlink -o docs --logo /benlink/logo.svg --logo-link "https://kylehusmann.com/benlink" --edit-url "benlink=https://github.com/khusmann/benlink/blob/main/src/benlink/"
-      - run: cp logo.svg docs
+      - run: pdoc src/benlink -o docs --logo /benlink/logo-transparent.png --logo-link "https://kylehusmann.com/benlink" --edit-url "benlink=https://github.com/khusmann/benlink/blob/main/src/benlink/"
+      - run: cp assets/logo-transparent.png docs
 
       - uses: actions/upload-pages-artifact@v3
         with:
