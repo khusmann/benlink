@@ -240,6 +240,11 @@ class RadioClient:
     def is_connected(self) -> bool:
         return self._is_connected
 
+    async def send_raw_command(self, command: bytes) -> None:
+        """For debugging - Use at your own risk!"""
+        self._assert_conn()
+        await self._conn.send_raw_command(command)
+
     async def battery_voltage(self) -> float:
         self._assert_conn()
         return await self._conn.get_battery_voltage()

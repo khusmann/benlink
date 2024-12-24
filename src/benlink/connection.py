@@ -80,12 +80,16 @@ class BleConnection:
         self._handlers.clear()
         await self._client.disconnect()
 
-    async def send_command(self, command: CommandMessage) -> None:
+    async def send_raw_command(self, command: bytes) -> None:
+        """Send a raw command - use at your own risk"""
         await self._client.write_gatt_char(
             RADIO_WRITE_UUID,
-            command_message_to_bytes(command),
+            command,
             response=True
         )
+
+    async def send_command(self, command: CommandMessage) -> None:
+        await self.send_raw_command(command_message_to_bytes(command))
 
     async def send_command_expect_reply(self, command: CommandMessage, expect: t.Type[ReplyMessageT]) -> ReplyMessageT | MessageReplyError:
         queue: asyncio.Queue[ReplyMessageT |
