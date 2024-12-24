@@ -41,7 +41,7 @@ def to_text(cmd: bytes):
 reader = csv.DictReader(sys.stdin)
 
 output_header = [
-    "id", "dir", "is_known", "group", "is_reply", "command", "message"
+    "id", "dir", "is_known", "group", "is_reply", "command", "message", "original"
 ]
 
 writer = csv.DictWriter(sys.stdout, fieldnames=output_header)
@@ -75,5 +75,6 @@ for snoop_frame in reader:
             "group": frame.data.command_group.name,
             "is_reply": frame.data.is_reply,
             "command": frame.data.command.name,
-            "message": str(frame.data.body)
+            "message": str(frame.data.body),
+            "original": frame.data.to_bytes()
         })
