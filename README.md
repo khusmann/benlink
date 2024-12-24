@@ -52,7 +52,7 @@ pip install .
 (If you are developing the package, you can use `pip install -e .` to install it
 in "editable" mode.)
 
-## Quick start
+## Quick Start
 
 First, make sure your radio is paired with your computer, and get its device
 UUID (e.g. `XX:XX:XX:XX:XX:XX`).
@@ -70,7 +70,7 @@ async def main():
 asyncio.run(main())
 ```
 
-### Next steps
+### Next Steps
 
 To see what else you can do with this library, check out the examples in the
 `benlink.client` module documentation.

@@ -10,7 +10,7 @@ To run the examples below, you will need to pair your radio with your computer,
 locate the radio's device UUID (e.g. `XX:XX:XX:XX:XX:XX`), and substitute it
 into the example code.
 
-## Connecting to the device
+## Connecting To The Device
 
 The following will connect to a radio and print its device info:
 
@@ -25,7 +25,7 @@ async def main():
 asyncio.run(main())
 ```
 
-## Changing settings
+## Changing Settings
 
 The following will connect to a radio and change the name of the first channel:
 
@@ -44,7 +44,7 @@ async def main():
 asyncio.run(main())
 ```
 
-## Handling events
+## Handling Events
 
 The `RadioClient` class provides a `register_event_handler` method for
 registering a callback function to handle events. The callback function
