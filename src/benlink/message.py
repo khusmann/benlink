@@ -940,8 +940,8 @@ class DeviceInfo(ImmutableBaseModel):
         )
 
 
-class TncSettingsArgs(t.TypedDict, total=False):
-    """A dictionary of the parameters that can be set in the tnc settings"""
+class BeaconSettingsArgs(t.TypedDict, total=False):
+    """A dictionary of the parameters that can be set in the beacon settings"""
     max_fwd_times: int
     time_to_live: int
     ptt_release_send_location: bool
@@ -961,7 +961,7 @@ class TncSettingsArgs(t.TypedDict, total=False):
 
 
 class BeaconSettings(ImmutableBaseModel):
-    """A data object representing the tnc settings"""
+    """A data object representing the beacon settings"""
     _bss_user_id_split: t.ClassVar[IntSplit] = IntSplit(32, 32)
     max_fwd_times: int
     time_to_live: int

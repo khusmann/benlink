@@ -145,7 +145,7 @@ from .message import (
     Settings,
     SettingsArgs,
     BeaconSettings,
-    TncSettingsArgs,
+    BeaconSettingsArgs,
     TncDataFragment,
     EventMessage,
     SettingsChangedEvent,
@@ -182,7 +182,7 @@ class RadioClient:
         self._assert_conn()
         return self._beacon_settings
 
-    async def set_beacon_settings(self, **packet_settings_args: Unpack[TncSettingsArgs]):
+    async def set_beacon_settings(self, **packet_settings_args: Unpack[BeaconSettingsArgs]):
         self._assert_conn()
 
         new_beacon_settings = self._beacon_settings.model_copy(
