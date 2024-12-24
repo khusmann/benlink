@@ -74,7 +74,7 @@ asyncio.run(main())
 
 # Interactive Usage
 
-Python's async REPL a great tool for interactively exploring the radio's
+Python's async REPL is a great tool for interactively exploring the radio's
 capabilities. To run Python's REPL in async mode, run:
 
 ```bash
