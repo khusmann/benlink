@@ -89,7 +89,7 @@ Things to do, in no particular order:
 ## Disclaimer
 
 This project is an independent grassroots effort, and is **not** affiliated with
-or endorsed by Benshi, Vero, RadioOddity, BTech, or any other radio company.
+or endorsed by Benshi, Vero, RadioOddity, BTech, or any other company.
 
 Use this library at your own risk. I am **not** responsible for any damage
 caused to your radio or any other equipment while using this library.
