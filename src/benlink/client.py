@@ -145,7 +145,9 @@ from .message import (
     SettingsChangedEvent,
     TncDataFragmentReceivedEvent,
     ChannelChangedEvent,
+    StatusChangedEvent,
     UnknownProtocolMessage,
+    Status
 )
 
 
@@ -155,6 +157,7 @@ class RadioClient:
     _conn: BleConnection
     _device_info: DeviceInfo
     _tnc_settings: TncSettings
+    _status: Status
     _settings: Settings
     _channels: t.List[Channel]
     _message_handler_unsubscribe: t.Callable[[], None]
@@ -271,6 +274,9 @@ class RadioClient:
 
         self._tnc_settings = await self._conn.get_tnc_settings()
 
+        # TODO add an explicit "get status" (even though it gets set on the first event
+        # from enable events)
+
         await self._conn.enable_events()
 
     def _on_event_message(self, event_message: EventMessage) -> None:
@@ -281,6 +287,8 @@ class RadioClient:
                 self._settings = settings
             case TncDataFragmentReceivedEvent():
                 pass
+            case StatusChangedEvent(status):
+                self._status = status
             case UnknownProtocolMessage(message):
                 print(
                     f"[DEBUG] Unknown protocol message: {message}",

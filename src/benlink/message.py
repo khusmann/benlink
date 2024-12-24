@@ -23,7 +23,7 @@ It `RadioMessage`s are divided into three categories:
 
 # Data
 
-The data objects (e.g. `DeviceStatus`, `Settings`) are used to represent
+The data objects (e.g. `DeviceInfo`, `Settings`) are used to represent
 the data that is sent or received in the messages. Some of these data
 objects have accompanying `Args` types that are used in the API to allow
 for functions that take keyword arguments to set these parameters.
@@ -125,8 +125,8 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_STATUS,
-                body=p.ReadStatusBody(
-                    status_type=p.ReadStatusType.BATTERY_VOLTAGE
+                body=p.ReadPowerStatusBody(
+                    status_type=p.PowerStatusType.BATTERY_VOLTAGE
                 )
             )
         case GetBatteryLevel():
@@ -134,8 +134,8 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_STATUS,
-                body=p.ReadStatusBody(
-                    status_type=p.ReadStatusType.BATTERY_LEVEL
+                body=p.ReadPowerStatusBody(
+                    status_type=p.PowerStatusType.BATTERY_LEVEL
                 )
             )
         case GetBatteryLevelAsPercentage():
@@ -143,8 +143,8 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_STATUS,
-                body=p.ReadStatusBody(
-                    status_type=p.ReadStatusType.BATTERY_LEVEL_AS_PERCENTAGE
+                body=p.ReadPowerStatusBody(
+                    status_type=p.PowerStatusType.BATTERY_LEVEL_AS_PERCENTAGE
                 )
             )
         case GetRCBatteryLevel():
@@ -152,8 +152,8 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.READ_STATUS,
-                body=p.ReadStatusBody(
-                    status_type=p.ReadStatusType.RC_BATTERY_LEVEL
+                body=p.ReadPowerStatusBody(
+                    status_type=p.PowerStatusType.RC_BATTERY_LEVEL
                 )
             )
 
@@ -180,11 +180,6 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     reason=reply_status.name,
                 )
 
-            if not isinstance(bss_settings, p.BSSSettingsExt):
-                raise ValueError(
-                    "Radio replied with old BSSSettings message version. Upgrade your firmware!"
-                )
-
             return GetTncSettingsReply(TncSettings.from_protocol(bss_settings))
         case p.WriteBSSSettingsReplyBody(
             reply_status=reply_status,
@@ -195,17 +190,17 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     reason=reply_status.name,
                 )
             return SetTncSettingsReply()
-        case p.ReadStatusReplyBody(
+        case p.ReadPowerStatusReplyBody(
             reply_status=reply_status,
-            status=status
+            status=power_status
         ):
-            if status is None:
+            if power_status is None:
                 return MessageReplyError(
                     message_type=GetBatteryVoltageReply,
                     reason=reply_status.name,
                 )
 
-            match status.value:
+            match power_status.value:
                 case p.BatteryVoltageStatus(
                     battery_voltage=battery_voltage
                 ):
@@ -250,6 +245,10 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     rf_ch=rf_ch
                 ):
                     return ChannelChangedEvent(Channel.from_protocol(rf_ch))
+                case p.HTStatusChangedEvent(
+                    status=status
+                ):
+                    return StatusChangedEvent(Status.from_protocol(status))
                 case _:
                     return UnknownProtocolMessage(mf)
         case p.ReadSettingsReplyBody(
@@ -470,6 +469,10 @@ ReplyMessageT = t.TypeVar("ReplyMessageT", bound=ReplyMessage)
 # EventMessage
 
 
+class StatusChangedEvent(t.NamedTuple):
+    status: Status
+
+
 class ChannelChangedEvent(t.NamedTuple):
     channel: Channel
 
@@ -491,6 +494,7 @@ EventMessage = t.Union[
     SettingsChangedEvent,
     UnknownProtocolMessage,
     ChannelChangedEvent,
+    StatusChangedEvent,
 ]
 
 RadioMessage = ReplyMessage | EventMessage
@@ -975,8 +979,14 @@ class TncSettings(ImmutableBaseModel):
     aprs_callsign: str
 
     @classmethod
-    def from_protocol(cls, bs: p.BSSSettingsExt) -> TncSettings:
+    def from_protocol(cls, bs: p.BSSSettingsExt | p.BSSSettings) -> TncSettings:
         """@private (Protocol helper)"""
+
+        if not isinstance(bs, p.BSSSettingsExt):
+            raise ValueError(
+                "Radio replied with old BSSSettings message version. Upgrade your firmware!"
+            )
+
         return TncSettings(
             max_fwd_times=bs.max_fwd_times,
             time_to_live=bs.time_to_live,
@@ -1022,6 +1032,73 @@ class TncSettings(ImmutableBaseModel):
             bss_user_id_upper=self._bss_user_id_split.get_upper(
                 self.bss_user_id
             ),
+        )
+
+
+ChannelType = t.Literal["OFF", "A", "B"]
+
+
+class Status(ImmutableBaseModel):
+    """A data object representing the radio status"""
+    _channel_split: t.ClassVar[IntSplit] = IntSplit(4, 4)
+    is_power_on: bool
+    is_in_tx: bool
+    is_sq: bool
+    is_in_rx: bool
+    double_channel: ChannelType
+    is_scan: bool
+    is_radio: bool
+    curr_ch_id: int
+    is_gps_locked: bool
+    is_hfp_connected: bool
+    is_aoc_connected: bool
+    rssi: float
+    curr_region: int
+
+    @classmethod
+    def from_protocol(cls, s: p.Status | p.StatusExt) -> Status:
+        """@private (Protocol helper)"""
+        if not isinstance(s, p.StatusExt):
+            raise ValueError(
+                "Radio replied with old Status message version. Upgrade your firmware!"
+            )
+
+        return Status(
+            is_power_on=s.is_power_on,
+            is_in_tx=s.is_in_tx,
+            is_sq=s.is_sq,
+            is_in_rx=s.is_in_rx,
+            double_channel=s.double_channel.name,
+            is_scan=s.is_scan,
+            is_radio=s.is_radio,
+            curr_ch_id=cls._channel_split.from_parts(
+                s.curr_channel_id_upper, s.curr_ch_id_lower
+            ),
+            is_gps_locked=s.is_gps_locked,
+            is_hfp_connected=s.is_hfp_connected,
+            is_aoc_connected=s.is_aoc_connected,
+            rssi=s.rssi,
+            curr_region=s.curr_region
+        )
+
+    def to_protocol(self) -> p.StatusExt:
+        """@private (Protocol helper)"""
+        return p.StatusExt(
+            is_power_on=self.is_power_on,
+            is_in_tx=self.is_in_tx,
+            is_sq=self.is_sq,
+            is_in_rx=self.is_in_rx,
+            double_channel=p.ChannelType[self.double_channel],
+            is_scan=self.is_scan,
+            is_radio=self.is_radio,
+            curr_ch_id_lower=self._channel_split.get_lower(self.curr_ch_id),
+            is_gps_locked=self.is_gps_locked,
+            is_hfp_connected=self.is_hfp_connected,
+            is_aoc_connected=self.is_aoc_connected,
+            rssi=self.rssi,
+            curr_region=self.curr_region,
+            curr_channel_id_upper=self._channel_split.get_upper(
+                self.curr_ch_id)
         )
 
 #####################

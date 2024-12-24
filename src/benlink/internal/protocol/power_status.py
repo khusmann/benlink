@@ -5,7 +5,7 @@ from enum import IntEnum
 from .common import ReplyStatus
 
 
-class ReadStatusType(IntEnum):
+class PowerStatusType(IntEnum):
     UNKNOWN = 0
     BATTERY_LEVEL = 1
     BATTERY_VOLTAGE = 2
@@ -37,36 +37,37 @@ StatusValue = t.Union[
 ]
 
 
-def status_value_desc(m: Status):
-    match m.status_type:
-        case ReadStatusType.BATTERY_VOLTAGE:
+def status_value_desc(m: PowerStatus):
+    match m.power_status_type:
+        case PowerStatusType.BATTERY_VOLTAGE:
             return BatteryVoltageStatus
-        case ReadStatusType.BATTERY_LEVEL:
+        case PowerStatusType.BATTERY_LEVEL:
             return BatteryLevelStatus
-        case ReadStatusType.BATTERY_LEVEL_AS_PERCENTAGE:
+        case PowerStatusType.BATTERY_LEVEL_AS_PERCENTAGE:
             return BatteryLevelPercentageStatus
-        case ReadStatusType.RC_BATTERY_LEVEL:
+        case PowerStatusType.RC_BATTERY_LEVEL:
             return RCBatteryLevelStatus
-        case ReadStatusType.UNKNOWN:
+        case PowerStatusType.UNKNOWN:
             raise ValueError("Unknown radio status type")
 
 
-class Status(Bitfield):
-    status_type: ReadStatusType = bf_int_enum(ReadStatusType, 16)
+class PowerStatus(Bitfield):
+    power_status_type: PowerStatusType = bf_int_enum(
+        PowerStatusType, 16)
     value: StatusValue = bf_dyn(status_value_desc)
 
 
-def status_reply_desc(m: ReadStatusReplyBody, n: int):
+def power_status_reply_desc(m: ReadPowerStatusReplyBody, n: int):
     if m.reply_status != ReplyStatus.SUCCESS:
         return None
 
-    return bf_bitfield(Status, n)
+    return bf_bitfield(PowerStatus, n)
 
 
-class ReadStatusReplyBody(Bitfield):
+class ReadPowerStatusReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
-    status: Status | None = bf_dyn(status_reply_desc)
+    status: PowerStatus | None = bf_dyn(power_status_reply_desc)
 
 
-class ReadStatusBody(Bitfield):
-    status_type: ReadStatusType = bf_int_enum(ReadStatusType, 16)
+class ReadPowerStatusBody(Bitfield):
+    status_type: PowerStatusType = bf_int_enum(PowerStatusType, 16)

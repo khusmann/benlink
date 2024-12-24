@@ -49,7 +49,7 @@ class DataRxdEvent(Bitfield):
     )
 
 
-class HTStatusChangedEvent(Bitfield):
+class Status(Bitfield):
     is_power_on: bool
     is_in_tx: bool
     is_sq: bool
@@ -64,11 +64,23 @@ class HTStatusChangedEvent(Bitfield):
     _pad: t.Literal[0] = bf_lit_int(1, default=0)
 
 
-class HTStatusChangedEventExt(HTStatusChangedEvent):
+class StatusExt(Status):
     rssi: float = bf_map(bf_int(4), Scale(100 / 15))
     curr_region: int = bf_int(6)
     curr_channel_id_upper: int = bf_int(4)
     _pad2: t.Literal[0] = bf_lit_int(2, default=0)
+
+
+def status_disc(m: Status, n: int):
+    if n == StatusExt.length():
+        return StatusExt
+    if n == Status.length():
+        return Status
+    raise ValueError(f"Unknown size for status type: {n}")
+
+
+class HTStatusChangedEvent(Bitfield):
+    status: Status | StatusExt = bf_dyn(status_disc)
 
 
 class UnknownEvent(Bitfield):
@@ -84,13 +96,7 @@ def event_notification_disc(m: EventNotificationBody, n: int):
         case EventType.HT_SETTINGS_CHANGED:
             return HTSettingsChangedEvent
         case EventType.HT_STATUS_CHANGED:
-            if n == HTStatusChangedEvent.length():
-                return HTStatusChangedEvent
-            if n == HTStatusChangedEventExt.length():
-                return HTStatusChangedEventExt
-            raise ValueError(
-                f"Unknown size for HT_STATUS_CHANGED event ({n})"
-            )
+            return bf_bitfield(HTStatusChangedEvent, n)
         case EventType.DATA_RXD:
             return bf_bitfield(DataRxdEvent, n)
         case EventType.HT_CH_CHANGED:
@@ -104,7 +110,6 @@ Event = t.Union[
     DataRxdEvent,
     HTStatusChangedEvent,
     HTSettingsChangedEvent,
-    HTStatusChangedEventExt,
     HTChChangedEvent,
 ]
 

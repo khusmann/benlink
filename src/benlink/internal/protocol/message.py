@@ -12,7 +12,7 @@ from .settings import (
     WriteSettingsBody,
     WriteSettingsReplyBody,
 )
-from .status import ReadStatusBody, ReadStatusReplyBody
+from .power_status import ReadPowerStatusBody, ReadPowerStatusReplyBody
 from .rf_ch import (
     ReadRFChBody,
     ReadRFChReplyBody,
@@ -146,7 +146,7 @@ def body_disc(m: Message, n: int):
                 case BasicCommand.GET_DEV_INFO:
                     out = GetDevInfoReplyBody if m.is_reply else GetDevInfoBody
                 case BasicCommand.READ_STATUS:
-                    out = ReadStatusReplyBody if m.is_reply else ReadStatusBody
+                    out = ReadPowerStatusReplyBody if m.is_reply else ReadPowerStatusBody
                 case BasicCommand.READ_RF_CH:
                     out = ReadRFChReplyBody if m.is_reply else ReadRFChBody
                 case BasicCommand.WRITE_RF_CH:
@@ -186,8 +186,8 @@ def body_disc(m: Message, n: int):
 MessageBody = t.Union[
     GetDevInfoBody,
     GetDevInfoReplyBody,
-    ReadStatusBody,
-    ReadStatusReplyBody,
+    ReadPowerStatusBody,
+    ReadPowerStatusReplyBody,
     ReadRFChBody,
     ReadRFChReplyBody,
     WriteRFChBody,
