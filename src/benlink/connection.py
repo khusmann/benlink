@@ -33,7 +33,7 @@ from .message import (
     Settings,
     GetChannel, GetChannelReply,
     SetChannel, SetChannelReply,
-    SendTncData, SendTncDataReply,
+    SendTncDataFragment, SendTncDataFragmentReply,
     TncDataFragment,
     Channel,
     EventMessage,
@@ -138,20 +138,9 @@ class BleConnection:
         # Interestingly, this doesn't get a reply
         await self.send_command(EnableEvents())
 
-    async def send_tnc_data(self, data: bytes) -> None:
+    async def send_tnc_data_fragment(self, tnc_data_fragment: TncDataFragment) -> None:
         """Send Tnc data"""
-        if len(data) > 50:
-            raise ValueError("Data too long -- TODO: implement fragmentation")
-        reply = await self.send_command_expect_reply(
-            SendTncData(
-                TncDataFragment(
-                    is_final_fragment=True,
-                    fragment_id=0,
-                    data=data
-                )
-            ),
-            SendTncDataReply
-        )
+        reply = await self.send_command_expect_reply(SendTncDataFragment(tnc_data_fragment), SendTncDataFragmentReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 

@@ -58,13 +58,13 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                     event_type=p.EventType.HT_STATUS_CHANGED,
                 )
             )
-        case SendTncData(tnc_data_packet):
+        case SendTncDataFragment(tnc_data_fragment):
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.HT_SEND_DATA,
                 body=p.HTSendDataBody(
-                    tnc_data_packet=tnc_data_packet.to_protocol()
+                    tnc_data_fragment=tnc_data_fragment.to_protocol()
                 )
             )
         case GetBeaconSettings():
@@ -168,10 +168,10 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
         ):
             if reply_status != p.ReplyStatus.SUCCESS:
                 return MessageReplyError(
-                    message_type=SendTncDataReply,
+                    message_type=SendTncDataFragmentReply,
                     reason=reply_status.name,
                 )
-            return SendTncDataReply()
+            return SendTncDataFragmentReply()
         case p.ReadBSSSettingsReplyBody(
             reply_status=reply_status,
             bss_settings=bss_settings,
@@ -357,8 +357,8 @@ class GetSettings(t.NamedTuple):
     pass
 
 
-class SendTncData(t.NamedTuple):
-    tnc_data_packet: TncDataFragment
+class SendTncDataFragment(t.NamedTuple):
+    tnc_data_fragment: TncDataFragment
 
 
 CommandMessage = t.Union[
@@ -373,7 +373,7 @@ CommandMessage = t.Union[
     SetChannel,
     GetSettings,
     SetSettings,
-    SendTncData,
+    SendTncDataFragment,
     EnableEvents,
 ]
 
@@ -381,7 +381,7 @@ CommandMessage = t.Union[
 # ReplyMessage
 
 
-class SendTncDataReply(t.NamedTuple):
+class SendTncDataFragmentReply(t.NamedTuple):
     pass
 
 
@@ -461,7 +461,7 @@ ReplyMessage = t.Union[
     SetChannelReply,
     GetSettingsReply,
     SetSettingsReply,
-    SendTncDataReply,
+    SendTncDataFragmentReply,
     MessageReplyError,
 ]
 

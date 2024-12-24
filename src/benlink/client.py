@@ -146,6 +146,7 @@ from .message import (
     SettingsArgs,
     BeaconSettings,
     TncSettingsArgs,
+    TncDataFragment,
     EventMessage,
     SettingsChangedEvent,
     TncDataFragmentReceivedEvent,
@@ -257,7 +258,15 @@ class RadioClient:
 
     async def send_tnc_data(self, data: bytes) -> None:
         self._assert_conn()
-        await self._conn.send_tnc_data(data)
+
+        if len(data) > 50:
+            raise ValueError("Data too long -- TODO: implement fragmentation")
+
+        await self._conn.send_tnc_data_fragment(TncDataFragment(
+            is_final_fragment=True,
+            fragment_id=0,
+            data=data
+        ))
 
     def _assert_conn(self) -> None:
         if not self._is_connected:

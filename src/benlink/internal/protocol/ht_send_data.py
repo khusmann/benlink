@@ -4,7 +4,7 @@ from .common import ReplyStatus, TncDataFragment
 
 
 class HTSendDataBody(Bitfield):
-    tnc_data_packet: TncDataFragment = bf_dyn(
+    tnc_data_fragment: TncDataFragment = bf_dyn(
         lambda _, n: bf_bitfield(TncDataFragment, n)
     )
 
