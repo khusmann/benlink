@@ -26,7 +26,7 @@ if readme_start == -1:
 
 readme_content_stripped = [
     line[1:] if line.startswith("##") else line
-    for line in readme_content[readme_start:]
+    for line in readme_content[readme_start+1:]
 ]
 
 updated_content = [

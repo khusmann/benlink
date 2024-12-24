@@ -1,6 +1,5 @@
 """
 # Overview
-<!-- BEGIN CONTENT -->
 
 `benlink` is a Python library for communicating with and controlling Benshi
 radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro) over BLE.
@@ -72,7 +71,9 @@ To see what else you can do with this library, check out the examples the
 Things to do, in no particular order:
 
 - [ ] Implement more commands and settings
-- [ ] Support more radios
+- [ ] Make a higher-level interface for sending / receiving TNC data (right now
+      you have to break it into fragments)
+- [ ] Find more radios that use this protocol and test them with this library
 - [ ] Figure out firmware flashing process / protocol (this is key for long-term
       independence from the HT app)
 
