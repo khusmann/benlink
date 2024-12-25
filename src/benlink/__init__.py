@@ -68,13 +68,26 @@ asyncio.run(main())
 To see what else you can do with this library, check out the examples in the
 `benlink.client` module documentation.
 
+# Known issues
+
+If you try to send any data with `benlink.client.RadioClient.send_tnc_data` it
+will immediately reply with a `INCORRECT_STATE` error. If you immediately retry
+the command within two seconds, it will work. I have no idea why it does this.
+In all of my btsnoop logs of the official app, the command appears to work on
+the first try. If anyone can figure out what's going on here, please reply to
+[this open issue](https://github.com/khusmann/benlink/issues/1)!
+
+In any case, at some point I plan to add a higher-level interface for sending /
+receiving TNC data that will automatically retry failed commands and queue /
+combine message fragments.
+
 # Roadmap
 
-Things to do, in no particular order:
+Things to do:
 
+- [ ] Make a higher-level interface for sending / receiving TNC data (auto
+      retry, queue message fragments)
 - [ ] Implement more commands and settings
-- [ ] Make a higher-level interface for sending / receiving TNC data (right now
-      you have to break it into fragments)
 - [ ] Find more radios that use this protocol and test them with this library
 - [ ] Figure out firmware flashing process / protocol (this is key for long-term
       independence from the HT app)
