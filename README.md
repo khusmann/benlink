@@ -84,6 +84,10 @@ In all of my btsnoop logs of the official app, the command appears to work on
 the first try. If anyone can figure out what's going on here, please reply to
 [this open issue](https://github.com/khusmann/benlink/issues/1)!
 
+Edit 2024-12-25: I think I have figured it out -- you have to be connected to
+the rfcomm audio channel in order for it to be in the "correct state". Will
+continue to investigate...
+
 In any case, at some point I plan to add a higher-level interface for sending /
 receiving TNC data that will automatically retry failed commands and queue /
 combine message fragments.
@@ -94,6 +98,8 @@ Things to do:
 
 - [ ] Make a higher-level interface for sending / receiving TNC data (auto
       retry, queue message fragments)
+- [ ] Implement audio sending / receiving (looks like this can only be done over
+      rfcomm?)
 - [ ] Implement more commands and settings
 - [ ] Find more radios that use this protocol and test them with this library
 - [ ] Figure out firmware flashing process / protocol (this is key for long-term
