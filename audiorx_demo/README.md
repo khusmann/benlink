@@ -23,6 +23,6 @@ When the radio sends the following frame, it's indicating that it finished sendi
 ```
 
 To run the demo, build it with `make` and then run it with `./audiorx_demo XX:XX:XX:XX:XX:XX`
-It will connect to the RFCOMM audio channel (hardcoded to 2, change it in the code if your radio uses a different channel) and start receiving audio frames. Once it receives the end of audio frame from the radio, it will write the audio to file `1.wav`. The next time it receives audio, it will write to file `2.wav`, and so on.
+It will connect to the RFCOMM audio channel (hardcoded to 2, change it in the code if your radio uses a different channel) and start receiving audio frames. Once it receives the "end of audio" frame from the radio, it will write the audio to file `1.wav`. The next time it receives audio, it will write to file `2.wav`, and so on.
 
 The SBC decoding seems to fail every once in a while. I'm still unsure why that is, but the result can be heard as skipped audio and artifacts in the decoded audio.

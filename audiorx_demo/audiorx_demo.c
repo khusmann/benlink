@@ -127,11 +127,11 @@ int main(int argc, char **argv)
     
 
     while(true) {
-        socketStatus = read(socketFd, socketBuffer, SOCKET_BUFFER_SIZE);
-        if (socketStatus) {
+        int nBytes = read(socketFd, socketBuffer, SOCKET_BUFFER_SIZE);
+        if (nBytes) {
             if (socketBuffer[0] == 0x7e) {
-                decodeAudioFrame(socketBuffer, &socketStatus);
-                socketStatus = (int)recv(socketFd, socketBuffer, socketStatus, 6);
+                nBytes = (int)recv(socketFd, socketBuffer, nBytes, 6);
+                decodeAudioFrame(socketBuffer, &nBytes);
             }
         }
         else {
