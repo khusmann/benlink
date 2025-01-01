@@ -5,19 +5,20 @@
 #include <bluetooth/rfcomm.h>
 #include <errno.h>
 
-#include "libsbc/sbc.h"
-#include "libsbc/bits.h"
-#include "libsbc/wave.h"
+#include "sbc/wave.h"
+#include "sbc/oi_codec_sbc.h"
 
 #define RFCOMM_AUDIO_CHANNEL 2
 #define SOCKET_BUFFER_SIZE 1024
+#define PCM_BUFFER_SIZE 2*SOCKET_BUFFER_SIZE*sizeof(int16_t)
 #define ACK_MESSAGE_LEN 11
 
 const int g_cReplyMsg[ACK_MESSAGE_LEN] = {0x7e, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7e};
 
 FILE* g_audioFileFd;
 int g_audioFileCnt;
-sbc_t g_sbcContext;
+OI_CODEC_SBC_DECODER_CONTEXT g_sbcContext;
+static uint32_t g_sbcContextData[CODEC_DATA_WORDS(2, SBC_CODEC_FAST_FILTER_BUFFERS)];
 long g_samplesCnt;
 long g_bytesCnt;
 
@@ -44,75 +45,39 @@ void decodeAudioFrame(char* data, int* pLen)
             sbcDataLen++;
         }
 
-        int16_t pcmData[2*SOCKET_BUFFER_SIZE*sizeof(int16_t)];
-        struct sbc_frame sbcFrame;
-
-        if (g_audioFileFd == NULL) {
-            sbc_reset(&g_sbcContext);
-        }
-
-        int err = sbc_probe(sbcData, &sbcFrame);
-        if (err) {
-            printf("sbc_probe failed\n");
-            return;
-        }
-
-        int nChannels = 1 + (sbcFrame.mode != SBC_MODE_MONO);
-
+        int16_t pcmData[PCM_BUFFER_SIZE];
         int nBytesToRead = sbcDataLen;
 
-        while(nBytesToRead >= SBC_HEADER_SIZE) {
+        if (g_audioFileFd == NULL) {
+            OI_CODEC_SBC_DecoderReset(&g_sbcContext, (uint32_t*)g_sbcContextData, sizeof(g_sbcContextData), SBC_MAX_CHANNELS, 1, 0);
+        }
+
+        while(nBytesToRead >= 4) {
             int nOffset = sbcDataLen - nBytesToRead;
 
-            int nStartPos = nOffset;
-            while ((sbcData[nStartPos] & 0xff) != 0x9c) {
-                nStartPos++;
-                if (nStartPos >= sbcDataLen) {
-                    break;
-                }
-            }
-            if (nStartPos >= sbcDataLen) {
-                break;
-            }
-
-            // A "hack" to make the decoder happy: if there were too many bytes in the previous frame, copy them to this frame
-            if (nStartPos != nOffset) {
-                int nDiff = nStartPos - nOffset;
-                for (int diff = nDiff-1; diff >= 0; diff--) {
-                    for (int i = nOffset; i < nOffset + 11; i++) {
-                        char temp = sbcData[i + diff];
-                        sbcData[i + diff] = sbcData[i + diff + 1];
-                        sbcData[i + diff + 1] = temp;
-                    }
-                }
-            }
-
-            if (nBytesToRead <= SBC_HEADER_SIZE) {
+            if (nBytesToRead <= 4) {
                 break;   
             }
 
-            err = sbc_decode(&g_sbcContext, sbcData + nOffset, nBytesToRead, &sbcFrame, pcmData + 0, nChannels, pcmData + 1, 2);
+            int pcmBytes = PCM_BUFFER_SIZE;
+            int err = OI_CODEC_SBC_DecodeFrame(&g_sbcContext, (const OI_BYTE**)&sbcData,
+                           (uint32_t*)&nBytesToRead, pcmData,
+                           (uint32_t*)&pcmBytes);
+
+
             if (err) {
                 printf("sbc_decode failed\n");
                 break;
             }
 
             if (g_audioFileFd == NULL) {
-                printf("Channels: %d, Sample rate: %d, Bitrate: %f, Bitpool: %d, Blocks: %d, Subbands: %d\n",
-                    nChannels,
-                    sbc_get_freq_hz(sbcFrame.freq),
-                    sbc_get_frame_bitrate(&sbcFrame) * 1e-3,
-                    sbcFrame.bitpool,
-                    sbcFrame.nblocks,
-                    sbcFrame.nsubbands);
                 openAudioFile();
-                wave_write_header(g_audioFileFd, 16, sizeof(int16_t), sbc_get_freq_hz(sbcFrame.freq), nChannels, -1);
+                wave_write_header(g_audioFileFd, 16, sizeof(int16_t), 32000, 1, -1);
             }
 
-            int nSamples = sbcFrame.nblocks * sbcFrame.nsubbands;
-            wave_write_pcm(g_audioFileFd, sizeof(int16_t), pcmData, nChannels, 0, nSamples);
+            int nSamples = pcmBytes/sizeof(int16_t);
+            wave_write_pcm(g_audioFileFd, sizeof(int16_t), pcmData, 1, 0, nSamples);
             g_samplesCnt += nSamples;
-            nBytesToRead -= sbc_get_frame_size(&sbcFrame);
         }
         g_bytesCnt += *pLen;
 
@@ -154,9 +119,7 @@ int main(int argc, char **argv)
         printf("Connection error: %d\n", errno);
     }
 
-    
-
-    while(true) {
+    while(1) {
         int nBytes = read(socketFd, socketBuffer, SOCKET_BUFFER_SIZE);
         if (nBytes) {
             if (socketBuffer[0] == 0x7e) {
