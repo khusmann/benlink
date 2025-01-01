@@ -6,6 +6,7 @@
 #include <errno.h>
 
 #include "libsbc/sbc.h"
+#include "libsbc/bits.h"
 #include "libsbc/wave.h"
 
 #define RFCOMM_AUDIO_CHANNEL 2
@@ -37,10 +38,11 @@ void openAudioFile()
 void decodeAudioFrame(char* data, int* pLen)
 {
     if (data[1] == 0x00) {
-        char* sbcData = &(data[2]);
-        int sbcDataLen = *pLen - 3;
-        
-        bool bWriteHeader = false;
+        char* sbcData = &(data[2]); // strip the first two bytes
+        int sbcDataLen = *pLen - 3; // account for the two header bytes - "0x7e 0x00", and the trailing byte "0x7e"
+        if (data[*pLen-1] & 0xff != 0x7e) {
+            sbcDataLen++;
+        }
 
         int16_t pcmData[2*SOCKET_BUFFER_SIZE*sizeof(int16_t)];
         struct sbc_frame sbcFrame;
@@ -59,12 +61,40 @@ void decodeAudioFrame(char* data, int* pLen)
 
         int nBytesToRead = sbcDataLen;
 
-        while(nBytesToRead) {
+        while(nBytesToRead >= SBC_HEADER_SIZE) {
             int nOffset = sbcDataLen - nBytesToRead;
+
+            int nStartPos = nOffset;
+            while ((sbcData[nStartPos] & 0xff) != 0x9c) {
+                nStartPos++;
+                if (nStartPos >= sbcDataLen) {
+                    break;
+                }
+            }
+            if (nStartPos >= sbcDataLen) {
+                break;
+            }
+
+            // A "hack" to make the decoder happy: if there were too many bytes in the previous frame, copy them to this frame
+            if (nStartPos != nOffset) {
+                int nDiff = nStartPos - nOffset;
+                for (int diff = nDiff-1; diff >= 0; diff--) {
+                    for (int i = nOffset; i < nOffset + 11; i++) {
+                        char temp = sbcData[i + diff];
+                        sbcData[i + diff] = sbcData[i + diff + 1];
+                        sbcData[i + diff + 1] = temp;
+                    }
+                }
+            }
+
+            if (nBytesToRead <= SBC_HEADER_SIZE) {
+                break;   
+            }
+
             err = sbc_decode(&g_sbcContext, sbcData + nOffset, nBytesToRead, &sbcFrame, pcmData + 0, nChannels, pcmData + 1, 2);
             if (err) {
                 printf("sbc_decode failed\n");
-                return;
+                break;
             }
 
             if (g_audioFileFd == NULL) {
