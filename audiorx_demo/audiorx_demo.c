@@ -98,6 +98,22 @@ void decodeAudioFrame(char* data, int* pLen)
     }
 }
 
+
+int unescapePacket(char* data, int len)
+{
+    int writeIdx = 0;
+    for (int i = 0; i < len; i++) {
+        if (data[i] == 0x7d) {
+            i++;
+            data[writeIdx++] = data[i] ^ 0x20;
+        }
+        else {
+            data[writeIdx++] = data[i];
+        }
+    }
+    return writeIdx;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -127,11 +143,30 @@ int main(int argc, char **argv)
     
 
     while(true) {
-        int nBytes = read(socketFd, socketBuffer, SOCKET_BUFFER_SIZE);
+        int nBytes = (int)recv(socketFd, socketBuffer, SOCKET_BUFFER_SIZE, MSG_PEEK);
         if (nBytes) {
+            // Look for the start of the packet
             if (socketBuffer[0] == 0x7e) {
-                nBytes = (int)recv(socketFd, socketBuffer, nBytes, 6);
-                decodeAudioFrame(socketBuffer, &nBytes);
+                // Look for the end of the packet
+                int i = 1;
+                while (i < nBytes && socketBuffer[i] != 0x7e) {
+                    i++;
+                }
+
+                if (i == nBytes) {
+                    // No end of packet found yet, wait for more data
+                    continue;
+                }
+
+                int packetBytes = read(socketFd, socketBuffer, i + 1);
+
+                if (packetBytes != i + 1) {
+                    printf("Error reading packet\n");
+                    break;
+                }
+
+                packetBytes = unescapePacket(socketBuffer, packetBytes);
+                decodeAudioFrame(socketBuffer, &packetBytes);
             }
         }
         else {
