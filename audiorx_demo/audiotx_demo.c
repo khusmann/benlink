@@ -12,12 +12,9 @@
 #define RFCOMM_AUDIO_CHANNEL 2
 #define SOCKET_BUFFER_SIZE 1024
 #define INIT_MESSAGE_LEN 11
-#define PTT_MESSAGE_LEN 10
 #define MSG_ESCAPE_MARGIN 32
 
 const char g_cInitMsg[INIT_MESSAGE_LEN] = {0x7e, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7e};
-
-const char g_cStopPttCmd[PTT_MESSAGE_LEN] = {0xff, 0x01, 0x00, 0x02, 0x00, 0x02, 0x00, 0x05, 0x00, 0x02};
 
 int escapePacket(char* sbcData, char* msgData, int len)
 {
@@ -51,21 +48,6 @@ int main(int argc, char **argv)
     int audioSocketStatus = connect(audioSocketFd, (struct sockaddr *)&audioSocketAddress, sizeof(audioSocketAddress));
     if (audioSocketStatus == 0) {
         printf("Connected to audio ch %d!\n", RFCOMM_AUDIO_CHANNEL);
-    }
-    else {
-        printf("Connection error: %d\n", errno);
-    }
-
-    struct sockaddr_rc commandSocketAddress = { 0 };
-    commandSocketAddress.rc_channel = (uint8_t) RFCOMM_COMMAND_CHANNEL;
-    commandSocketAddress.rc_family = AF_BLUETOOTH;
-    str2ba(argv[1], &commandSocketAddress.rc_bdaddr);
-
-    printf("Connecting to command ch, address %s ...\n", argv[1]);
-    int commandSocketFd = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
-    int commandSocketStatus = connect(commandSocketFd, (struct sockaddr *)&commandSocketAddress, sizeof(commandSocketAddress));
-    if (commandSocketStatus == 0) {
-        printf("Connected to command ch %d!\n", RFCOMM_COMMAND_CHANNEL);
     }
     else {
         printf("Connection error: %d\n", errno);
@@ -149,18 +131,15 @@ int main(int argc, char **argv)
 
     printf("Done!\n");
 
-    // End the transmission (seems to work without this too)
-    write(audioSocketFd, g_cInitMsg, INIT_MESSAGE_LEN);
-
     // It looks like there needs to be at least >750ms of a delay for PTT release to work
-    // (>900ms to work reliably)
-    usleep(900000);
-    write(commandSocketFd, g_cStopPttCmd, PTT_MESSAGE_LEN);
+    // (>1.5s to work reliably on my PC)
+    usleep(1500000);
+    // End the transmission
+    write(audioSocketFd, g_cInitMsg, INIT_MESSAGE_LEN);
 
     fclose(audioFileFd);
 
     printf("Closing socket\n");
     close(audioSocketFd);
-    close(commandSocketFd);
     return 0;
 }
