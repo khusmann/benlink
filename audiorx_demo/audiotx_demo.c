@@ -101,7 +101,7 @@ int main(int argc, char **argv)
 
     sbc_reset(&sbc);
 
-    // Start the transmission (the app sends this but it seems to work witohut it as well)
+    // Start the transmission (the app sends this but it seems to work without it as well)
     write(audioSocketFd, g_cInitMsg, INIT_MESSAGE_LEN);
 
     printf("Reading file...\n");
@@ -118,16 +118,20 @@ int main(int argc, char **argv)
                 bBreak = true;
                 break;
             }
-            // Encode SBC. Offset data by 2 to make space for the header
+            // Encode SBC
             sbc_encode(&sbc, pcm + 0, nch, pcm + 1, 2, &frame, sbcData, sizeof(sbcData));
 
             unsigned int size = sbc_get_frame_size(&frame);
+
+            // Escape the packet. Bytes 0x7d and 0x7e need to be escaped.
+            // Offset msgData by 2 to make space for the header
             int s = escapePacket(sbcData, &(msgData[2 + msgSize]), size);
             msgSize += s;
         }
         if (bBreak) {
             break;
         }
+
         // Add header
         msgData[0] = 0x7e;
         msgData[1] = 0x00;
