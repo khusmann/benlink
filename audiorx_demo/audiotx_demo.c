@@ -131,11 +131,11 @@ int main(int argc, char **argv)
 
     printf("Done!\n");
 
-    // It looks like there needs to be at least >750ms of a delay for PTT release to work
-    // (>1.5s to work reliably on my PC)
-    usleep(1500000);
-    // End the transmission
+    // End the transmission (this doesn't require any delay for me)
     write(audioSocketFd, g_cInitMsg, INIT_MESSAGE_LEN);
+    
+    // Wait 10s before closing the socket 
+    usleep(10000000);
 
     fclose(audioFileFd);
 
