@@ -1,3 +1,4 @@
 *.o
 audiorx_demo
+audiotx_demo
 *.wav
