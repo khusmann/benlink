@@ -194,6 +194,11 @@ class RadioClient:
         self._beacon_settings = new_beacon_settings
 
     @property
+    def status(self) -> Status:
+        self._assert_conn()
+        return self._status
+
+    @property
     def settings(self) -> Settings:
         self._assert_conn()
         return self._settings
