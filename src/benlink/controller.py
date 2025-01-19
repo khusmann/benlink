@@ -16,10 +16,10 @@ The following will connect to a radio and print its device info:
 
 ```python
 import asyncio
-from benlink.client import RadioClient
+from benlink.controller import RadioController
 
 async def main():
-    async with RadioClient("XX:XX:XX:XX:XX:XX") as radio:
+    async with RadioController("XX:XX:XX:XX:XX:XX") as radio:
         print(radio.device_info)
 
 asyncio.run(main())
@@ -31,11 +31,11 @@ The following will connect to a radio and change the name of the first channel:
 
 ```python
 import asyncio
-from benlink.client import RadioClient
+from benlink.controller import RadioController
 
 
 async def main():
-    async with RadioClient("XX:XX:XX:XX:XX:XX") as radio:
+    async with RadioController("XX:XX:XX:XX:XX:XX") as radio:
         print(f"Channel 0 name: {radio.channels[0].name}")
         print("Setting 0 name to Foo...")
         await radio.set_channel(0, name="Foo")
@@ -46,7 +46,7 @@ asyncio.run(main())
 
 ## Handling Events
 
-The `RadioClient` class provides a `register_event_handler` method for
+The `RadioController` class provides a `register_event_handler` method for
 registering a callback function to handle events. The callback function
 will be called with an `EventMessage` object whenever an event is
 received from the radio.
@@ -56,10 +56,10 @@ to unregister the event handler.
 
 ```python
 import asyncio
-from benlink.client import RadioClient
+from benlink.controller import RadioController
 
 async def main():
-    async with RadioClient("XX:XX:XX:XX:XX:XX") as radio:
+    async with RadioController("XX:XX:XX:XX:XX:XX") as radio:
         def handle_event(event):
             print(f"Received event: {event}")
 
@@ -81,14 +81,14 @@ capabilities. To run Python's REPL in async mode, run:
 python -m asyncio
 ```
 
-Instead of using the async context manager (`async with RadioClient(...) as radio:`),
+Instead of using the async context manager (`async with RadioController(...) as radio:`),
 you can use `await radio.connect()` and `await radio.disconnect()` to manage the
 connection manually:
 
 ```python
-from benlink.client import RadioClient
+from benlink.controller import RadioController
 
-radio = RadioClient("XX:XX:XX:XX:XX:XX")
+radio = RadioController("XX:XX:XX:XX:XX:XX")
 
 await radio.connect()
 
@@ -103,9 +103,9 @@ Events registered with `register_event_handler` will run in the background:
 
 ```python
 import asyncio
-from benlink.client import RadioClient
+from benlink.controller import RadioController
 
-radio = RadioClient("XX:XX:XX:XX:XX:XX")
+radio = RadioController("XX:XX:XX:XX:XX:XX")
 
 await radio.connect()
 
@@ -157,7 +157,7 @@ from .message import (
 )
 
 
-class RadioClient:
+class RadioController:
     _device_uuid: str
     _is_connected: bool = False
     _conn: BleConnection
