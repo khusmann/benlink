@@ -8,11 +8,10 @@ class SocketTask(t.NamedTuple):
     listen_task: asyncio.Task[None]
 
 
-class RfcommStream:
+class RfcommClient:
     _device_uuid: str
     _channel: int
     _read_size: int
-    _callback: t.Callable[[bytes], None]
     _st: SocketTask | None
 
     @property
@@ -30,16 +29,19 @@ class RfcommStream:
         self,
         device_uuid: str,
         channel: int,
-        callback: t.Callable[[bytes], None],
         read_size: int = 1024
     ):
         self._device_uuid = device_uuid
         self._channel = channel
         self._read_size = read_size
-        self._callback = callback
         self._st = None
 
-    async def connect(self, loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()):
+    async def connect(
+        self,
+        callback: t.Callable[[bytes], None],
+    ):
+        loop = asyncio.get_event_loop()
+
         if self._st is not None:
             raise RuntimeError("Already connected")
 
@@ -59,7 +61,7 @@ class RfcommStream:
                 if not data:
                     self._st = None
                     break
-                self._callback(data)
+                callback(data)
 
         listen_task = loop.create_task(listen())
 
