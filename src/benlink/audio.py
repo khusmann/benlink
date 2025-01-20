@@ -70,11 +70,11 @@ class AudioConnection:
 
     # Audio API
 
-    async def send_sbc_audio(self, sbc_data: bytes) -> None:
+    async def send_audio_data(self, sbc_data: bytes) -> None:
         # TODO: large messages should be fragmented
         await self._send_message_expect_reply(AudioData(sbc_data), AudioAck)
 
-    async def send_ptt_end(self) -> None:
+    async def send_audio_end(self) -> None:
         await self._send_message(AudioEnd())
 
 
