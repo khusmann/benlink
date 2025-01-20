@@ -65,6 +65,9 @@ class CommandConnection:
     def create_rfcomm(cls, device_uuid: str, channel: int | t.Literal["auto"] = "auto") -> CommandConnection:
         return cls(RfcommCommandLink(device_uuid, channel))
 
+    def is_connected(self) -> bool:
+        return self._link.is_connected()
+
     async def connect(self) -> None:
         await self._link.connect(self._on_recv)
 
@@ -78,8 +81,8 @@ class CommandConnection:
     async def _send_message(self, command: CommandMessage) -> None:
         await self._link.send(command_message_to_protocol(command))
 
-    async def _send_message_expect_reply(self, command: CommandMessage, expect: t.Type[ReplyMessageT]) -> ReplyMessageT | MessageReplyError:
-        queue: asyncio.Queue[ReplyMessageT |
+    async def _send_message_expect_reply(self, command: CommandMessage, expect: t.Type[RadioMessageT]) -> RadioMessageT | MessageReplyError:
+        queue: asyncio.Queue[RadioMessageT |
                              MessageReplyError] = asyncio.Queue()
 
         def reply_handler(reply: RadioMessage):
@@ -123,10 +126,15 @@ class CommandConnection:
 
     # Command API
 
-    async def enable_events(self) -> None:
+    async def enable_events(self) -> Status:
         """Enable an event"""
-        # Interestingly, this doesn't get a reply
-        await self._send_message(EnableEvents())
+        # Interestingly, this message gets a StatusChangedEvent instead of a
+        # reply version of EnableEvents.
+        # Should this just be a single fire, and we should have a get_status() instead?
+        reply = await self._send_message_expect_reply(EnableEvents(), StatusChangedEvent)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+        return reply.status
 
     async def send_tnc_data_fragment(self, tnc_data_fragment: TncDataFragment) -> None:
         """Send Tnc data"""
@@ -638,8 +646,6 @@ ReplyMessage = t.Union[
     MessageReplyError,
 ]
 
-ReplyMessageT = t.TypeVar("ReplyMessageT", bound=ReplyMessage)
-
 #####################
 # EventMessage
 
@@ -673,6 +679,8 @@ EventMessage = t.Union[
 ]
 
 RadioMessage = ReplyMessage | EventMessage
+
+RadioMessageT = t.TypeVar("RadioMessageT", bound=RadioMessage)
 
 #####################
 # Handlers

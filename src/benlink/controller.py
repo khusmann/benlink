@@ -129,6 +129,7 @@ execution to the event loop by running something like `await asyncio.sleep(0)`.)
 
 from __future__ import annotations
 from typing_extensions import Unpack
+from dataclasses import dataclass
 import typing as t
 from typing_extensions import Self
 import sys
@@ -154,18 +155,30 @@ from .command import (
 )
 
 
+@dataclass
+class RadioState:
+    device_info: DeviceInfo
+    beacon_settings: BeaconSettings
+    status: Status
+    settings: Settings
+    channels: t.List[Channel]
+    handler_unsubscribe: t.Callable[[], None]
+
+
+class StateNotInitializedError(RuntimeError):
+    def __init__(self):
+        super().__init__(
+            "Radio state not initialized. Try calling connect() first."
+        )
+
+
 class RadioController:
-    _is_connected: bool = False
     _conn: CommandConnection
-    _device_info: DeviceInfo
-    _beacon_settings: BeaconSettings
-    _status: Status
-    _settings: Settings
-    _channels: t.List[Channel]
-    _message_handler_unsubscribe: t.Callable[[], None]
+    _state: RadioState | None
 
     def __init__(self, connection: CommandConnection):
         self._conn = connection
+        self._state = None
 
     @classmethod
     def create_ble(cls, device_uuid: str) -> RadioController:
@@ -176,98 +189,98 @@ class RadioController:
         return RadioController(CommandConnection.create_rfcomm(device_uuid, channel))
 
     def __repr__(self):
-        if not self._is_connected:
+        if not self.is_connected():
             return f"<{self.__class__.__name__} (disconnected)>"
         return f"<{self.__class__.__name__} (connected)>"
 
     @property
     def beacon_settings(self) -> BeaconSettings:
-        self._assert_conn()
-        return self._beacon_settings
+        if self._state is None:
+            raise StateNotInitializedError()
+        return self._state.beacon_settings
 
     async def set_beacon_settings(self, **packet_settings_args: Unpack[BeaconSettingsArgs]):
-        self._assert_conn()
+        if self._state is None:
+            raise StateNotInitializedError()
 
-        new_beacon_settings = self._beacon_settings.model_copy(
+        new_beacon_settings = self._state.beacon_settings.model_copy(
             update=dict(packet_settings_args)
         )
 
         await self._conn.set_beacon_settings(new_beacon_settings)
 
-        self._beacon_settings = new_beacon_settings
+        self._state.beacon_settings = new_beacon_settings
 
     @property
     def status(self) -> Status:
-        self._assert_conn()
-        return self._status
+        if self._state is None:
+            raise StateNotInitializedError()
+        return self._state.status
 
     @property
     def settings(self) -> Settings:
-        self._assert_conn()
-        return self._settings
+        if self._state is None:
+            raise StateNotInitializedError()
+        return self._state.settings
 
     async def set_settings(self, **settings_args: Unpack[SettingsArgs]):
-        self._assert_conn()
+        if self._state is None:
+            raise StateNotInitializedError()
 
-        new_settings = self._settings.model_copy(
+        new_settings = self._state.settings.model_copy(
             update=dict(settings_args)
         )
 
         await self._conn.set_settings(new_settings)
 
-        self._settings = new_settings
+        self._state.settings = new_settings
 
     @property
     def device_info(self) -> DeviceInfo:
-        self._assert_conn()
-        return self._device_info
+        if self._state is None:
+            raise StateNotInitializedError()
+        return self._state.device_info
 
     @property
     def channels(self) -> t.List[Channel]:
-        self._assert_conn()
-        return self._channels
+        if self._state is None:
+            raise StateNotInitializedError()
+        return self._state.channels
 
     async def set_channel(
         self, channel_id: int, **channel_args: Unpack[ChannelArgs]
     ):
-        self._assert_conn()
+        if self._state is None:
+            raise StateNotInitializedError()
 
-        new_channel = self._channels[channel_id].model_copy(
+        new_channel = self._state.channels[channel_id].model_copy(
             update=dict(channel_args)
         )
 
         await self._conn.set_channel(new_channel)
 
-        self._channels[channel_id] = new_channel
+        self._state.channels[channel_id] = new_channel
 
-    @property
     def is_connected(self) -> bool:
-        return self._is_connected
+        return self._state is not None and self._conn.is_connected()
 
     async def send_bytes(self, command: bytes) -> None:
         """For debugging - Use at your own risk!"""
-        self._assert_conn()
         await self._conn.send_bytes(command)
 
     async def battery_voltage(self) -> float:
-        self._assert_conn()
         return await self._conn.get_battery_voltage()
 
     async def battery_level(self) -> int:
-        self._assert_conn()
         return await self._conn.get_battery_level()
 
     async def battery_level_as_percentage(self) -> int:
-        self._assert_conn()
         return await self._conn.get_battery_level_as_percentage()
 
     async def rc_battery_level(self) -> int:
-        self._assert_conn()
         return await self._conn.get_rc_battery_level()
 
     async def send_tnc_data(self, data: bytes) -> None:
-        self._assert_conn()
-
         if len(data) > 50:
             raise ValueError("Data too long -- TODO: implement fragmentation")
 
@@ -277,41 +290,55 @@ class RadioController:
             data=data
         ))
 
-    def _assert_conn(self) -> None:
-        if not self._is_connected:
-            raise ValueError("Not connected")
-
     def register_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
         return self._conn.register_event_handler(handler)
 
     async def _hydrate(self) -> None:
-        self._device_info = await self._conn.get_device_info()
+        device_info = await self._conn.get_device_info()
 
-        self._channels = []
+        channels: t.List[Channel] = []
 
-        for i in range(self._device_info.channel_count):
+        for i in range(device_info.channel_count):
             channel_settings = await self._conn.get_channel(i)
-            self._channels.append(channel_settings)
+            channels.append(channel_settings)
 
-        self._settings = await self._conn.get_settings()
+        settings = await self._conn.get_settings()
 
-        self._beacon_settings = await self._conn.get_beacon_settings()
+        beacon_settings = await self._conn.get_beacon_settings()
 
-        # TODO add an explicit "get status" (even though it gets set on the first event
-        # from enable events)
+        # TODO should we add an explicit "get status" here, instead
+        # of using the result returned from enable_events? That might be more stable...
+        # Is there are message for getting the status? (GET_HT_STATUS maybe?)
+        status = await self._conn.enable_events()
 
-        await self._conn.enable_events()
+        handler_unsubscribe = self._conn.register_event_handler(
+            self._on_event_message
+        )
+
+        self._state = RadioState(
+            device_info=device_info,
+            beacon_settings=beacon_settings,
+            status=status,
+            settings=settings,
+            channels=channels,
+            handler_unsubscribe=handler_unsubscribe
+        )
 
     def _on_event_message(self, event_message: EventMessage) -> None:
+        if self._state is None:
+            raise ValueError(
+                "Radio state not initialized. Try calling connect() first."
+            )
+
         match event_message:
             case ChannelChangedEvent(channel):
-                self._channels[channel.channel_id] = channel
+                self._state.channels[channel.channel_id] = channel
             case SettingsChangedEvent(settings):
-                self._settings = settings
+                self._state.settings = settings
             case TncDataFragmentReceivedEvent():
                 pass
             case StatusChangedEvent(status):
-                self._status = status
+                self._state.status = status
             case UnknownProtocolMessage(message):
                 print(
                     f"[DEBUG] Unknown protocol message: {message}",
@@ -331,14 +358,16 @@ class RadioController:
         await self.disconnect()
 
     async def connect(self) -> None:
+        if self._state is not None:
+            raise RuntimeError("Already connected")
+
         await self._conn.connect()
         await self._hydrate()
-        self._message_handler_unsubscribe = self._conn.register_event_handler(
-            self._on_event_message
-        )
-        self._is_connected = True
 
     async def disconnect(self) -> None:
-        self._message_handler_unsubscribe()
+        if self._state is None:
+            raise StateNotInitializedError()
+
+        self._state.handler_unsubscribe()
         await self._conn.disconnect()
-        self._is_connected = False
+        self._state = None
