@@ -2,7 +2,7 @@ from __future__ import annotations
 from enum import IntFlag
 import typing as t
 
-from ..bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_bytes
+from .bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_bytes
 
 # GaiaFrames hold messages sent to and from the radio when in Blueooth classic
 # mode. After figuring out the GaiaFrame structure, I later found it randomly

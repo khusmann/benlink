@@ -1,5 +1,5 @@
 from __future__ import annotations
-from ..bitfield import Bitfield, bf_int_enum, bf_dyn, bf_bitfield
+from .bitfield import Bitfield, bf_int_enum, bf_dyn, bf_bitfield
 from .common import ReplyStatus, TncDataFragment
 
 

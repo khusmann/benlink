@@ -4,12 +4,12 @@ import socket
 import asyncio
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
-from .internal import protocol as p
-from .internal.bitfield import BitStream
-
+from . import protocol as p
+from .protocol.command.bitfield import BitStream
 
 ##################################################
 # CommandLink
+
 
 class CommandLink(t.Protocol):
     def is_connected(self) -> bool:

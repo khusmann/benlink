@@ -3,8 +3,8 @@ from __future__ import annotations
 import csv
 import sys
 
-from benlink.internal.protocol import GaiaFrame, Message
-from benlink.internal.bitfield import BitStream
+from benlink.protocol.command import GaiaFrame, Message
+from benlink.protocol.command.bitfield import BitStream
 
 
 def to_text(cmd: bytes):

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from ..bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_map, bf_lit_int, Scale, bf_str
+from .bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_map, bf_lit_int, Scale, bf_str
 import typing as t
 from enum import IntEnum
 from .common import ReplyStatus

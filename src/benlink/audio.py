@@ -2,7 +2,7 @@ from __future__ import annotations
 import typing as t
 import asyncio
 from .link import AudioLink, RfcommAudioLink
-from .internal import protocol as p
+from . import protocol as p
 
 
 class AudioConnection:

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from ..bitfield import (
+from .bitfield import (
     Bitfield,
     bf_int,
     bf_int_enum,

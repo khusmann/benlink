@@ -36,7 +36,7 @@ from __future__ import annotations
 import typing as t
 import asyncio
 from pydantic import BaseModel, ConfigDict
-from .internal import protocol as p
+from . import protocol as p
 from .link import CommandLink, BleCommandLink, RfcommCommandLink
 
 RADIO_SERVICE_UUID = "00001100-d102-11e1-9b23-00025b00a5a5"

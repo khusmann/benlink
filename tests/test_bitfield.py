@@ -6,7 +6,7 @@ import re
 
 from enum import IntEnum
 
-from benlink.internal.bitfield import (
+from benlink.protocol.command.bitfield import (
     Bits,
     Bitfield,
     bf_str,

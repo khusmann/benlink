@@ -1,6 +1,6 @@
 from __future__ import annotations
 import typing as t
-from ..bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_lit_int
+from .bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_lit_int
 from .common import ReplyStatus
 
 

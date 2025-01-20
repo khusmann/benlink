@@ -1,5 +1,5 @@
 from enum import IntEnum
-from ..bitfield import Bitfield, bf_int, bf_dyn, bf_bytes
+from .bitfield import Bitfield, bf_int, bf_dyn, bf_bytes
 
 
 class ReplyStatus(IntEnum):
