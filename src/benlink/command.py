@@ -62,7 +62,7 @@ class CommandConnection:
         return cls(BleCommandLink(device_uuid))
 
     @classmethod
-    def create_rfcomm(cls, device_uuid: str, channel: int) -> CommandConnection:
+    def create_rfcomm(cls, device_uuid: str, channel: int | t.Literal["auto"] = "auto") -> CommandConnection:
         return cls(RfcommCommandLink(device_uuid, channel))
 
     async def connect(self) -> None:

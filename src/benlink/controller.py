@@ -172,7 +172,7 @@ class RadioController:
         return RadioController(CommandConnection.create_ble(device_uuid))
 
     @classmethod
-    def create_rfcomm(cls, device_uuid: str, channel: int) -> RadioController:
+    def create_rfcomm(cls, device_uuid: str, channel: int | t.Literal["auto"] = "auto") -> RadioController:
         return RadioController(CommandConnection.create_rfcomm(device_uuid, channel))
 
     def __repr__(self):

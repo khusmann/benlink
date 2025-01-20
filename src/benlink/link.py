@@ -74,7 +74,16 @@ class RfcommCommandLink:
     def is_connected(self) -> bool:
         return self._client.is_connected()
 
-    def __init__(self, device_uuid: str, channel: int, read_size: int = 1024):
+    def __init__(
+        self,
+        device_uuid: str,
+        channel: int | t.Literal["auto"] = "auto",
+        read_size: int = 1024
+    ):
+        if channel == "auto":
+            raise NotImplementedError(
+                "Auto channel selection not implemented yet"
+            )
         self._client = RfcommClient(device_uuid, channel, read_size)
         self._buffer = BitStream()
 
@@ -133,7 +142,16 @@ class RfcommAudioLink:
     def is_connected(self) -> bool:
         return self._client.is_connected()
 
-    def __init__(self, device_uuid: str, channel: int, read_size: int = 1024):
+    def __init__(
+        self,
+        device_uuid: str,
+        channel: int | t.Literal["auto"] = "auto",
+        read_size: int = 1024
+    ):
+        if channel == "auto":
+            raise NotImplementedError(
+                "Auto channel selection not implemented yet"
+            )
         self._client = RfcommClient(device_uuid, channel, read_size)
         self._buffer = bytes()
 
