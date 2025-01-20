@@ -15,6 +15,9 @@ class CommandLink(t.Protocol):
     def is_connected(self) -> bool:
         ...
 
+    async def send_bytes(self, data: bytes) -> None:
+        ...
+
     async def send(self, msg: p.Message) -> None:
         ...
 
@@ -45,7 +48,10 @@ class BleCommandLink:
         self._client = BleakClient(device_uuid)
 
     async def send(self, msg: p.Message):
-        await self._client.write_gatt_char(RADIO_WRITE_UUID, msg.to_bytes())
+        await self.send_bytes(msg.to_bytes())
+
+    async def send_bytes(self, data: bytes):
+        await self._client.write_gatt_char(RADIO_WRITE_UUID, data, response=True)
 
     async def connect(self, callback: t.Callable[[p.Message], None]):
         await self._client.connect()
@@ -81,7 +87,10 @@ class RfcommCommandLink:
             data=msg_bytes,
         )
 
-        await self._client.write(gaia_frame.to_bytes())
+        await self.send_bytes(gaia_frame.to_bytes())
+
+    async def send_bytes(self, data: bytes):
+        await self._client.write(data)
 
     async def connect(self, callback: t.Callable[[p.Message], None]):
         def on_data(data: bytes):
@@ -95,6 +104,9 @@ class RfcommCommandLink:
                 callback(p.Message.from_bytes(gaia_frame.data))
 
         await self._client.connect(on_data)
+
+    async def disconnect(self):
+        await self._client.disconnect()
 
 ##################################################
 # AudioLink

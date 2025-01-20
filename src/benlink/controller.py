@@ -155,7 +155,6 @@ from .command import (
 
 
 class RadioController:
-    _device_uuid: str
     _is_connected: bool = False
     _conn: CommandConnection
     _device_info: DeviceInfo
@@ -165,14 +164,21 @@ class RadioController:
     _channels: t.List[Channel]
     _message_handler_unsubscribe: t.Callable[[], None]
 
-    def __init__(self, device_uuid: str):
-        self._device_uuid = device_uuid
-        self._conn = CommandConnection(device_uuid)
+    def __init__(self, connection: CommandConnection):
+        self._conn = connection
+
+    @classmethod
+    def create_ble(cls, device_uuid: str) -> RadioController:
+        return RadioController(CommandConnection.create_ble(device_uuid))
+
+    @classmethod
+    def create_rfcomm(cls, device_uuid: str, channel: int) -> RadioController:
+        return RadioController(CommandConnection.create_rfcomm(device_uuid, channel))
 
     def __repr__(self):
         if not self._is_connected:
-            return f"<{self.__class__.__name__} {self.device_uuid} (disconnected)>"
-        return f"<{self.__class__.__name__} {self.device_uuid} (connected)>"
+            return f"<{self.__class__.__name__} (disconnected)>"
+        return f"<{self.__class__.__name__} (connected)>"
 
     @property
     def beacon_settings(self) -> BeaconSettings:
@@ -235,17 +241,13 @@ class RadioController:
         self._channels[channel_id] = new_channel
 
     @property
-    def device_uuid(self) -> str:
-        return self._device_uuid
-
-    @property
     def is_connected(self) -> bool:
         return self._is_connected
 
-    async def send_raw_command(self, command: bytes) -> None:
+    async def send_bytes(self, command: bytes) -> None:
         """For debugging - Use at your own risk!"""
         self._assert_conn()
-        await self._conn.send_raw_command(command)
+        await self._conn.send_bytes(command)
 
     async def battery_voltage(self) -> float:
         self._assert_conn()

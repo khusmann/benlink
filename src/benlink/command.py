@@ -33,12 +33,11 @@ for functions that take keyword arguments to set these parameters.
 """
 
 from __future__ import annotations
+import typing as t
+import asyncio
 from pydantic import BaseModel, ConfigDict
 from .internal import protocol as p
-import asyncio
-from bleak import BleakClient
-from bleak.backends.characteristic import BleakGATTCharacteristic
-import typing as t
+from .link import CommandLink, BleCommandLink, RfcommCommandLink
 
 RADIO_SERVICE_UUID = "00001100-d102-11e1-9b23-00025b00a5a5"
 """@private"""
@@ -51,39 +50,35 @@ RADIO_INDICATE_UUID = "00001102-d102-11e1-9b23-00025b00a5a5"
 
 
 class CommandConnection:
-    device_uuid: str
-    """The UUID of the device this connection is to"""
-
-    _client: BleakClient
+    _link: CommandLink
     _handlers: t.List[RadioMessageHandler] = []
 
-    def __init__(self, device_uuid: str):
-        self.device_uuid = device_uuid
-        self._client = BleakClient(device_uuid)
+    def __init__(self, link: CommandLink):
+        self._link = link
+        self._handlers = []
+
+    @classmethod
+    def create_ble(cls, device_uuid: str) -> CommandConnection:
+        return cls(BleCommandLink(device_uuid))
+
+    @classmethod
+    def create_rfcomm(cls, device_uuid: str, channel: int) -> CommandConnection:
+        return cls(RfcommCommandLink(device_uuid, channel))
 
     async def connect(self) -> None:
-        await self._client.connect()
-
-        await self._client.start_notify(
-            RADIO_INDICATE_UUID, self._on_indication
-        )
+        await self._link.connect(self._on_recv)
 
     async def disconnect(self) -> None:
         self._handlers.clear()
-        await self._client.disconnect()
+        await self._link.disconnect()
 
-    async def send_raw_command(self, command: bytes) -> None:
-        """Send a raw command - use at your own risk"""
-        await self._client.write_gatt_char(
-            RADIO_WRITE_UUID,
-            command,
-            response=True
-        )
+    async def send_bytes(self, data: bytes) -> None:
+        await self._link.send_bytes(data)
 
-    async def send_command(self, command: CommandMessage) -> None:
-        await self.send_raw_command(command_message_to_bytes(command))
+    async def _send_message(self, command: CommandMessage) -> None:
+        await self._link.send(command_message_to_protocol(command))
 
-    async def send_command_expect_reply(self, command: CommandMessage, expect: t.Type[ReplyMessageT]) -> ReplyMessageT | MessageReplyError:
+    async def _send_message_expect_reply(self, command: CommandMessage, expect: t.Type[ReplyMessageT]) -> ReplyMessageT | MessageReplyError:
         queue: asyncio.Queue[ReplyMessageT |
                              MessageReplyError] = asyncio.Queue()
 
@@ -99,7 +94,7 @@ class CommandConnection:
 
         remove_handler = self._register_message_handler(reply_handler)
 
-        await self.send_command(command)
+        await self._send_message(command)
 
         out = await queue.get()
 
@@ -121,96 +116,95 @@ class CommandConnection:
 
         return remove_handler
 
-    def _on_indication(self, characteristic: BleakGATTCharacteristic, data: bytearray) -> None:
-        assert characteristic.uuid == RADIO_INDICATE_UUID
-        radio_message = radio_message_from_bytes(data)
+    def _on_recv(self, msg: p.Message) -> None:
+        radio_message = radio_message_from_protocol(msg)
         for handler in self._handlers:
             handler(radio_message)
 
-    # Commands
+    # Command API
 
     async def enable_events(self) -> None:
         """Enable an event"""
         # Interestingly, this doesn't get a reply
-        await self.send_command(EnableEvents())
+        await self._send_message(EnableEvents())
 
     async def send_tnc_data_fragment(self, tnc_data_fragment: TncDataFragment) -> None:
         """Send Tnc data"""
-        reply = await self.send_command_expect_reply(SendTncDataFragment(tnc_data_fragment), SendTncDataFragmentReply)
+        reply = await self._send_message_expect_reply(SendTncDataFragment(tnc_data_fragment), SendTncDataFragmentReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
     async def get_beacon_settings(self) -> BeaconSettings:
         """Get the current packet settings"""
-        reply = await self.send_command_expect_reply(GetBeaconSettings(), GetBeaconSettingsReply)
+        reply = await self._send_message_expect_reply(GetBeaconSettings(), GetBeaconSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.tnc_settings
 
     async def set_beacon_settings(self, packet_settings: BeaconSettings):
         """Set the packet settings"""
-        reply = await self.send_command_expect_reply(SetBeaconSettings(packet_settings), SetBeaconSettingsReply)
+        reply = await self._send_message_expect_reply(SetBeaconSettings(packet_settings), SetBeaconSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
     async def get_battery_level(self) -> int:
         """Get the battery level"""
-        reply = await self.send_command_expect_reply(GetBatteryLevel(), GetBatteryLevelReply)
+        reply = await self._send_message_expect_reply(GetBatteryLevel(), GetBatteryLevelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.battery_level
 
     async def get_battery_level_as_percentage(self) -> int:
         """Get the battery level as a percentage"""
-        reply = await self.send_command_expect_reply(GetBatteryLevelAsPercentage(), GetBatteryLevelAsPercentageReply)
+        reply = await self._send_message_expect_reply(GetBatteryLevelAsPercentage(), GetBatteryLevelAsPercentageReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.battery_level_as_percentage
 
     async def get_rc_battery_level(self) -> int:
         """Get the RC battery level"""
-        reply = await self.send_command_expect_reply(GetRCBatteryLevel(), GetRCBatteryLevelReply)
+        reply = await self._send_message_expect_reply(GetRCBatteryLevel(), GetRCBatteryLevelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.rc_battery_level
 
     async def get_battery_voltage(self) -> float:
         """Get the battery voltage"""
-        reply = await self.send_command_expect_reply(GetBatteryVoltage(), GetBatteryVoltageReply)
+        reply = await self._send_message_expect_reply(GetBatteryVoltage(), GetBatteryVoltageReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.battery_voltage
 
     async def get_device_info(self) -> DeviceInfo:
         """Get the device info"""
-        reply = await self.send_command_expect_reply(GetDeviceInfo(), GetDeviceInfoReply)
+        reply = await self._send_message_expect_reply(GetDeviceInfo(), GetDeviceInfoReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.device_info
 
     async def get_settings(self) -> Settings:
         """Get the settings"""
-        reply = await self.send_command_expect_reply(GetSettings(), GetSettingsReply)
+        reply = await self._send_message_expect_reply(GetSettings(), GetSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.settings
 
     async def set_settings(self, settings: Settings) -> None:
         """Set the settings"""
-        reply = await self.send_command_expect_reply(SetSettings(settings), SetSettingsReply)
+        reply = await self._send_message_expect_reply(SetSettings(settings), SetSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
     async def get_channel(self, channel_id: int) -> Channel:
         """Get a channel"""
-        reply = await self.send_command_expect_reply(GetChannel(channel_id), GetChannelReply)
+        reply = await self._send_message_expect_reply(GetChannel(channel_id), GetChannelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.channel
 
     async def set_channel(self, channel: Channel):
         """Set a channel"""
-        reply = await self.send_command_expect_reply(SetChannel(channel), SetChannelReply)
+        reply = await self._send_message_expect_reply(SetChannel(channel), SetChannelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
@@ -1290,16 +1284,3 @@ class Status(ImmutableBaseModel):
             curr_channel_id_upper=self._channel_split.get_upper(
                 self.curr_ch_id)
         )
-
-#####################
-# Low-level conversion functions
-
-
-def radio_message_from_bytes(data: t.ByteString) -> RadioMessage:
-    """Convert a byte string to a RadioMessage"""
-    return radio_message_from_protocol(p.Message.from_bytes(data))
-
-
-def command_message_to_bytes(m: CommandMessage) -> bytes:
-    """Convert a CommandMessage to a byte string"""
-    return command_message_to_protocol(m).to_bytes()

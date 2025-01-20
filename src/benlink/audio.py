@@ -1,12 +1,12 @@
 from __future__ import annotations
 import typing as t
-from .link import AudioLink
+import asyncio
+from .link import AudioLink, RfcommAudioLink
 from .internal import protocol as p
 
 
 class AudioConnection:
     _link: AudioLink
-    _buffer: bytes
     _handlers: list[t.Callable[[AudioMessage], None]]
 
     def is_connected(self) -> bool:
@@ -17,10 +17,21 @@ class AudioConnection:
         link: AudioLink,
     ):
         self._link = link
-        self._buffer = bytes()
         self._handlers = []
 
-    def add_handler(self, handler: t.Callable[[AudioMessage], None]) -> t.Callable[[], None]:
+    @classmethod
+    def create_rfcomm(cls, device_uuid: str, channel: int) -> AudioConnection:
+        return AudioConnection(
+            RfcommAudioLink(device_uuid, channel)
+        )
+
+    def register_event_handler(self, handler: t.Callable[[AudioEvent], None]) -> t.Callable[[], None]:
+        def on_message(msg: AudioMessage):
+            if isinstance(msg, AudioEvent):
+                handler(msg)
+        return self._register_message_handler(on_message)
+
+    def _register_message_handler(self, handler: t.Callable[[AudioMessage], None]) -> t.Callable[[], None]:
         def remove_handler():
             self._handlers.remove(handler)
 
@@ -28,20 +39,43 @@ class AudioConnection:
 
         return remove_handler
 
-    async def send(self, msg: AudioMessage) -> None:
-        # if sending audio data, wait for ack
-        raise NotImplementedError()
+    async def _send_message(self, msg: AudioMessage) -> None:
+        await self._link.send(audio_message_to_protocol(msg))
+
+    async def _send_message_expect_reply(self, msg: AudioMessage, reply: t.Type[AudioMessageT]) -> AudioMessageT:
+        queue: asyncio.Queue[AudioMessageT] = asyncio.Queue()
+
+        def on_ack(msg: AudioMessage):
+            if isinstance(msg, reply):
+                queue.put_nowait(msg)
+
+        remove_handler = self._register_message_handler(on_ack)
+
+        await self._send_message(msg)
+
+        out = await queue.get()
+
+        remove_handler()
+
+        return out
 
     async def connect(self) -> None:
         def on_msg(msg: p.AudioMessage):
             for handler in self._handlers:
-                # If data, send "ack" back
                 handler(audio_message_from_protocol(msg))
-
         await self._link.connect(on_msg)
 
     async def disconnect(self) -> None:
         await self._link.disconnect()
+
+    # Audio API
+
+    async def send_sbc_audio(self, sbc_data: bytes) -> None:
+        # TODO: large messages should be fragmented
+        await self._send_message_expect_reply(AudioData(sbc_data), AudioAck)
+
+    async def send_ptt_end(self) -> None:
+        await self._send_message(AudioEnd())
 
 
 class AudioData(t.NamedTuple):
@@ -60,7 +94,11 @@ class AudioError(t.NamedTuple):
     message: str
 
 
-AudioMessage = AudioData | AudioEnd | AudioAck | AudioError
+AudioEvent = AudioData | AudioEnd | AudioError
+
+AudioMessage = AudioEvent | AudioAck
+
+AudioMessageT = t.TypeVar("AudioMessageT", bound=AudioMessage)
 
 
 def audio_message_from_protocol(proto: p.AudioMessage) -> AudioMessage:

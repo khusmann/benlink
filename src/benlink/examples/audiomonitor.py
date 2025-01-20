@@ -1,4 +1,4 @@
-from ..audio import AudioConnection, AudioMessage, AudioData
+from ..audio import AudioConnection, AudioEvent, AudioData
 from ..link import RfcommAudioLink
 import pyaudio
 import av
@@ -54,7 +54,7 @@ async def main():
 
         assert isinstance(codec, av.AudioCodecContext)
 
-        def on_audio_message(msg: AudioMessage):
+        def on_audio_message(msg: AudioEvent):
             assert audio_out
 
             match msg:
@@ -78,7 +78,7 @@ async def main():
             RfcommAudioLink(uuid, channel)
         )
 
-        radio_audio.add_handler(on_audio_message)
+        radio_audio.register_event_handler(on_audio_message)
 
         await radio_audio.connect()
 
