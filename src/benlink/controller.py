@@ -133,12 +133,9 @@ import typing as t
 from typing_extensions import Self
 import sys
 
-from .connection import (
-    BleConnection,
+from .command import (
+    CommandConnection,
     EventHandler,
-)
-
-from .message import (
     DeviceInfo,
     Channel,
     ChannelArgs,
@@ -160,7 +157,7 @@ from .message import (
 class RadioController:
     _device_uuid: str
     _is_connected: bool = False
-    _conn: BleConnection
+    _conn: CommandConnection
     _device_info: DeviceInfo
     _beacon_settings: BeaconSettings
     _status: Status
@@ -170,7 +167,7 @@ class RadioController:
 
     def __init__(self, device_uuid: str):
         self._device_uuid = device_uuid
-        self._conn = BleConnection(device_uuid)
+        self._conn = CommandConnection(device_uuid)
 
     def __repr__(self):
         if not self._is_connected:

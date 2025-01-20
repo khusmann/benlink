@@ -7,3 +7,4 @@ from .rf_ch import *
 from .notification import *
 from .pf import *
 from .power_status import *
+from .audio import *

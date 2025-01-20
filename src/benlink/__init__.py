@@ -107,8 +107,8 @@ Use this library at your own risk. I am **not** responsible for any damage
 caused to your radio or any other equipment while using this library.
 """
 
-from . import client
-from . import connection
+from . import controller
+from . import command
 from . import message
 
-__all__ = ['client', 'connection', 'message']
+__all__ = ['controller', 'command', 'message']

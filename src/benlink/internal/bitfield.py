@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing_extensions import dataclass_transform, TypeVar as TypeVarDefault
+from typing_extensions import dataclass_transform, TypeVar as TypeVarDefault, Self
 import typing as t
 import inspect
 
@@ -695,6 +695,29 @@ class Bitfield(t.Generic[_DynOptsT]):
             proxy[name] = value
 
         return cls(**proxy), stream
+
+    @classmethod
+    def from_bitstream_batch(
+        cls,
+        stream: BitStream,
+        opts: _DynOptsT | None = None,
+        consume_errors: bool = False
+    ) -> t.Tuple[t.List[Self], BitStream]:
+        out: t.List[Self] = []
+
+        while stream.remaining():
+            try:
+                item, stream = cls.from_bitstream(stream, opts)
+                out.append(item)
+            except EOFError:
+                break
+            except Exception:
+                if consume_errors:
+                    _, stream = stream.take_bytes(1)
+                else:
+                    raise
+
+        return out, stream
 
     def to_bits(self, opts: _DynOptsT | None = None) -> Bits:
         proxy = AttrProxy({**self.__dict__, self._DYN_OPTS_STR: opts})

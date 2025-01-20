@@ -1,5 +1,5 @@
-from ..internal.audio import AudioConnection, AudioMessage, AudioData
-from ..internal.rfcomm import RfcommClient
+from ..audio import AudioConnection, AudioMessage, AudioData
+from ..link import RfcommAudioLink
 import pyaudio
 import av
 import ctypes
@@ -58,8 +58,8 @@ async def main():
             assert audio_out
 
             match msg:
-                case AudioData(data=data):
-                    packets = codec.parse(data)
+                case AudioData(sbc_data=sbc_data):
+                    packets = codec.parse(sbc_data)
 
                     print(f"Received {len(packets)} audio packets")
 
@@ -74,9 +74,13 @@ async def main():
                 case _:
                     print(f"Received message: {msg}")
 
-        radio_audio = AudioConnection(RfcommClient(uuid, channel))
+        radio_audio = AudioConnection(
+            RfcommAudioLink(uuid, channel)
+        )
 
-        await radio_audio.connect(on_audio_message)
+        radio_audio.add_handler(on_audio_message)
+
+        await radio_audio.connect()
 
         print("Monitoring radio audio. Press Enter to quit...")
 
