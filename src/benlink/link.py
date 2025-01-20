@@ -92,7 +92,8 @@ class RfcommCommandLink:
 
         gaia_frame = p.GaiaFrame(
             flags=p.GaiaFlags.NONE,
-            n_bytes_data=len(msg_bytes),
+            # Don't count the command_group and command_id bytes
+            n_bytes_payload=len(msg_bytes) - 4,
             data=msg_bytes,
         )
 
@@ -103,7 +104,7 @@ class RfcommCommandLink:
 
     async def connect(self, callback: t.Callable[[p.Message], None]):
         def on_data(data: bytes):
-            self._buffer.extend_bytes(data)
+            self._buffer = self._buffer.extend_bytes(data)
 
             gaia_frames, self._buffer = p.GaiaFrame.from_bitstream_batch(
                 self._buffer

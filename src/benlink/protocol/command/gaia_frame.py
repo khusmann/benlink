@@ -25,8 +25,8 @@ class GaiaFrame(Bitfield):
     start: t.Literal[b'\xff'] = b'\xff'
     version: t.Literal[b'\x01'] = b'\x01'
     flags: GaiaFlags = bf_int_enum(GaiaFlags, 8)
-    n_bytes_data: int = bf_int(8)
+    n_bytes_payload: int = bf_int(8)
     data: bytes = bf_dyn(lambda x: bf_bytes(
-        x.n_bytes_data * 8 + 32  # 32 for group_id + is_reply + id
+        x.n_bytes_data + 4  # Full data length is 4 command bytes + n_bytes_payload
     ))
     checksum: int | None = bf_dyn(checksum_disc, default=None)
