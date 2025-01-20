@@ -688,9 +688,10 @@ class Bitfield(t.Generic[_DynOptsT]):
                     field, stream, proxy, opts
                 )
             except Exception as e:
+                # TODO assemble a nicer error message for deeply nested fields
                 raise type(e)(
                     f"error in field {name!r} of {cls.__name__!r}: {e}"
-                )
+                ) from e
 
             proxy[name] = value
 
@@ -729,9 +730,10 @@ class Bitfield(t.Generic[_DynOptsT]):
             try:
                 acc += bftype_to_bits(field, value, proxy, opts)
             except Exception as e:
+                # TODO assemble a nicer error message for deeply nested fields
                 raise type(e)(
                     f"error in field {name!r} of {self.__class__.__name__!r}: {e}"
-                )
+                ) from e
 
         return acc.unreorder(self._reorder)
 
@@ -755,9 +757,10 @@ class Bitfield(t.Generic[_DynOptsT]):
                         f"inner field definitions cannot have defaults set (except literal fields)"
                     )
             except Exception as e:
+                # TODO assemble a nicer error message for deeply nested fields
                 raise type(e)(
                     f"error in field {name!r} of {cls.__name__!r}: {e}"
-                )
+                ) from e
 
             cls._fields[name] = bf_field
 
