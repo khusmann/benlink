@@ -1,5 +1,4 @@
 from ..audio import AudioConnection, AudioEvent, AudioData
-from ..link import RfcommAudioLink
 import pyaudio
 import av
 import ctypes
@@ -26,8 +25,7 @@ async def main():
         channel_str = "auto"
 
     if channel_str == "auto":
-        raise NotImplementedError(
-            "Auto channel selection not implemented yet.")
+        channel = channel_str
     else:
         try:
             channel = int(channel_str)
@@ -74,9 +72,7 @@ async def main():
                 case _:
                     print(f"Received message: {msg}")
 
-        radio_audio = AudioConnection(
-            RfcommAudioLink(uuid, channel)
-        )
+        radio_audio = AudioConnection.create_rfcomm(uuid, channel)
 
         radio_audio.register_event_handler(on_audio_message)
 
