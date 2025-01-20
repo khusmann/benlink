@@ -109,6 +109,7 @@ caused to your radio or any other equipment while using this library.
 
 from . import controller
 from . import command
-from . import message
+from . import audio
+from . import link
 
-__all__ = ['controller', 'command', 'message']
+__all__ = ['controller', 'command', 'audio', 'link']
