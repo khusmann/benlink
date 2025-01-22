@@ -90,11 +90,12 @@ class AudioAck:
     pass
 
 
-class AudioError(t.NamedTuple):
-    message: str
+class AudioUnknown(t.NamedTuple):
+    type: int
+    data: bytes
 
 
-AudioEvent = AudioData | AudioEnd | AudioError
+AudioEvent = AudioData | AudioEnd | AudioUnknown
 
 AudioMessage = AudioEvent | AudioAck
 
@@ -109,8 +110,8 @@ def audio_message_from_protocol(proto: p.AudioMessage) -> AudioMessage:
             return AudioEnd()
         case p.AudioAck():
             return AudioAck()
-        case p.AudioError(message=message):
-            return AudioError(message)
+        case p.AudioUnknown(type=type, data=data):
+            return AudioUnknown(type, data)
 
 
 def audio_message_to_protocol(msg: AudioMessage) -> p.AudioMessage:
@@ -121,5 +122,5 @@ def audio_message_to_protocol(msg: AudioMessage) -> p.AudioMessage:
             return p.AudioEnd()
         case AudioAck():
             return p.AudioAck()
-        case AudioError(message=message):
-            return p.AudioError(message)
+        case AudioUnknown(type=type, data=data):
+            return p.AudioUnknown(type, data)

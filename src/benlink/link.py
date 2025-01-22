@@ -169,14 +169,10 @@ class RfcommAudioLink:
                 return
 
             while len(self._buffer):
-                frame, self._buffer = p.read_audio_frame(self._buffer)
+                message, self._buffer = p.next_audio_message(self._buffer)
 
-                if not frame:
-                    return
-
-                unescaped_frame = p.unescape_audio_frame(frame)
-
-                message = p.audio_frame_to_message(unescaped_frame)
+                if message is None:
+                    break
 
                 callback(message)
 
