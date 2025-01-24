@@ -1,4 +1,5 @@
 from ..audio import AudioConnection, AudioEvent, AudioData
+import typing as t
 import pyaudio
 import av
 import ctypes
@@ -12,36 +13,15 @@ def print_usage():
     print("  [channel] : An integer or 'auto' (default: 'auto').")
 
 
-async def main():
-    if len(sys.argv) < 2 or len(sys.argv) > 3:
-        print_usage()
-        sys.exit(1)
-
-    uuid = sys.argv[1]
-
-    if len(sys.argv) == 3:
-        channel_str = sys.argv[2]
-    else:
-        channel_str = "auto"
-
-    if channel_str == "auto":
-        channel = channel_str
-    else:
-        try:
-            channel = int(channel_str)
-        except ValueError:
-            print("Invalid channel number.")
-            print_usage()
-            sys.exit(1)
-
+async def main(uuid: str, channel: int | t.Literal["auto"]):
     pa: pyaudio.PyAudio | None = None
-    audio_out: pyaudio.Stream | None = None
+    stream: pyaudio.Stream | None = None
     radio_audio: AudioConnection | None = None
 
     try:
         pa = pyaudio.PyAudio()
 
-        audio_out = pa.open(
+        stream = pa.open(
             format=pyaudio.paInt16,
             channels=1,
             rate=32000,
@@ -53,7 +33,7 @@ async def main():
         assert isinstance(codec, av.AudioCodecContext)
 
         def on_audio_message(msg: AudioEvent):
-            assert audio_out
+            assert stream
 
             match msg:
                 case AudioData(sbc_data=sbc_data):
@@ -67,7 +47,8 @@ async def main():
                             pcm_data = ctypes.string_at(
                                 f.planes[0].buffer_ptr, f.planes[0].buffer_size
                             )
-                            audio_out.write(pcm_data)
+                            print(len(pcm_data))
+                            stream.write(pcm_data)
 
                 case _:
                     print(f"Received message: {msg}")
@@ -89,13 +70,34 @@ async def main():
         if radio_audio and radio_audio.is_connected():
             await radio_audio.disconnect()
 
-        if audio_out:
-            audio_out.stop_stream()
-            audio_out.close()
+        if stream:
+            stream.stop_stream()
+            stream.close()
 
         if pa:
             pa.terminate()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print_usage()
+        sys.exit(1)
+
+    uuid = sys.argv[1]
+
+    if len(sys.argv) == 3:
+        channel_str = sys.argv[2]
+    else:
+        channel_str = "auto"
+
+    if channel_str == "auto":
+        channel = channel_str
+    else:
+        try:
+            channel = int(channel_str)
+        except ValueError:
+            print("Invalid channel number.")
+            print_usage()
+            sys.exit(1)
+
+    asyncio.run(main(uuid, channel))
