@@ -157,9 +157,10 @@ class RfcommAudioLink:
         self._buffer = bytes()
 
     async def send(self, msg: p.AudioMessage) -> None:
-        raise NotImplementedError(
-            "Sending audio messages is not supported yet"
-        )
+        await self.send_bytes(p.audio_message_to_bytes(msg))
+
+    async def send_bytes(self, data: bytes) -> None:
+        await self._client.write(data)
 
     async def connect(self, callback: t.Callable[[p.AudioMessage], None]):
         def on_data(data: bytes):
