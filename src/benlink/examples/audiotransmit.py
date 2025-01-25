@@ -167,41 +167,34 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
             sbc_delay=0.0064375,  # subbands = 8, blocks = 16
         ) as encoder:
 
-            radio_audio = AudioConnection.create_rfcomm(uuid, channel)
+            async with AudioConnection.create_rfcomm(uuid, channel) as radio_audio:
 
-            await radio_audio.connect()
+                async def transmit_task():
+                    while True:
+                        pcm = await asyncio.to_thread(
+                            mic_stream.read,
+                            encoder.frame_size*2, exception_on_overflow=False
+                        )
 
-            async def transmit_task():
-                while True:
-                    pcm = await asyncio.to_thread(
-                        mic_stream.read,
-                        encoder.frame_size*3, exception_on_overflow=False
-                    )
+                        sbc = encoder.encode(pcm)
 
-                    sbc = encoder.encode(pcm)
+                        if sbc:
+                            await radio_audio.send_audio_data(sbc)
 
-                    if sbc:
-                        await radio_audio.send_audio_data(sbc)
+                transmit_task_handle = asyncio.create_task(transmit_task())
 
-            transmit_task_handle = asyncio.create_task(transmit_task())
+                print("Transmitting audio. Press Enter to quit...")
 
-            print("Transmitting audio. Press Enter to quit...")
+                await asyncio.to_thread(input)
 
-            await asyncio.to_thread(input)
+                transmit_task_handle.cancel()
 
-            transmit_task_handle.cancel()
+                try:
+                    await transmit_task_handle
+                except asyncio.CancelledError:
+                    pass
 
-            try:
-                await transmit_task_handle
-            except asyncio.CancelledError:
-                pass
-
-            await radio_audio.send_audio_end()
-            # Wait for the audio end message to be fully sent
-            # before disconnecting. (no ack from radio, unfortunately)
-            await asyncio.sleep(1)
-
-            await radio_audio.disconnect()
+                await radio_audio.send_audio_end()
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or len(sys.argv) > 3:
