@@ -70,28 +70,28 @@ def sbc_encode(pcm: bytes, rate: int = 32000, bitrate: int = 128000, sbc_delay: 
             output_sbc.close()
 
 
+SAMPLE_RATE = 32000
+FRAME_BUFFER_SIZE = 512
+
+
 async def main(uuid: str, channel: int | t.Literal["auto"]):
-
-    SAMPLE_RATE = 32000
-    FRAME_BUFFER_SIZE = 512
-
     p = pyaudio.PyAudio()
-
-    radio_audio = AudioConnection.create_rfcomm(uuid, channel)
 
     mic_stream = p.open(
         format=pyaudio.paInt16,
         channels=1,
         rate=SAMPLE_RATE,
-        input=True,
-        frames_per_buffer=FRAME_BUFFER_SIZE,
+        input=True
     )
 
-    try:
-        await radio_audio.connect()
+    radio_audio = AudioConnection.create_rfcomm(uuid, channel)
 
+    await radio_audio.connect()
+
+    async def transmit_task(radio_audio: AudioConnection):
         while True:
-            pcm = mic_stream.read(
+            pcm = await asyncio.to_thread(
+                mic_stream.read,
                 FRAME_BUFFER_SIZE, exception_on_overflow=False
             )
 
@@ -99,23 +99,29 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
 
             await radio_audio.send_audio_data(sbc)
 
-    except:
-        raise
-    finally:
-        print("Cleaning up...")
+    transmit_task_handle = asyncio.create_task(transmit_task(radio_audio))
 
-        if mic_stream:
-            mic_stream.stop_stream()
-            mic_stream.close()
+    print("Transmitting audio. Press Enter to quit...")
 
-        p.terminate()
+    await asyncio.to_thread(input)
 
-        if radio_audio.is_connected():
-            await radio_audio.send_audio_end()
-            # Wait for the audio end message to be fully sent
-            # (no ack, unfortunately)
-            await asyncio.sleep(1)
-            await radio_audio.disconnect()
+    transmit_task_handle.cancel()
+
+    try:
+        await transmit_task_handle
+    except asyncio.CancelledError:
+        pass
+
+    await radio_audio.send_audio_end()
+    # Wait for the audio end message to be fully sent
+    # (no ack, unfortunately)
+    await asyncio.sleep(1)
+
+    await radio_audio.disconnect()
+
+    mic_stream.stop_stream()
+    mic_stream.close()
+    p.terminate()
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or len(sys.argv) > 3:
