@@ -3,10 +3,11 @@ import sys
 import asyncio
 import pyaudio
 from io import BytesIO
-from benlink.audio import AudioConnection
 
 import av
-from av.container import Container, InputContainer
+import av.container
+
+from benlink.audio import AudioConnection
 
 # Uncomment for troubleshooting pyav errors
 # import av.logging
@@ -19,81 +20,102 @@ def print_usage():
     print("  [channel] : An integer or 'auto' (default: 'auto').")
 
 
-def print_sbc_info(rate: int, sbc_delay: float, bitpool: int) -> None:
-    if sbc_delay < 0.003:
-        subbands = 4
-    else:
-        subbands = 8
+class SbcEncoder:
+    _rate: int
+    _bitpool: int
+    _sbc_delay: float
+    _output_buffer: BytesIO
+    _output_container: av.container.OutputContainer
+    _output_stream: av.AudioStream
 
-    # sbc_delay = ((blocks + 10) * subbands - 2) / sample_rate
-    blocks = int((rate*sbc_delay+2)/subbands - 10)
+    @property
+    def subbands(self) -> int:
+        # see https://github.com/FFmpeg/FFmpeg/blob/a0a89efd0778a8021c2d7077f82531d4f955f459/libavcodec/sbcenc.c#L233
+        if self._sbc_delay < 0.003:
+            return 4
+        else:
+            return 8
 
-    print(f"Rate: {rate} Hz")
-    print(f"Bitpool: {bitpool}")
-    print(f"Subbands: {subbands}")
-    print(f"Blocks: {blocks}")
+    @property
+    def blocks(self) -> int:
+        # see https://github.com/FFmpeg/FFmpeg/blob/a0a89efd0778a8021c2d7077f82531d4f955f459/libavcodec/sbcenc.c#L247
+        # sbc_delay = ((blocks + 10) * subbands - 2) / sample_rate
+        return int((self._rate*self._sbc_delay+2)/self.subbands - 10)
 
+    @property
+    def rate(self) -> int:
+        return self._rate
 
-def sbc_encode(pcm: bytes, rate: int = 32000, sbc_delay: float = 0.0064375, bitpool: int = 18) -> bytes:
-    if sbc_delay < 0.001 or sbc_delay > 0.013:
-        raise ValueError("SBC delay must be between 0.001 and 0.013 seconds")
+    @property
+    def frame_size(self) -> int:
+        return self.blocks * self.subbands
 
-    input_pcm: Container | None = None
-    output_sbc: Container | None = None
+    def __repr__(self) -> str:
+        return f"SbcEncoder(rate={self._rate}, bitpool={self._bitpool}, subbands={self.subbands}, blocks={self.blocks})"
 
-    buffer = BytesIO()
-
-    try:
-        input_pcm = av.open(
-            BytesIO(pcm),
-            format="s16le",
-            options={
-                "ar": str(rate),
-            },
+    def __init__(self, rate: int = 32000, bitpool: int = 16, sbc_delay: float = 0.0064375):
+        self._rate = rate
+        self._bitpool = bitpool
+        self._sbc_delay = sbc_delay
+        self._output_buffer = BytesIO()
+        self._output_container = av.open(
+            self._output_buffer, 'w', format="sbc"
         )
 
-        assert isinstance(input_pcm, InputContainer)
-
-        output_sbc = av.open(buffer, 'w',  format="sbc")
-
-        output_stream = output_sbc.add_stream(  # type: ignore
+        output_stream = self._output_container.add_stream(  # type: ignore
             'sbc', rate=rate, options={
-                'global_quality': str(bitpool*118),
-                'sbc_delay': str(sbc_delay),
-                'msbc': 'false',
                 # 'b' can set the bitrate (e.g. 'b': '128k')
                 # but instead of using it, we use 'global_quality'
                 # to set the bitpool directly
+                # https://github.com/FFmpeg/FFmpeg/blob/a0a89efd0778a8021c2d7077f82531d4f955f459/libavcodec/sbcenc.c#L258
+                'global_quality': str(bitpool*118),
+                'sbc_delay': str(sbc_delay),
+                'msbc': 'false',
             },
-            layout="mono",
         )
 
         assert isinstance(output_stream, av.AudioStream)
 
-        for frame in input_pcm.decode(audio=0):
-            packet = output_stream.encode(frame)
-            if packet:
-                output_sbc.mux(packet)
+        self._output_stream = output_stream
 
-        # Flush remaining frames
-        packet = output_stream.encode(None)
+    def encode(self, input_pcm: bytes, input_rate: int, input_format: str = "s16le") -> bytes | None:
+        input_container = av.open(
+            BytesIO(input_pcm),
+            format=input_format,
+            options={
+                "ar": str(input_rate),
+            },
+        )
 
-        if packet:
-            output_sbc.mux(packet)
+        input_stream = input_container.streams.audio[0]
 
-    except:
-        raise
-    finally:
-        if input_pcm is not None:
-            input_pcm.close()
-        if output_sbc is not None:
-            output_sbc.close()
+        assert isinstance(input_container, av.container.InputContainer)
 
-    return buffer.getvalue()
+        for packet in input_container.demux(input_stream):
+            for frame in packet.decode():
+                assert isinstance(frame, av.AudioFrame)
+
+                # Ignore time base info
+                frame.pts = None  # type: ignore
+
+                encoded_packet = self._output_stream.encode(frame)
+
+                if encoded_packet:
+                    self._output_container.mux(encoded_packet)
+
+        n_bytes_available = self._output_buffer.tell()
+        self._output_buffer.seek(0)
+
+        if n_bytes_available == 0:
+            return None
+
+        return self._output_buffer.getvalue()[:n_bytes_available]
+
+    def close(self) -> None:
+        self._output_container.close()
 
 
 SAMPLE_RATE = 32000
-FRAME_BUFFER_SIZE = 512
 
 
 async def main(uuid: str, channel: int | t.Literal["auto"]):
@@ -106,6 +128,8 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
         input=True
     )
 
+    encoder = SbcEncoder(rate=SAMPLE_RATE)
+
     radio_audio = AudioConnection.create_rfcomm(uuid, channel)
 
     await radio_audio.connect()
@@ -114,12 +138,13 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
         while True:
             pcm = await asyncio.to_thread(
                 mic_stream.read,
-                FRAME_BUFFER_SIZE, exception_on_overflow=False
+                encoder.frame_size*2, exception_on_overflow=False
             )
 
-            sbc = sbc_encode(pcm, rate=SAMPLE_RATE)
+            sbc = encoder.encode(pcm, input_rate=SAMPLE_RATE)
 
-            await radio_audio.send_audio_data(sbc)
+            if sbc:
+                await radio_audio.send_audio_data(sbc)
 
     transmit_task_handle = asyncio.create_task(transmit_task(radio_audio))
 
@@ -137,6 +162,8 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
     mic_stream.stop_stream()
     mic_stream.close()
     p.terminate()
+
+    encoder.close()
 
     await radio_audio.send_audio_end()
     # Wait for the audio end message to be fully sent
