@@ -63,8 +63,8 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
 
         await asyncio.to_thread(input)
 
-    except Exception as e:
-        print(f"Error: {e}")
+    except:
+        raise
     finally:
         print("Cleaning up...")
         if radio_audio and radio_audio.is_connected():
