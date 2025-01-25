@@ -6,11 +6,11 @@ from io import BytesIO
 from benlink.audio import AudioConnection
 
 import av
-from av.container import Container, InputContainer, OutputContainer
-import av.logging
-av.logging.set_level(av.logging.DEBUG)
+from av.container import Container, InputContainer
 
-BUFFER_SIZE = 512
+# Uncomment for troubleshooting pyav errors
+# import av.logging
+# av.logging.set_level(av.logging.DEBUG)
 
 
 def print_usage():
@@ -19,7 +19,7 @@ def print_usage():
     print("  [channel] : An integer or 'auto' (default: 'auto').")
 
 
-def sbc_encode(pcm: bytes) -> bytes:
+def sbc_encode(pcm: bytes, rate: int = 32000, bitrate: int = 128000, sbc_delay: float = 0.013) -> bytes:
     input_pcm: Container | None = None
     output_sbc: Container | None = None
 
@@ -30,7 +30,7 @@ def sbc_encode(pcm: bytes) -> bytes:
             BytesIO(pcm),
             format="s16le",
             options={
-                "ar": "32000",
+                "ar": str(rate),
             },
         )
 
@@ -38,12 +38,10 @@ def sbc_encode(pcm: bytes) -> bytes:
 
         output_sbc = av.open(buffer, 'w',  format="sbc")
 
-        assert isinstance(input_pcm, OutputContainer)
-
         output_stream = output_sbc.add_stream(  # type: ignore
-            'sbc', rate=32000, options={
-                'b': "128k",
-                'sbc_delay': '0.013',
+            'sbc', rate=rate, options={
+                'b': str(bitrate),
+                'sbc_delay': str(sbc_delay),
                 'msbc': 'false',
             },
             layout="mono",
@@ -56,12 +54,15 @@ def sbc_encode(pcm: bytes) -> bytes:
             if packet:
                 output_sbc.mux(packet)
 
-        packet = output_stream.encode(None)  # Flush remaining frames
+        # Flush remaining frames
+        packet = output_stream.encode(None)
 
         if packet:
             output_sbc.mux(packet)
 
         return buffer.getvalue()
+    except:
+        raise
     finally:
         if input_pcm:
             input_pcm.close()
@@ -70,15 +71,19 @@ def sbc_encode(pcm: bytes) -> bytes:
 
 
 async def main(uuid: str, channel: int | t.Literal["auto"]):
+
+    SAMPLE_RATE = 32000
+    FRAME_BUFFER_SIZE = 512
+
     try:
         p = pyaudio.PyAudio()
 
         mic_stream = p.open(
             format=pyaudio.paInt16,
             channels=1,
-            rate=32000,
+            rate=SAMPLE_RATE,
             input=True,
-            frames_per_buffer=BUFFER_SIZE,
+            frames_per_buffer=FRAME_BUFFER_SIZE,
         )
 
         radio_audio = AudioConnection.create_rfcomm(uuid, channel)
@@ -86,16 +91,16 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
         await radio_audio.connect()
 
         while True:
-            pcm = mic_stream.read(BUFFER_SIZE, exception_on_overflow=False)
+            pcm = mic_stream.read(
+                FRAME_BUFFER_SIZE, exception_on_overflow=False
+            )
 
-            sbc = sbc_encode(pcm)
-
-            print(f"Chunk size: {len(pcm)} -> sbc size: {len(sbc)}")
+            sbc = sbc_encode(pcm, rate=SAMPLE_RATE)
 
             await radio_audio.send_audio_data(sbc)
 
-    except Exception as e:
-        print(e)
+    except:
+        raise
     finally:
         pass
 
