@@ -19,7 +19,25 @@ def print_usage():
     print("  [channel] : An integer or 'auto' (default: 'auto').")
 
 
-def sbc_encode(pcm: bytes, rate: int = 32000, bitrate: int = 128000, sbc_delay: float = 0.013) -> bytes:
+def print_sbc_info(rate: int, sbc_delay: float, bitpool: int) -> None:
+    if sbc_delay < 0.003:
+        subbands = 4
+    else:
+        subbands = 8
+
+    # sbc_delay = ((blocks + 10) * subbands - 2) / sample_rate
+    blocks = int((rate*sbc_delay+2)/subbands - 10)
+
+    print(f"Rate: {rate} Hz")
+    print(f"Bitpool: {bitpool}")
+    print(f"Subbands: {subbands}")
+    print(f"Blocks: {blocks}")
+
+
+def sbc_encode(pcm: bytes, rate: int = 32000, sbc_delay: float = 0.0064375, bitpool: int = 18) -> bytes:
+    if sbc_delay < 0.001 or sbc_delay > 0.013:
+        raise ValueError("SBC delay must be between 0.001 and 0.013 seconds")
+
     input_pcm: Container | None = None
     output_sbc: Container | None = None
 
@@ -40,9 +58,12 @@ def sbc_encode(pcm: bytes, rate: int = 32000, bitrate: int = 128000, sbc_delay: 
 
         output_stream = output_sbc.add_stream(  # type: ignore
             'sbc', rate=rate, options={
-                'b': str(bitrate),
+                'global_quality': str(bitpool*118),
                 'sbc_delay': str(sbc_delay),
                 'msbc': 'false',
+                # 'b' can set the bitrate (e.g. 'b': '128k')
+                # but instead of using it, we use 'global_quality'
+                # to set the bitpool directly
             },
             layout="mono",
         )
@@ -60,14 +81,15 @@ def sbc_encode(pcm: bytes, rate: int = 32000, bitrate: int = 128000, sbc_delay: 
         if packet:
             output_sbc.mux(packet)
 
-        return buffer.getvalue()
     except:
         raise
     finally:
-        if input_pcm:
+        if input_pcm is not None:
             input_pcm.close()
-        if output_sbc:
+        if output_sbc is not None:
             output_sbc.close()
+
+    return buffer.getvalue()
 
 
 SAMPLE_RATE = 32000
@@ -112,6 +134,10 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
     except asyncio.CancelledError:
         pass
 
+    mic_stream.stop_stream()
+    mic_stream.close()
+    p.terminate()
+
     await radio_audio.send_audio_end()
     # Wait for the audio end message to be fully sent
     # (no ack, unfortunately)
@@ -119,9 +145,6 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
 
     await radio_audio.disconnect()
 
-    mic_stream.stop_stream()
-    mic_stream.close()
-    p.terminate()
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or len(sys.argv) > 3:
