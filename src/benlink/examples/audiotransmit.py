@@ -75,19 +75,19 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
     SAMPLE_RATE = 32000
     FRAME_BUFFER_SIZE = 512
 
+    p = pyaudio.PyAudio()
+
+    radio_audio = AudioConnection.create_rfcomm(uuid, channel)
+
+    mic_stream = p.open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=SAMPLE_RATE,
+        input=True,
+        frames_per_buffer=FRAME_BUFFER_SIZE,
+    )
+
     try:
-        p = pyaudio.PyAudio()
-
-        mic_stream = p.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=SAMPLE_RATE,
-            input=True,
-            frames_per_buffer=FRAME_BUFFER_SIZE,
-        )
-
-        radio_audio = AudioConnection.create_rfcomm(uuid, channel)
-
         await radio_audio.connect()
 
         while True:
@@ -102,8 +102,20 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
     except:
         raise
     finally:
-        pass
+        print("Cleaning up...")
 
+        if mic_stream:
+            mic_stream.stop_stream()
+            mic_stream.close()
+
+        p.terminate()
+
+        if radio_audio.is_connected():
+            await radio_audio.send_audio_end()
+            # Wait for the audio end message to be fully sent
+            # (no ack, unfortunately)
+            await asyncio.sleep(1)
+            await radio_audio.disconnect()
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or len(sys.argv) > 3:
