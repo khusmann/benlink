@@ -71,10 +71,11 @@ class AudioConnection:
     # Audio API
 
     async def send_audio_data(self, sbc_data: bytes) -> None:
-        # TODO: large messages should be fragmented
-        await self._send_message_expect_reply(AudioData(sbc_data), AudioAck)
+        # Radio does not send an ack for audio data
+        await self._send_message(AudioData(sbc_data))
 
     async def send_audio_end(self) -> None:
+        # Radio does not send an ack for audio end
         await self._send_message(AudioEnd())
 
 
