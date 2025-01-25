@@ -134,7 +134,7 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
 
     await radio_audio.connect()
 
-    async def transmit_task(radio_audio: AudioConnection):
+    async def transmit_task():
         while True:
             pcm = await asyncio.to_thread(
                 mic_stream.read,
@@ -146,7 +146,7 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
             if sbc:
                 await radio_audio.send_audio_data(sbc)
 
-    transmit_task_handle = asyncio.create_task(transmit_task(radio_audio))
+    transmit_task_handle = asyncio.create_task(transmit_task())
 
     print("Transmitting audio. Press Enter to quit...")
 
@@ -159,18 +159,18 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
     except asyncio.CancelledError:
         pass
 
-    mic_stream.stop_stream()
-    mic_stream.close()
-    p.terminate()
-
-    encoder.close()
-
     await radio_audio.send_audio_end()
     # Wait for the audio end message to be fully sent
     # (no ack, unfortunately)
     await asyncio.sleep(1)
 
     await radio_audio.disconnect()
+
+    encoder.close()
+
+    mic_stream.stop_stream()
+    mic_stream.close()
+    p.terminate()
 
 
 if __name__ == "__main__":
