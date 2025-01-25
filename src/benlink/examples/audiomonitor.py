@@ -5,6 +5,7 @@ import av
 import ctypes
 import sys
 import asyncio
+from contextlib import contextmanager
 
 
 def print_usage():
@@ -13,70 +14,58 @@ def print_usage():
     print("  [channel] : An integer or 'auto' (default: 'auto').")
 
 
-async def main(uuid: str, channel: int | t.Literal["auto"]):
-    pa: pyaudio.PyAudio | None = None
-    stream: pyaudio.Stream | None = None
-    radio_audio: AudioConnection | None = None
-
+@contextmanager
+def open_output_stream(rate: int):
+    pa = pyaudio.PyAudio()
+    stream = pa.open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=rate,
+        output=True,
+    )
     try:
-        pa = pyaudio.PyAudio()
-
-        stream = pa.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=32000,
-            output=True,
-        )
-
-        codec = av.CodecContext.create("sbc", "r")
-
-        assert isinstance(codec, av.AudioCodecContext)
-
-        def on_audio_message(msg: AudioEvent):
-            assert stream
-
-            match msg:
-                case AudioData(sbc_data=sbc_data):
-                    packets = codec.parse(sbc_data)
-
-                    print(f"Received {len(packets)} audio packets")
-
-                    for p in packets:
-                        frames = codec.decode(p)
-                        for f in frames:
-                            pcm_data = ctypes.string_at(
-                                f.planes[0].buffer_ptr, f.planes[0].buffer_size
-                            )
-                            print(len(pcm_data))
-                            stream.write(pcm_data)
-
-                case _:
-                    print(f"Received message: {msg}")
-
-        radio_audio = AudioConnection.create_rfcomm(uuid, channel)
-
-        radio_audio.register_event_handler(on_audio_message)
-
-        await radio_audio.connect()
-
-        print("Monitoring radio audio. Press Enter to quit...")
-
-        await asyncio.to_thread(input)
-
-    except:
-        raise
+        yield stream
     finally:
-        print("Cleaning up...")
-        if radio_audio and radio_audio.is_connected():
-            await radio_audio.disconnect()
+        stream.stop_stream()
+        stream.close()
+        pa.terminate()
 
-        if stream:
-            stream.stop_stream()
-            stream.close()
 
-        if pa:
-            pa.terminate()
+SAMPLE_RATE = 32000
 
+
+async def main(uuid: str, channel: int | t.Literal["auto"]):
+
+    with open_output_stream(SAMPLE_RATE) as output_stream:
+        async with AudioConnection.create_rfcomm(uuid, channel) as radio_audio:
+            codec = av.CodecContext.create("sbc", "r")
+
+            assert isinstance(codec, av.AudioCodecContext)
+
+            def on_audio_message(msg: AudioEvent):
+                assert output_stream
+
+                match msg:
+                    case AudioData(sbc_data=sbc_data):
+                        packets = codec.parse(sbc_data)
+
+                        for p in packets:
+                            frames = codec.decode(p)
+                            for f in frames:
+                                pcm_data = ctypes.string_at(
+                                    f.planes[0].buffer_ptr, f.planes[0].buffer_size
+                                )
+                                output_stream.write(pcm_data)
+                    case _:
+                        print(f"Received message: {msg}")
+
+            radio_audio.register_event_handler(on_audio_message)
+
+            print("Monitoring radio audio. Press Enter to quit...")
+
+            await asyncio.to_thread(input)
+
+            print("Exiting...")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or len(sys.argv) > 3:
