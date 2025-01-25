@@ -78,6 +78,25 @@ class AudioConnection:
         # Radio does not send an ack for audio end
         await self._send_message(AudioEnd())
 
+    # Async Context Manager
+    async def __aenter__(self):
+        await self.connect()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: t.Any,
+        exc_value: t.Any,
+        traceback: t.Any,
+    ) -> None:
+        # Send extra audio end message to ensure radio stops transmitting
+        await self.send_audio_end()
+        # Wait for the audio end message to be fully sent
+        # before disconnecting, otherwise radio
+        # gets stuck in transmit mode (no ack from radio, unfortunately)
+        await asyncio.sleep(1.5)
+        await self.disconnect()
+
 
 class AudioData(t.NamedTuple):
     sbc_data: bytes

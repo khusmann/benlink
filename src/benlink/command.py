@@ -216,6 +216,18 @@ class CommandConnection:
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
+    async def __aenter__(self):
+        await self.connect()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: t.Any,
+        exc_value: t.Any,
+        traceback: t.Any,
+    ) -> None:
+        await self.disconnect()
+
 
 class ImmutableBaseModel(BaseModel):
     """@private (A base class for immutable data objects)"""

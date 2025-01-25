@@ -131,7 +131,6 @@ from __future__ import annotations
 from typing_extensions import Unpack
 from dataclasses import dataclass
 import typing as t
-from typing_extensions import Self
 import sys
 
 from .command import (
@@ -345,15 +344,16 @@ class RadioController:
                     file=sys.stderr
                 )
 
-    async def __aenter__(self) -> Self:
+    # Async Context Manager
+    async def __aenter__(self):
         await self.connect()
         return self
 
     async def __aexit__(
         self,
-        exc_type: t.Type[BaseException],
-        exc_value: t.Type[BaseException],
-        traceback: t.Type[BaseException]
+        exc_type: t.Any,
+        exc_value: t.Any,
+        traceback: t.Any,
     ) -> None:
         await self.disconnect()
 
