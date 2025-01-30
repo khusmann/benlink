@@ -70,6 +70,16 @@ asyncio.run(main())
 To see what else you can do with this library, check out the examples in the
 `benlink.controller` module documentation.
 
+# Other Projects
+
+Benlink has already begun to inspire other projects! Here are some that I know
+of so far:
+
+- [HTCommander](https://github.com/Ylianst/HTCommander)
+
+If you've found benlink's documentation of the Benshi protocol helpful, or use
+benlink in your own project, please let me know so I can add it to this list!
+
 # Known issues
 
 If you try to send any data with
