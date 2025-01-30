@@ -25,13 +25,13 @@ class AudioConnection:
             RfcommAudioLink(device_uuid, channel)
         )
 
-    def register_event_handler(self, handler: t.Callable[[AudioEvent], None]) -> t.Callable[[], None]:
+    def add_event_handler(self, handler: t.Callable[[AudioEvent], None]) -> t.Callable[[], None]:
         def on_message(msg: AudioMessage):
             if isinstance(msg, AudioEvent):
                 handler(msg)
-        return self._register_message_handler(on_message)
+        return self._add_message_handler(on_message)
 
-    def _register_message_handler(self, handler: t.Callable[[AudioMessage], None]) -> t.Callable[[], None]:
+    def _add_message_handler(self, handler: t.Callable[[AudioMessage], None]) -> t.Callable[[], None]:
         def remove_handler():
             self._handlers.remove(handler)
 
@@ -49,7 +49,7 @@ class AudioConnection:
             if isinstance(msg, reply):
                 queue.put_nowait(msg)
 
-        remove_handler = self._register_message_handler(on_rcv)
+        remove_handler = self._add_message_handler(on_rcv)
 
         await self.send_message(msg)
 

@@ -59,7 +59,7 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
                     case _:
                         print(f"Received message: {msg}")
 
-            radio_audio.register_event_handler(on_audio_message)
+            radio_audio.add_event_handler(on_audio_message)
 
             print("Monitoring radio audio. Press Enter to quit...")
 
