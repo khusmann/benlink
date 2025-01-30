@@ -126,15 +126,12 @@ class CommandConnection:
 
     # Command API
 
-    async def enable_events(self) -> Status:
+    async def enable_events(self) -> None:
         """Enable an event"""
-        # Interestingly, this message gets a StatusChangedEvent instead of a
-        # reply version of EnableEvents.
-        # Should this just be a single fire, and we should have a get_status() instead?
-        reply = await self.send_message_expect_reply(EnableEvents(), StatusChangedEvent)
-        if isinstance(reply, MessageReplyError):
-            raise reply.as_exception()
-        return reply.status
+        # This event doesn't get a reply version of EnableEvents. It does, however
+        # does trigger a StatusChangedEvent... but we don't wait for it here.
+        # Instead, we just fire and forget
+        await self.send_message(EnableEvents())
 
     async def send_tnc_data_fragment(self, tnc_data_fragment: TncDataFragment) -> None:
         """Send Tnc data"""
@@ -371,7 +368,6 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
     """@private (Protocol helper)"""
     match mf.body:
         case p.GetHtStatusReplyBody(reply_status=reply_status, status=status):
-            print(mf.body)
             if status is None:
                 return MessageReplyError(
                     message_type=GetStatusReply,

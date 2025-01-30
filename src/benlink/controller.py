@@ -297,16 +297,15 @@ class RadioController:
 
         beacon_settings = await self._conn.get_beacon_settings()
 
-        # TODO should we add an explicit "get status" here, instead
-        # of using the result returned from enable_events? That might be more stable...
-        # Is there are message for getting the status? (GET_HT_STATUS maybe?)
-        status = await self._conn.enable_events()
+        status = await self._conn.get_status()
 
         # No need to save the remove event handler function, since we don't
         # need to unregister it when we disconnect (the connection will take care of that)
         self._conn.add_event_handler(
             self._on_event_message
         )
+
+        await self._conn.enable_events()
 
         self._state = _RadioState(
             device_info=device_info,
