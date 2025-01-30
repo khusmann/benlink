@@ -9,11 +9,12 @@ public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostat
 <!-- BEGIN CONTENT -->
 
 `benlink` is a Python library for communicating with and controlling Benshi
-radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro) over BLE.
+radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro) over BLE and
+Bluetooth Classic (RFCOMM).
 
 In addition to providing a high-level async Python interface for controlling
-Benshi radios, the larger goal of this project is to document their BLE
-protocol. An understanding of the BLE protocol used by these radios will empower
+Benshi radios, the larger goal of this project is to document their BLE / RFCOMM
+protocol. An understanding of the protocol used by these radios will empower
 Benshi radio owners and the wider open source community to:
 
 1. Control their radios without relying on proprietary apps or software.
@@ -37,8 +38,9 @@ The following radios should work with this library:
 - Vero VR-N7500 (untested)
 - BTech GMRS-Pro (untested)
 
-If you know of other radios that use the same Benshi BLE protocol, please
-[open an issue](https://github.com/khusmann/benlink/issues) to let me know!
+If you know of other radios that use the same Benshi BLE / RFCOMM protocol,
+please [open an issue](https://github.com/khusmann/benlink/issues) to let me
+know!
 
 ## Installation
 
@@ -61,10 +63,10 @@ The following will connect to the radio and print its device info:
 
 ```python
 import asyncio
-from benlink import RadioController
+from benlink.controller import RadioController
 
 async def main():
-    async with RadioController("XX:XX:XX:XX:XX:XX") as radio:
+    async with RadioController.create_ble("XX:XX:XX:XX:XX:XX") as radio:
         print(radio.device_info)
 
 asyncio.run(main())
