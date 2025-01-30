@@ -161,7 +161,6 @@ class _RadioState:
     status: Status
     settings: Settings
     channels: t.List[Channel]
-    handler_unsubscribe: t.Callable[[], None]
 
 
 class RadioController:
@@ -303,7 +302,9 @@ class RadioController:
         # Is there are message for getting the status? (GET_HT_STATUS maybe?)
         status = await self._conn.enable_events()
 
-        handler_unsubscribe = self._conn.add_event_handler(
+        # No need to save the remove event handler function, since we don't
+        # need to unregister it when we disconnect (the connection will take care of that)
+        self._conn.add_event_handler(
             self._on_event_message
         )
 
@@ -313,7 +314,6 @@ class RadioController:
             status=status,
             settings=settings,
             channels=channels,
-            handler_unsubscribe=handler_unsubscribe
         )
 
     def _on_event_message(self, event_message: EventMessage) -> None:
@@ -361,7 +361,6 @@ class RadioController:
         if self._state is None:
             raise StateNotInitializedError()
 
-        self._state.handler_unsubscribe()
         await self._conn.disconnect()
         self._state = None
 
