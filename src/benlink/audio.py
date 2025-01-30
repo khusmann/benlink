@@ -39,19 +39,19 @@ class AudioConnection:
 
         return remove_handler
 
-    async def _send_message(self, msg: AudioMessage) -> None:
+    async def send_message(self, msg: AudioMessage) -> None:
         await self._link.send(audio_message_to_protocol(msg))
 
-    async def _send_message_expect_reply(self, msg: AudioMessage, reply: t.Type[AudioMessageT]) -> AudioMessageT:
+    async def send_message_expect_reply(self, msg: AudioMessage, reply: t.Type[AudioMessageT]) -> AudioMessageT:
         queue: asyncio.Queue[AudioMessageT] = asyncio.Queue()
 
-        def on_ack(msg: AudioMessage):
+        def on_rcv(msg: AudioMessage):
             if isinstance(msg, reply):
                 queue.put_nowait(msg)
 
-        remove_handler = self._register_message_handler(on_ack)
+        remove_handler = self._register_message_handler(on_rcv)
 
-        await self._send_message(msg)
+        await self.send_message(msg)
 
         out = await queue.get()
 
@@ -72,11 +72,11 @@ class AudioConnection:
 
     async def send_audio_data(self, sbc_data: bytes) -> None:
         # Radio does not send an ack for audio data
-        await self._send_message(AudioData(sbc_data))
+        await self.send_message(AudioData(sbc_data))
 
     async def send_audio_end(self) -> None:
         # Radio does not send an ack for audio end
-        await self._send_message(AudioEnd())
+        await self.send_message(AudioEnd())
 
     # Async Context Manager
     async def __aenter__(self):

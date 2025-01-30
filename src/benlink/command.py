@@ -78,10 +78,10 @@ class CommandConnection:
     async def send_bytes(self, data: bytes) -> None:
         await self._link.send_bytes(data)
 
-    async def _send_message(self, command: CommandMessage) -> None:
+    async def send_message(self, command: CommandMessage) -> None:
         await self._link.send(command_message_to_protocol(command))
 
-    async def _send_message_expect_reply(self, command: CommandMessage, expect: t.Type[RadioMessageT]) -> RadioMessageT | MessageReplyError:
+    async def send_message_expect_reply(self, command: CommandMessage, expect: t.Type[RadioMessageT]) -> RadioMessageT | MessageReplyError:
         queue: asyncio.Queue[RadioMessageT |
                              MessageReplyError] = asyncio.Queue()
 
@@ -97,7 +97,7 @@ class CommandConnection:
 
         remove_handler = self._add_message_handler(reply_handler)
 
-        await self._send_message(command)
+        await self.send_message(command)
 
         out = await queue.get()
 
@@ -131,88 +131,88 @@ class CommandConnection:
         # Interestingly, this message gets a StatusChangedEvent instead of a
         # reply version of EnableEvents.
         # Should this just be a single fire, and we should have a get_status() instead?
-        reply = await self._send_message_expect_reply(EnableEvents(), StatusChangedEvent)
+        reply = await self.send_message_expect_reply(EnableEvents(), StatusChangedEvent)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.status
 
     async def send_tnc_data_fragment(self, tnc_data_fragment: TncDataFragment) -> None:
         """Send Tnc data"""
-        reply = await self._send_message_expect_reply(SendTncDataFragment(tnc_data_fragment), SendTncDataFragmentReply)
+        reply = await self.send_message_expect_reply(SendTncDataFragment(tnc_data_fragment), SendTncDataFragmentReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
     async def get_beacon_settings(self) -> BeaconSettings:
         """Get the current packet settings"""
-        reply = await self._send_message_expect_reply(GetBeaconSettings(), GetBeaconSettingsReply)
+        reply = await self.send_message_expect_reply(GetBeaconSettings(), GetBeaconSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.tnc_settings
 
     async def set_beacon_settings(self, packet_settings: BeaconSettings):
         """Set the packet settings"""
-        reply = await self._send_message_expect_reply(SetBeaconSettings(packet_settings), SetBeaconSettingsReply)
+        reply = await self.send_message_expect_reply(SetBeaconSettings(packet_settings), SetBeaconSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
     async def get_battery_level(self) -> int:
         """Get the battery level"""
-        reply = await self._send_message_expect_reply(GetBatteryLevel(), GetBatteryLevelReply)
+        reply = await self.send_message_expect_reply(GetBatteryLevel(), GetBatteryLevelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.battery_level
 
     async def get_battery_level_as_percentage(self) -> int:
         """Get the battery level as a percentage"""
-        reply = await self._send_message_expect_reply(GetBatteryLevelAsPercentage(), GetBatteryLevelAsPercentageReply)
+        reply = await self.send_message_expect_reply(GetBatteryLevelAsPercentage(), GetBatteryLevelAsPercentageReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.battery_level_as_percentage
 
     async def get_rc_battery_level(self) -> int:
         """Get the RC battery level"""
-        reply = await self._send_message_expect_reply(GetRCBatteryLevel(), GetRCBatteryLevelReply)
+        reply = await self.send_message_expect_reply(GetRCBatteryLevel(), GetRCBatteryLevelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.rc_battery_level
 
     async def get_battery_voltage(self) -> float:
         """Get the battery voltage"""
-        reply = await self._send_message_expect_reply(GetBatteryVoltage(), GetBatteryVoltageReply)
+        reply = await self.send_message_expect_reply(GetBatteryVoltage(), GetBatteryVoltageReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.battery_voltage
 
     async def get_device_info(self) -> DeviceInfo:
         """Get the device info"""
-        reply = await self._send_message_expect_reply(GetDeviceInfo(), GetDeviceInfoReply)
+        reply = await self.send_message_expect_reply(GetDeviceInfo(), GetDeviceInfoReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.device_info
 
     async def get_settings(self) -> Settings:
         """Get the settings"""
-        reply = await self._send_message_expect_reply(GetSettings(), GetSettingsReply)
+        reply = await self.send_message_expect_reply(GetSettings(), GetSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.settings
 
     async def set_settings(self, settings: Settings) -> None:
         """Set the settings"""
-        reply = await self._send_message_expect_reply(SetSettings(settings), SetSettingsReply)
+        reply = await self.send_message_expect_reply(SetSettings(settings), SetSettingsReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
     async def get_channel(self, channel_id: int) -> Channel:
         """Get a channel"""
-        reply = await self._send_message_expect_reply(GetChannel(channel_id), GetChannelReply)
+        reply = await self.send_message_expect_reply(GetChannel(channel_id), GetChannelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
         return reply.channel
 
     async def set_channel(self, channel: Channel):
         """Set a channel"""
-        reply = await self._send_message_expect_reply(SetChannel(channel), SetChannelReply)
+        reply = await self.send_message_expect_reply(SetChannel(channel), SetChannelReply)
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
