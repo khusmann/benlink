@@ -95,7 +95,7 @@ class CommandConnection:
             ):
                 queue.put_nowait(reply)
 
-        remove_handler = self._register_message_handler(reply_handler)
+        remove_handler = self._add_message_handler(reply_handler)
 
         await self._send_message(command)
 
@@ -105,13 +105,13 @@ class CommandConnection:
 
         return out
 
-    def register_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
+    def add_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
         def event_handler(msg: RadioMessage):
             if isinstance(msg, EventMessage):
                 handler(msg)
-        return self._register_message_handler(event_handler)
+        return self._add_message_handler(event_handler)
 
-    def _register_message_handler(self, handler: RadioMessageHandler) -> t.Callable[[], None]:
+    def _add_message_handler(self, handler: RadioMessageHandler) -> t.Callable[[], None]:
         self._handlers.append(handler)
 
         def remove_handler():

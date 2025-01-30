@@ -46,12 +46,12 @@ asyncio.run(main())
 
 ## Handling Events
 
-The `RadioController` class provides a `register_event_handler` method for
+The `RadioController` class provides a `add_event_handler` method for
 registering a callback function to handle events. The callback function
 will be called with an `EventMessage` object whenever an event is
 received from the radio.
 
-Note that `register_event_handler` returns a function that can be called
+Note that `add_event_handler` returns a function that can be called
 to unregister the event handler.
 
 ```python
@@ -63,7 +63,7 @@ async def main():
         def handle_event(event):
             print(f"Received event: {event}")
 
-        unregister = radio.register_event_handler(handle_event)
+        unregister = radio.add_event_handler(handle_event)
 
         while True:
             print("Try changing the channel or updating a radio setting...")
@@ -99,7 +99,7 @@ print(await radio.battery_voltage()) # Prints battery voltage
 await radio.disconnect() # When you're done with your session disconnect nicely
 ```
 
-Events registered with `register_event_handler` will run in the background:
+Events registered with `add_event_handler` will run in the background:
 
 ```python
 import asyncio
@@ -109,7 +109,7 @@ radio = RadioController("XX:XX:XX:XX:XX:XX")
 
 await radio.connect()
 
-unsubscribe = radio.register_event_handler(lambda x: print(f"Received event: {x}\n"))
+unsubscribe = radio.add_event_handler(lambda x: print(f"Received event: {x}\n"))
 
 # Change the channel on the radio a few times to generate some events
 
@@ -282,8 +282,8 @@ class RadioController:
             data=data
         ))
 
-    def register_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
-        return self._conn.register_event_handler(handler)
+    def add_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
+        return self._conn.add_event_handler(handler)
 
     async def _hydrate(self) -> None:
         device_info = await self._conn.get_device_info()
@@ -303,7 +303,7 @@ class RadioController:
         # Is there are message for getting the status? (GET_HT_STATUS maybe?)
         status = await self._conn.enable_events()
 
-        handler_unsubscribe = self._conn.register_event_handler(
+        handler_unsubscribe = self._conn.add_event_handler(
             self._on_event_message
         )
 
