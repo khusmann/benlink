@@ -61,27 +61,28 @@ The following will connect to the radio and print its device info:
 
 ```python
 import asyncio
-from benlink.client import RadioClient
+from benlink import RadioController
 
 async def main():
-    async with RadioClient("XX:XX:XX:XX:XX:XX") as radio:
+    async with RadioController("XX:XX:XX:XX:XX:XX") as radio:
         print(radio.device_info)
 
 asyncio.run(main())
 ```
 
-### Next Steps
+## Next Steps
 
 To see what else you can do with this library, check out the examples in the
-`benlink.client` module documentation.
+`benlink.controller` module documentation.
 
-## Known issues
+# Known issues
 
-If you try to send any data with `benlink.client.RadioClient.send_tnc_data` it
-will immediately reply with a `INCORRECT_STATE` error. If you immediately retry
-the command within two seconds, it will work. I have no idea why it does this.
-In all of my btsnoop logs of the official app, the command appears to work on
-the first try. If anyone can figure out what's going on here, please reply to
+If you try to send any data with
+`benlink.controller.RadioController.send_tnc_data` it will immediately reply
+with a `INCORRECT_STATE` error. If you immediately retry the command within two
+seconds, it will work. I have no idea why it does this. In all of my btsnoop
+logs of the official app, the command appears to work on the first try. If
+anyone can figure out what's going on here, please reply to
 [this open issue](https://github.com/khusmann/benlink/issues/1)!
 
 Edit 2024-12-25: I think I have figured it out -- you have to be connected to
