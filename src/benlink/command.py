@@ -216,6 +216,13 @@ class CommandConnection:
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
+    async def get_status(self) -> Status:
+        """Get the radio status"""
+        reply = await self.send_message_expect_reply(GetStatus(), GetStatusReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+        return reply.status
+
     async def __aenter__(self):
         await self.connect()
         return self
@@ -351,11 +358,26 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                     status_type=p.PowerStatusType.RC_BATTERY_LEVEL
                 )
             )
+        case GetStatus():
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.GET_HT_STATUS,
+                body=p.GetHtStatusBody()
+            )
 
 
 def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
     """@private (Protocol helper)"""
     match mf.body:
+        case p.GetHtStatusReplyBody(reply_status=reply_status, status=status):
+            print(mf.body)
+            if status is None:
+                return MessageReplyError(
+                    message_type=GetStatusReply,
+                    reason=reply_status.name,
+                )
+            return GetStatusReply(Status.from_protocol(status))
         case p.HTSendDataReplyBody(
             reply_status=reply_status
         ):
@@ -550,6 +572,10 @@ class GetSettings(t.NamedTuple):
     pass
 
 
+class GetStatus(t.NamedTuple):
+    pass
+
+
 class SendTncDataFragment(t.NamedTuple):
     tnc_data_fragment: TncDataFragment
 
@@ -568,6 +594,7 @@ CommandMessage = t.Union[
     SetSettings,
     SendTncDataFragment,
     EnableEvents,
+    GetStatus,
 ]
 
 #####################
@@ -618,6 +645,10 @@ class SetChannelReply(t.NamedTuple):
     pass
 
 
+class GetStatusReply(t.NamedTuple):
+    status: Status
+
+
 class GetSettingsReply(t.NamedTuple):
     settings: Settings
 
@@ -655,6 +686,7 @@ ReplyMessage = t.Union[
     GetSettingsReply,
     SetSettingsReply,
     SendTncDataFragmentReply,
+    GetStatusReply,
     MessageReplyError,
 ]
 

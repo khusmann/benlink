@@ -7,4 +7,5 @@ from .command.rf_ch import *
 from .command.notification import *
 from .command.pf import *
 from .command.power_status import *
+from .command.status import *
 from .audio import *

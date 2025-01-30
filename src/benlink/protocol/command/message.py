@@ -28,6 +28,7 @@ from .bss_settings import (
     WriteBSSSettingsReplyBody,
 )
 from .phone_status import SetPhoneStatusBody, SetPhoneStatusReplyBody
+from .status import GetHtStatusBody, GetHtStatusReplyBody
 
 
 class CommandGroup(IntEnum):
@@ -176,7 +177,8 @@ def body_disc(m: Message, n: int):
                     out = HTSendDataReplyBody if m.is_reply else HTSendDataBody
                 case BasicCommand.SET_PHONE_STATUS:
                     out = SetPhoneStatusReplyBody if m.is_reply else SetPhoneStatusBody
-
+                case BasicCommand.GET_HT_STATUS:
+                    out = GetHtStatusReplyBody if m.is_reply else GetHtStatusBody
                 case _:
                     return bf_bytes(n // 8)
         case CommandGroup.EXTENDED:
@@ -212,6 +214,8 @@ MessageBody = t.Union[
     RegisterNotificationBody,
     SetPhoneStatusBody,
     SetPhoneStatusReplyBody,
+    GetHtStatusBody,
+    GetHtStatusReplyBody,
 ]
 
 
