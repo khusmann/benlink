@@ -99,10 +99,10 @@ combine message fragments.
 
 Things to do:
 
+- [ ] Implement audio sending / receiving
+      ([partially complete](benlink/audio.html))
 - [ ] Make a higher-level interface for sending / receiving TNC data (auto
       retry, queue message fragments)
-- [ ] Implement audio sending / receiving (looks like this can only be done over
-      rfcomm?)
 - [ ] Implement more commands and settings
 - [ ] Find more radios that use this protocol and test them with this library
 - [ ] Figure out firmware flashing process / protocol (this is key for long-term
