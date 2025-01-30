@@ -155,7 +155,7 @@ from .command import (
 
 
 @dataclass
-class RadioState:
+class _RadioState:
     device_info: DeviceInfo
     beacon_settings: BeaconSettings
     status: Status
@@ -164,16 +164,9 @@ class RadioState:
     handler_unsubscribe: t.Callable[[], None]
 
 
-class StateNotInitializedError(RuntimeError):
-    def __init__(self):
-        super().__init__(
-            "Radio state not initialized. Try calling connect() first."
-        )
-
-
 class RadioController:
     _conn: CommandConnection
-    _state: RadioState | None
+    _state: _RadioState | None
 
     def __init__(self, connection: CommandConnection):
         self._conn = connection
@@ -314,7 +307,7 @@ class RadioController:
             self._on_event_message
         )
 
-        self._state = RadioState(
+        self._state = _RadioState(
             device_info=device_info,
             beacon_settings=beacon_settings,
             status=status,
@@ -371,3 +364,12 @@ class RadioController:
         self._state.handler_unsubscribe()
         await self._conn.disconnect()
         self._state = None
+
+
+class StateNotInitializedError(RuntimeError):
+    """Raised when trying to access radio state before it has been initialized."""
+
+    def __init__(self):
+        super().__init__(
+            "Radio state not initialized. Try calling connect() first."
+        )
