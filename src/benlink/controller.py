@@ -19,11 +19,28 @@ import asyncio
 from benlink.controller import RadioController
 
 async def main():
-    async with RadioController("XX:XX:XX:XX:XX:XX") as radio:
+    async with RadioController.new_ble("XX:XX:XX:XX:XX:XX") as radio:
         print(radio.device_info)
 
 asyncio.run(main())
 ```
+
+You can also connect to the radio over RFCOMM:
+
+```python
+import asyncio
+from benlink.controller import RadioController
+
+async def main():
+    async with RadioController.new_rfcomm("XX:XX:XX:XX:XX:XX", channel=1) as radio:
+        print(radio.device_info)
+
+asyncio.run(main())
+```
+
+At the present, you have to figure out the correct channel number yourself (in Linux,
+you can get a list of the available channels by running `sdptool records XX:XX:XX:XX:XX:XX`).
+Planned support of channel autodetection can be tracked in [this issue](https://github.com/khusmann/benlink/issues/9).
 
 ## Changing Settings
 
@@ -35,7 +52,7 @@ from benlink.controller import RadioController
 
 
 async def main():
-    async with RadioController("XX:XX:XX:XX:XX:XX") as radio:
+    async with RadioController.new_ble("XX:XX:XX:XX:XX:XX") as radio:
         print(f"Channel 0 name: {radio.channels[0].name}")
         print("Setting 0 name to Foo...")
         await radio.set_channel(0, name="Foo")
@@ -59,7 +76,7 @@ import asyncio
 from benlink.controller import RadioController
 
 async def main():
-    async with RadioController("XX:XX:XX:XX:XX:XX") as radio:
+    async with RadioController.new_ble("XX:XX:XX:XX:XX:XX") as radio:
         def handle_event(event):
             print(f"Received event: {event}")
 
@@ -88,7 +105,7 @@ connection manually:
 ```python
 from benlink.controller import RadioController
 
-radio = RadioController("XX:XX:XX:XX:XX:XX")
+radio = RadioController.new_ble("XX:XX:XX:XX:XX:XX")
 
 await radio.connect()
 
@@ -105,7 +122,7 @@ Events registered with `add_event_handler` will run in the background:
 import asyncio
 from benlink.controller import RadioController
 
-radio = RadioController("XX:XX:XX:XX:XX:XX")
+radio = RadioController.new_ble("XX:XX:XX:XX:XX:XX")
 
 await radio.connect()
 
