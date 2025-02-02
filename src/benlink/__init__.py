@@ -82,34 +82,32 @@ benlink in your own project, please let me know so I can add it to this list.
 
 # Known issues
 
-If you try to send any data with
-`benlink.controller.RadioController.send_tnc_data` it will immediately reply
+If you don't have the audio RFCOMM socket open, and try to send any data with
+`benlink.controller.RadioController.send_tnc_data`, it will immediately reply
 with a `INCORRECT_STATE` error. If you immediately retry the command within two
-seconds, it will work. I have no idea why it does this. In all of my btsnoop
-logs of the official app, the command appears to work on the first try. If
-anyone can figure out what's going on here, please reply to
-[this open issue](https://github.com/khusmann/benlink/issues/1)!
-
-Edit 2024-12-25: I think I have figured it out -- you have to be connected to
-the rfcomm audio channel in order for it to be in the "correct state". Will
-continue to investigate...
-
-In any case, at some point I plan to add a higher-level interface for sending /
+seconds, it will work. I plan to add a higher-level interface for sending /
 receiving TNC data that will automatically retry failed commands and queue /
-combine message fragments.
+combine message fragments. See
+[this open issue](https://github.com/khusmann/benlink/issues/1) for more info.
+
+Audio sending / receiving is a awkward because it relies on pyav for decoding /
+encoding. In the long run, I hope to make
+[Python bindings for libsbc](https://github.com/khusmann/benlink/issues/11).
 
 # Roadmap
 
 Things to do:
 
-- [ ] Implement audio sending / receiving
-      ([partially complete](benlink/audio.html))
+- [ ] Improve audio sending / receiving with bindings to libsbc
+      ([issue](https://github.com/khusmann/benlink/issues/11))
 - [ ] Make a higher-level interface for sending / receiving TNC data (auto
       retry, queue message fragments)
-- [ ] Implement more commands and settings
-- [ ] Find more radios that use this protocol and test them with this library
+      ([issue](https://github.com/khusmann/benlink/issues/1))
 - [ ] Figure out firmware flashing process / protocol (this is key for long-term
       independence from the HT app)
+      ([issue](https://github.com/khusmann/benlink/issues/10))
+- [ ] Implement more commands and settings
+- [ ] Find more radios that use this protocol and test them with this library
 
 # Acknowledgements
 
