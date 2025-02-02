@@ -42,8 +42,13 @@ know!
 
 ## Installation
 
-I plan to publish this package on PyPI once it is more complete. For now, clone
-the repo and install it locally:
+To install the latest stable version of benlink from PyPI:
+
+```bash
+pip install benlink
+```
+
+For the latest development version, clone this repository and install it with
 
 ```bash
 pip install .
