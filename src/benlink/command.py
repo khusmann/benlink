@@ -58,11 +58,11 @@ class CommandConnection:
         self._handlers = []
 
     @classmethod
-    def create_ble(cls, device_uuid: str) -> CommandConnection:
+    def new_ble(cls, device_uuid: str) -> CommandConnection:
         return cls(BleCommandLink(device_uuid))
 
     @classmethod
-    def create_rfcomm(cls, device_uuid: str, channel: int | t.Literal["auto"] = "auto") -> CommandConnection:
+    def new_rfcomm(cls, device_uuid: str, channel: int | t.Literal["auto"] = "auto") -> CommandConnection:
         return cls(RfcommCommandLink(device_uuid, channel))
 
     def is_connected(self) -> bool:

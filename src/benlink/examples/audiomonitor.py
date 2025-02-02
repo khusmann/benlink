@@ -37,7 +37,7 @@ SAMPLE_RATE = 32000
 async def main(uuid: str, channel: int | t.Literal["auto"]):
 
     with open_output_stream(SAMPLE_RATE) as output_stream:
-        async with AudioConnection.create_rfcomm(uuid, channel) as radio_audio:
+        async with AudioConnection.new_rfcomm(uuid, channel) as radio_audio:
             codec = av.CodecContext.create("sbc", "r")
 
             assert isinstance(codec, av.AudioCodecContext)

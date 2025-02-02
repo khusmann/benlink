@@ -66,7 +66,7 @@ import asyncio
 from benlink.controller import RadioController
 
 async def main():
-    async with RadioController.create_ble("XX:XX:XX:XX:XX:XX") as radio:
+    async with RadioController.new_ble("XX:XX:XX:XX:XX:XX") as radio:
         print(radio.device_info)
 
 asyncio.run(main())

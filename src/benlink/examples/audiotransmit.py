@@ -167,7 +167,7 @@ async def main(uuid: str, channel: int | t.Literal["auto"]):
             sbc_delay=0.0064375,  # subbands = 8, blocks = 16
         ) as encoder:
 
-            async with AudioConnection.create_rfcomm(uuid, channel) as radio_audio:
+            async with AudioConnection.new_rfcomm(uuid, channel) as radio_audio:
 
                 async def transmit_task():
                     while True:

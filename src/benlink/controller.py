@@ -172,12 +172,12 @@ class RadioController:
         self._state = None
 
     @classmethod
-    def create_ble(cls, device_uuid: str) -> RadioController:
-        return RadioController(CommandConnection.create_ble(device_uuid))
+    def new_ble(cls, device_uuid: str) -> RadioController:
+        return RadioController(CommandConnection.new_ble(device_uuid))
 
     @classmethod
-    def create_rfcomm(cls, device_uuid: str, channel: int | t.Literal["auto"] = "auto") -> RadioController:
-        return RadioController(CommandConnection.create_rfcomm(device_uuid, channel))
+    def new_rfcomm(cls, device_uuid: str, channel: int | t.Literal["auto"] = "auto") -> RadioController:
+        return RadioController(CommandConnection.new_rfcomm(device_uuid, channel))
 
     def __repr__(self):
         if not self.is_connected():

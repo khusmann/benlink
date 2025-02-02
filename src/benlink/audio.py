@@ -20,7 +20,7 @@ class AudioConnection:
         self._handlers = []
 
     @classmethod
-    def create_rfcomm(cls, device_uuid: str, channel: int | t.Literal["auto"] = "auto") -> AudioConnection:
+    def new_rfcomm(cls, device_uuid: str, channel: int | t.Literal["auto"] = "auto") -> AudioConnection:
         return AudioConnection(
             RfcommAudioLink(device_uuid, channel)
         )
