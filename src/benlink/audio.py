@@ -1,3 +1,30 @@
+"""
+# Overview
+
+Audio support is very much a work in progress. The radio uses SBC audio encoding, there doesn't exist
+yet a good way to decode SBC in Python. At some point I'm looking into creating bindings for google's
+libsbc, but that's a bit of a ways off.
+
+In the meantime I have a hacky approach for decoding via pyav (ffmpeg bindings for python). I have
+two proofs of concept, one for receiving audio, the other for sending. To run the receiving audio
+POC, run:
+
+```
+python -m benlink.examples.audiomonitor <UUID> <CHANNEL>
+```
+
+Where `<UUID>` is the UUID of the device you want to connect to, and `<CHANNEL>` is the RFCOMM audio channel.
+When the radio receives audio, it will play the audio to the default audio output device using pyaudio.
+
+Similarly, to run the sending audio POC, run:
+
+```
+python -m benlink.examples.audiotransmit <UUID> <CHANNEL>
+```
+
+This example uses pyaudio to record audio from the default audio input device and sends it to the radio.
+"""
+
 from __future__ import annotations
 import typing as t
 import asyncio
