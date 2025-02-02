@@ -21,5 +21,9 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 
+[project.urls]
+"Homepage" = "https://github.com/khusmann/benlink"
+"Bug Tracker" = "https://github.com/khusmann/benlink/issues"
+
 [tool.setuptools.packages.find]
 where = ["src"]
