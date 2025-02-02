@@ -85,7 +85,7 @@ of so far:
 - [HTCommander](https://github.com/Ylianst/HTCommander)
 
 If you've found benlink's documentation of the Benshi protocol helpful, or use
-benlink in your own project, please let me know so I can add it to this list!
+benlink in your own project, please let me know so I can add it to this list.
 
 ## Known issues
 
@@ -117,6 +117,12 @@ Things to do:
 - [ ] Find more radios that use this protocol and test them with this library
 - [ ] Figure out firmware flashing process / protocol (this is key for long-term
       independence from the HT app)
+
+## Acknowledgements
+
+@spohtl for help figuring out audio transmit / receive
+
+@na7q for early testing and feedback
 
 ## Disclaimer
 
