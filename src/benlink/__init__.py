@@ -43,14 +43,12 @@ To install the latest stable version of benlink from PyPI:
 pip install benlink
 ```
 
-For the latest development version, clone this repository and install it with
+If you're wanting to contribute to the project, clone the repository and install
+it in "editable" mode with
 
 ```bash
-pip install .
+pip install -e .
 ```
-
-(If you are developing the package, you can use `pip install -e .` to install it
-in "editable" mode.)
 
 # Quick Start
 
@@ -73,7 +71,8 @@ asyncio.run(main())
 # Next Steps
 
 To see what else you can do with this library, check out the examples in the
-`benlink.controller` module documentation.
+[`benlink.controller`](https://kylehusmann.com/benlink/benlink/controller.html)
+module documentation.
 
 # Other Projects
 
