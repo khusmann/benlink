@@ -82,9 +82,10 @@ async def main():
 
         unregister = radio.add_event_handler(handle_event)
 
-        while True:
-            print("Try changing the channel or updating a radio setting...")
-            await asyncio.sleep(5)
+        print("Try changing the channel or updating a radio setting")
+        print()
+        print("Press enter to quit...")
+        await asyncio.to_thread(input)
 
 asyncio.run(main())
 ```
