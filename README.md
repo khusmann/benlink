@@ -2,7 +2,7 @@
 
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
-<img src="assets/logo-white.png" align="right" height="140" />
+<img src="https://raw.githubusercontent.com/khusmann/benlink/main/assets/logo-white.png" align="right" height="140" />
 
 <!-- BEGIN CONTENT -->
 
