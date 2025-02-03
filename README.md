@@ -1,9 +1,7 @@
 # benlink
 
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-
 ![PyPI - Version](https://img.shields.io/pypi/v/benlink)
-
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/benlink)
 
 <img src="https://raw.githubusercontent.com/khusmann/benlink/main/assets/logo-white.png" align="right" height="140" />
