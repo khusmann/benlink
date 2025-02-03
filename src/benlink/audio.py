@@ -3,7 +3,7 @@
 
 Audio support is very much a work in progress. The radio uses SBC audio encoding, there doesn't exist
 yet a good way to decode SBC in Python. At some point I'm looking into creating bindings for google's
-libsbc, but that's a bit of a ways off.
+libsbc, but that's a bit of a ways off. (Issue thread [here](https://github.com/khusmann/benlink/issues/11))
 
 In the meantime I have a hacky approach for decoding via pyav (ffmpeg bindings for python). I have
 two proofs of concept, one for receiving audio, the other for sending. To run the receiving audio
