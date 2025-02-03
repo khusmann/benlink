@@ -115,9 +115,10 @@ Things to do:
 
 # Acknowledgements
 
-@spohtl for help figuring out audio transmit / receive
+[@spohtl](https://github.com/spohtl) for help figuring out audio transmit /
+receive
 
-@na7q for early testing and feedback
+[@na7q](https://github.com/na7q) for early testing and feedback
 
 # Disclaimer
 
