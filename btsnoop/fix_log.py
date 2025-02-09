@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import sys
 
-from benlink.protocol.command import GaiaFrame, Message
+from benlink.protocol import GaiaFrame, Message
 from benlink.protocol.command.bitfield import BitStream
 
 
