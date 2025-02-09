@@ -31,14 +31,17 @@ class Status(Bitfield):
     is_gps_locked: bool
     is_hfp_connected: bool
     is_aoc_connected: bool
-    _pad: t.Literal[0] = bf_lit_int(1, default=0)
+    # TODO: Figure out what this is
+    # in my earlier capture logs (0.7.x) it was always 0,
+    # then in recent 0.8 log it was 1
+    unknown: int = bf_int(1, default=0)
 
 
 class StatusExt(Status):
     rssi: float = bf_map(bf_int(4), Scale(100 / 15))
     curr_region: int = bf_int(6)
     curr_channel_id_upper: int = bf_int(4)
-    _pad2: t.Literal[0] = bf_lit_int(2, default=0)
+    _pad: t.Literal[0] = bf_lit_int(2, default=0)
 
 
 def status_disc(m: GetHtStatusReplyBody, n: int):
