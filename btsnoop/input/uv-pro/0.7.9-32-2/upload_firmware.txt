@@ -1,0 +1,5 @@
+# # Upload firmware
+#
+# 2nd device (no tape) 
+#
+# Upload firmware to 0.8.0
