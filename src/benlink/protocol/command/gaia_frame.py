@@ -27,6 +27,6 @@ class GaiaFrame(Bitfield):
     flags: GaiaFlags = bf_int_enum(GaiaFlags, 8)
     n_bytes_payload: int = bf_int(8)
     data: bytes = bf_dyn(lambda x: bf_bytes(
-        x.n_bytes_data + 4  # Full data length is 4 command bytes + n_bytes_payload
+        x.n_bytes_payload + 4  # Full data length is 4 command bytes + n_bytes_payload
     ))
     checksum: int | None = bf_dyn(checksum_disc, default=None)
