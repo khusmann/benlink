@@ -7,7 +7,7 @@ from enum import IntEnum
 #####################################################################
 # Order of events in a firmware update:
 #
-# 1. VM_CONNECTION
+# 1. VM_CONNECT
 # 2. VM_CONTROL:
 #    a. UPDATE_SYNC (with last 4 bytes of firmware md5sum)
 #    b. UPDATE_START
@@ -28,7 +28,7 @@ from enum import IntEnum
 #####################################################################
 # Order of events in an aborted firmware update:
 #
-# 1. VM_CONNECTION
+# 1. VM_CONNECT
 # 2. VM_CONTROL:
 #    a. UPDATE_SYNC (with last 4 bytes of firmware md5sum)
 #    b. UPDATE_START
