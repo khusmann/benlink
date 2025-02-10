@@ -4,6 +4,7 @@ from .common import ReplyStatus
 from enum import IntEnum
 
 # Order of events in a firmware update:
+#
 # 1. VM_CONNECTION
 # 2. VM_CONTROL:
 #    a. UPDATE_SYNC_REQ (with last 4 bytes of firmware md5sum)
@@ -12,13 +13,26 @@ from enum import IntEnum
 #    d. UPDATE_DATA (repeat until all data is sent)
 #    e. UPDATE_DATA (final fragment with is_final_fragment=True)
 #    f. UPDATE_IS_VALIDATION_DONE_REQ
-#    g. UPDATE_TRANSFER_COMPLETE_RES
-# Reboot?
+#    g. UPDATE_TRANSFER_COMPLETE_RES (triggers reboot?)
+#
+# Reboot happens?
+#
 # 3. VM_CONNECT
 #    h. UPDATE_SYNC_REQ (with last 4 bytes of firmware md5sum)
 #    i. UPDATE_START_REQ
 #    j. UPDATE_IN_PROGRESS_RES
 # 4. VM_DISCONNECT
+
+# Order of events in an aborted firmware update:
+#
+# 1. VM_CONNECTION
+# 2. VM_CONTROL:
+#    a. UPDATE_SYNC_REQ (with last 4 bytes of firmware md5sum)
+#    b. UPDATE_START_REQ
+#    c. UPDATE_DATA_START_REQ
+#    d. UPDATE_DATA (repeat until all data is sent)
+#    e. UPDATE_ABORT_REQ
+# 3. VM_DISCONNECT
 
 
 class VmControlType(IntEnum):
