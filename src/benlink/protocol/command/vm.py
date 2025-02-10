@@ -7,57 +7,57 @@ from enum import IntEnum
 #
 # 1. VM_CONNECTION
 # 2. VM_CONTROL:
-#    a. UPDATE_SYNC_REQ (with last 4 bytes of firmware md5sum)
-#    b. UPDATE_START_REQ
-#    c. UPDATE_DATA_START_REQ
+#    a. UPDATE_SYNC (with last 4 bytes of firmware md5sum)
+#    b. UPDATE_START
+#    c. UPDATE_DATA_START
 #    d. UPDATE_DATA (repeat until all data is sent)
 #    e. UPDATE_DATA (final fragment with is_final_fragment=True)
-#    f. UPDATE_IS_VALIDATION_DONE_REQ
-#    g. UPDATE_TRANSFER_COMPLETE_RES (triggers reboot?)
+#    f. UPDATE_IS_VALIDATION_DONE
+#    g. UPDATE_TRANSFER_COMPLETE (triggers reboot?)
 #
 # Reboot happens?
 #
 # 3. VM_CONNECT
-#    h. UPDATE_SYNC_REQ (with last 4 bytes of firmware md5sum)
-#    i. UPDATE_START_REQ
-#    j. UPDATE_IN_PROGRESS_RES
+#    h. UPDATE_SYNC (with last 4 bytes of firmware md5sum)
+#    i. UPDATE_START
+#    j. UPDATE_IN_PROGRESS
 # 4. VM_DISCONNECT
 
 # Order of events in an aborted firmware update:
 #
 # 1. VM_CONNECTION
 # 2. VM_CONTROL:
-#    a. UPDATE_SYNC_REQ (with last 4 bytes of firmware md5sum)
-#    b. UPDATE_START_REQ
-#    c. UPDATE_DATA_START_REQ
+#    a. UPDATE_SYNC (with last 4 bytes of firmware md5sum)
+#    b. UPDATE_START
+#    c. UPDATE_DATA_START
 #    d. UPDATE_DATA (repeat until all data is sent)
-#    e. UPDATE_ABORT_REQ
+#    e. UPDATE_ABORT
 # 3. VM_DISCONNECT
 
 
 class VmControlType(IntEnum):
     # Regular firmware update flow
-    UPDATE_SYNC_REQ = 19
-    UPDATE_START_REQ = 1
-    UPDATE_DATA_START_REQ = 21
+    UPDATE_SYNC = 19
+    UPDATE_START = 1
+    UPDATE_DATA_START = 21
     UPDATE_DATA = 4
-    UPDATE_IS_VALIDATION_DONE_REQ = 22
-    UPDATE_TRANSFER_COMPLETE_RES = 12
-    UPDATE_IN_PROGRESS_RES = 14
+    UPDATE_IS_VALIDATION_DONE = 22
+    UPDATE_TRANSFER_COMPLETE = 12
+    UPDATE_IN_PROGRESS = 14
     UPDATE_ABORT_REQ = 7
 
     # This looks like a fancy way of aborting when
     # you get an error code in the update process
     # looks like you always just send one after the other
     # with the same error code?
-    UPDATE_ABORT_REQ_WITH_CODE1 = 31
-    UPDATE_ABORT_REQ_WITH_CODE2 = 32
+    UPDATE_ABORT_WITH_CODE1 = 31
+    UPDATE_ABORT_WITH_CODE2 = 32
 
     # Not used in regular firmware update?
     # It seems like there's a hidden debug firmware GUI
     # in the app somewhere that can send these commands
-    UPDATE_COMMIT_CFM = 16
-    UPDATE_ERASE_SQIF_CFM = 30
+    UPDATE_COMMIT = 16
+    UPDATE_ERASE_SQIF = 30
 
 
 class BoolTransform:
