@@ -57,8 +57,8 @@ class VmControlType(IntEnum):
     UPDATE_COMMIT_RES = 15
     UPDATE_SYNC_CFM = 20
     UPDATE_IS_VALIDATION_DONE_CFM = 23
-    UPDATE_COMMIT_RES_2 = 29
-    VM_UPDATE_ERRORS = 17
+    UPDATE_COMMIT_ERASE_SQIF_RES = 29
+    VM_UPDATE_ERROR = 17
     UPDATE_COMPLETE_IND = 18
 
     # This looks like a fancy way of aborting when
@@ -119,7 +119,56 @@ class VmControlUpdateAbortReq(Bitfield):
     pass
 
 
+class UpdateState(IntEnum):
+    DATA_TRANSFER = 0
+    VALIDATION = 1
+    TRANSFER_COMPLETE = 2
+    IN_PROGRESS = 3
+    COMMIT = 4
+    GOTO_NEXT_STATE = 9
+
+
+class UpdateError(IntEnum):
+    UNKNOWN = 0
+    BATTERY_LOW = 33
+    SYNC_IS_DIFFERENT = 129
+
+    @classmethod
+    def _missing_(cls, value: object):
+        import sys
+        print(f"Unknown value for {cls.__name__}: {value}", file=sys.stderr)
+        return cls.UNKNOWN
+
 # Messages from VMU_PACKET
+
+
+class VmControlUpdateSyncCfm(Bitfield):
+    update_state: UpdateState = bf_int_enum(UpdateState, 8)
+    md5sum_tail: bytes = bf_bytes(4)
+    unknown: bytes = bf_bytes(1)
+
+
+class VmControlUpdateStartCfm(Bitfield):
+    update_state: UpdateState = bf_int_enum(UpdateState, 8)
+    unknown: bytes = bf_bytes(2)
+
+
+class VmControlUpdateCompleteInd(Bitfield):
+    pass
+
+
+class VmControlUpdateTransferCompleteInd(Bitfield):
+    pass
+
+
+class VmControlUpdateAbortCfm(Bitfield):
+    pass
+
+
+class VmUpdateError(Bitfield):
+    update_error: UpdateError = bf_int_enum(UpdateError, 16)
+
+
 class VmControlUpdateDataBytesReq(Bitfield):
     # The max bytes requested that the HT app allows is 250
     n_bytes_requested: int = bf_int(32)
@@ -127,6 +176,13 @@ class VmControlUpdateDataBytesReq(Bitfield):
     # I don't see it used in any of my logs
     n_bytes_skip: int = bf_int(32)
 
+
+# UPDATE_COMMIT_RES = 15
+# UPDATE_COMMIT_RES_2 = 29  # Probably for ERASE_SQIF_CFM?
+# UPDATE_SYNC_CFM = 20
+# UPDATE_IS_VALIDATION_DONE_CFM = 23
+# VM_UPDATE_ERROR = 17
+# UPDATE_COMPLETE_IND = 18
 
 def vm_control_disc(m: VmControlBody):
     match m.vm_control_type:
@@ -148,6 +204,19 @@ def vm_control_disc(m: VmControlBody):
             out = VmControlUpdateAbortReq
         case VmControlType.UPDATE_DATA_BYTES_REQ:
             out = VmControlUpdateDataBytesReq
+        case VmControlType.UPDATE_SYNC_CFM:
+            out = VmControlUpdateSyncCfm
+        case VmControlType.UPDATE_COMPLETE_IND:
+            out = VmControlUpdateCompleteInd
+        case VmControlType.UPDATE_TRANSFER_COMPLETE_IND:
+            out = VmControlUpdateTransferCompleteInd
+        case VmControlType.UPDATE_START_CFM:
+            out = VmControlUpdateStartCfm
+        case VmControlType.VM_UPDATE_ERROR:
+            out = VmUpdateError
+        case VmControlType.UPDATE_ABORT_CFM:
+            out = VmControlUpdateAbortCfm
+
         case _:
             return bf_bytes(m.n_bytes_payload)
 
@@ -164,6 +233,12 @@ VmControlCommand = t.Union[
     VmControlUpdateInProgressRes,
     VmControlUpdateAbortReq,
     VmControlUpdateDataBytesReq,
+    VmControlUpdateSyncCfm,
+    VmControlUpdateCompleteInd,
+    VmControlUpdateTransferCompleteInd,
+    VmControlUpdateStartCfm,
+    VmUpdateError,
+    VmControlUpdateAbortCfm,
 ]
 
 
