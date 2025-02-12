@@ -58,7 +58,7 @@ class VmControlType(IntEnum):
     UPDATE_SYNC_CFM = 20
     UPDATE_IS_VALIDATION_DONE_CFM = 23
     UPDATE_COMMIT_ERASE_SQIF_RES = 29
-    VM_UPDATE_ERROR = 17
+    UPDATE_ERROR = 17
     UPDATE_COMPLETE_IND = 18
 
     # This looks like a fancy way of aborting when
@@ -165,7 +165,7 @@ class VmControlUpdateAbortCfm(Bitfield):
     pass
 
 
-class VmUpdateError(Bitfield):
+class VmControlUpdateError(Bitfield):
     update_error: UpdateError = bf_int_enum(UpdateError, 16)
 
 
@@ -212,8 +212,8 @@ def vm_control_disc(m: VmControlBody):
             out = VmControlUpdateTransferCompleteInd
         case VmControlType.UPDATE_START_CFM:
             out = VmControlUpdateStartCfm
-        case VmControlType.VM_UPDATE_ERROR:
-            out = VmUpdateError
+        case VmControlType.UPDATE_ERROR:
+            out = VmControlUpdateError
         case VmControlType.UPDATE_ABORT_CFM:
             out = VmControlUpdateAbortCfm
 
@@ -237,7 +237,7 @@ VmControlCommand = t.Union[
     VmControlUpdateCompleteInd,
     VmControlUpdateTransferCompleteInd,
     VmControlUpdateStartCfm,
-    VmUpdateError,
+    VmControlUpdateError,
     VmControlUpdateAbortCfm,
 ]
 
