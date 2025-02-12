@@ -34,6 +34,9 @@ from .vm import (
     VmConnectBody, VmConnectReplyBody,
     VmDisconnectBody, VmDisconnectReplyBody,
 )
+from .bt_notification import (
+    BtEventNotificationBody
+)
 
 
 class CommandGroup(IntEnum):
@@ -194,6 +197,12 @@ def body_disc(m: Message, n: int):
                     out = VmConnectReplyBody if m.is_reply else VmConnectBody
                 case ExtendedCommand.VM_DISCONNECT:
                     out = VmDisconnectReplyBody if m.is_reply else VmDisconnectBody
+                case ExtendedCommand.BT_EVENT_NOTIFICATION:
+                    if m.is_reply:
+                        raise ValueError(
+                            "BtEventNotification cannot be a reply"
+                        )
+                    out = BtEventNotificationBody
                 case _:
                     return bf_bytes(n // 8)
 
@@ -233,6 +242,7 @@ MessageBody = t.Union[
     VmConnectReplyBody,
     VmDisconnectBody,
     VmDisconnectReplyBody,
+    BtEventNotificationBody
 ]
 
 

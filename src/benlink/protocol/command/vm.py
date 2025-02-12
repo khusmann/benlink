@@ -40,27 +40,39 @@ from enum import IntEnum
 
 class VmControlType(IntEnum):
     # Regular firmware update flow
-    UPDATE_SYNC = 19
-    UPDATE_START = 1
-    UPDATE_DATA_START = 21
+    UPDATE_SYNC_REQ = 19
+    UPDATE_START_REQ = 1
+    UPDATE_START_DATA_REQ = 21
     UPDATE_DATA = 4
-    UPDATE_IS_VALIDATION_DONE = 22
-    UPDATE_TRANSFER_COMPLETE = 12
-    UPDATE_IN_PROGRESS = 14
+    UPDATE_IS_VALIDATION_DONE_REQ = 22
+    UPDATE_TRANSFER_COMPLETE_RES = 12
+    UPDATE_IN_PROGRESS_RES = 14
     UPDATE_ABORT_REQ = 7
+
+    # Replies via VMU_PACKET
+    UPDATE_START_CFM = 2
+    UPDATE_DATA_BYTES_REQ = 3
+    UPDATE_ABORT_CFM = 8
+    UPDATE_TRANSFER_COMPLETE_IND = 11
+    UPDATE_COMMIT_RES = 15
+    UPDATE_SYNC_CFM = 20
+    UPDATE_IS_VALIDATION_DONE_CFM = 23
+    UPDATE_COMMIT_RES_2 = 29
+    VM_UPDATE_ERRORS = 17
+    UPDATE_COMPLETE_IND = 18
 
     # This looks like a fancy way of aborting when
     # you get an error code in the update process
     # looks like you always just send one after the other
     # with the same error code?
-    UPDATE_ABORT_WITH_CODE1 = 31
-    UPDATE_ABORT_WITH_CODE2 = 32
+    UPDATE_ABORT_WITH_CODE_1_REQ = 31
+    UPDATE_ABORT_WITH_CODE_2_REQ = 32
 
     # Not used in regular firmware update?
     # It seems like there's a hidden debug firmware GUI
     # in the app somewhere that can send these commands
-    UPDATE_COMMIT = 16
-    UPDATE_ERASE_SQIF = 30
+    UPDATE_COMMIT_CFM = 16
+    UPDATE_ERASE_SQIF_CFM = 30
 
 
 class BoolTransform:
@@ -74,15 +86,15 @@ class BoolTransform:
 bf_bool_byte = bf_map(bf_int(8), BoolTransform())
 
 
-class VmControlUpdateSync(Bitfield):
+class VmControlUpdateSyncReq(Bitfield):
     md5sum_tail: bytes = bf_bytes(4)
 
 
-class VmControlUpdateStart(Bitfield):
+class VmControlUpdateStartReq(Bitfield):
     pass
 
 
-class VmControlUpdateDataStart(Bitfield):
+class VmControlUpdateDataStartReq(Bitfield):
     pass
 
 
@@ -91,15 +103,15 @@ class VmControlUpdateData(Bitfield):
     data: bytes = bf_dyn(lambda _, n: bf_bytes(n // 8))
 
 
-class VmControlUpdateIsValidationDone(Bitfield):
+class VmControlUpdateIsValidationDoneReq(Bitfield):
     pass
 
 
-class VmControlUpdateTransferComplete(Bitfield):
+class VmControlUpdateTransferCompleteRes(Bitfield):
     is_complete: bool = bf_bool_byte
 
 
-class VmControlUpdateInProgress(Bitfield):
+class VmControlUpdateInProgressRes(Bitfield):
     _pad: t.Literal[0] = bf_lit_int(8, default=0)
 
 
@@ -107,24 +119,35 @@ class VmControlUpdateAbortReq(Bitfield):
     pass
 
 
+# Messages from VMU_PACKET
+class VmControlUpdateDataBytesReq(Bitfield):
+    # The max bytes requested that the HT app allows is 250
+    n_bytes_requested: int = bf_int(32)
+    # Skip allows for resuming a firmware update maybe?
+    # I don't see it used in any of my logs
+    n_bytes_skip: int = bf_int(32)
+
+
 def vm_control_disc(m: VmControlBody):
     match m.vm_control_type:
-        case VmControlType.UPDATE_SYNC:
-            out = VmControlUpdateSync
-        case VmControlType.UPDATE_START:
-            out = VmControlUpdateStart
-        case VmControlType.UPDATE_DATA_START:
-            out = VmControlUpdateDataStart
+        case VmControlType.UPDATE_SYNC_REQ:
+            out = VmControlUpdateSyncReq
+        case VmControlType.UPDATE_START_REQ:
+            out = VmControlUpdateStartReq
+        case VmControlType.UPDATE_START_DATA_REQ:
+            out = VmControlUpdateDataStartReq
         case VmControlType.UPDATE_DATA:
             out = VmControlUpdateData
-        case VmControlType.UPDATE_IS_VALIDATION_DONE:
-            out = VmControlUpdateIsValidationDone
-        case VmControlType.UPDATE_TRANSFER_COMPLETE:
-            out = VmControlUpdateTransferComplete
-        case VmControlType.UPDATE_IN_PROGRESS:
-            out = VmControlUpdateInProgress
+        case VmControlType.UPDATE_IS_VALIDATION_DONE_REQ:
+            out = VmControlUpdateIsValidationDoneReq
+        case VmControlType.UPDATE_TRANSFER_COMPLETE_RES:
+            out = VmControlUpdateTransferCompleteRes
+        case VmControlType.UPDATE_IN_PROGRESS_RES:
+            out = VmControlUpdateInProgressRes
         case VmControlType.UPDATE_ABORT_REQ:
             out = VmControlUpdateAbortReq
+        case VmControlType.UPDATE_DATA_BYTES_REQ:
+            out = VmControlUpdateDataBytesReq
         case _:
             return bf_bytes(m.n_bytes_payload)
 
@@ -132,19 +155,20 @@ def vm_control_disc(m: VmControlBody):
 
 
 VmControlCommand = t.Union[
-    VmControlUpdateSync,
-    VmControlUpdateStart,
-    VmControlUpdateDataStart,
+    VmControlUpdateSyncReq,
+    VmControlUpdateStartReq,
+    VmControlUpdateDataStartReq,
     VmControlUpdateData,
-    VmControlUpdateIsValidationDone,
-    VmControlUpdateTransferComplete,
-    VmControlUpdateInProgress,
+    VmControlUpdateIsValidationDoneReq,
+    VmControlUpdateTransferCompleteRes,
+    VmControlUpdateInProgressRes,
     VmControlUpdateAbortReq,
+    VmControlUpdateDataBytesReq,
 ]
 
 
 class VmControlBody(Bitfield):
-    vm_control_type: int = bf_int_enum(VmControlType, 8)
+    vm_control_type: VmControlType = bf_int_enum(VmControlType, 8)
     n_bytes_payload: int = bf_int(16)
     command: VmControlCommand | bytes = bf_dyn(vm_control_disc)
 
