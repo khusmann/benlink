@@ -1,7 +1,7 @@
 from __future__ import annotations
 from .bitfield import Bitfield, bf_int_enum, bf_dyn, bf_bytes, bf_bitfield
 from enum import IntEnum
-from .vm import VmControlBody
+from .vm import VmuPacket
 
 #################################################
 # BT_EVENT_NOTIFICATION
@@ -29,15 +29,10 @@ class BtEventType(IntEnum):
     VMU_PACKET = 18
 
 
-# class BtEventVmuPacket(Bitfield):
-#    vm_control_type: VmControlType = bf_int_enum(VmControlType, 8)
-#    control_command: VmControlCommand | bytes = bf_dyn(vm_control_disc)
-
-
 def bt_event_disc(m: BtEventNotificationBody, n: int):
     match m.bt_event_type:
         case BtEventType.VMU_PACKET:
-            out = VmControlBody
+            out = VmuPacket
         case _:
             return bf_bytes(n // 8)
 
@@ -46,4 +41,4 @@ def bt_event_disc(m: BtEventNotificationBody, n: int):
 
 class BtEventNotificationBody(Bitfield):
     bt_event_type: BtEventType = bf_int_enum(BtEventType, 8)
-    data: VmControlBody | bytes = bf_dyn(bt_event_disc)
+    bt_event: VmuPacket | bytes = bf_dyn(bt_event_disc)
