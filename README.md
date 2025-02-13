@@ -8,9 +8,9 @@
 
 <!-- BEGIN CONTENT -->
 
-`benlink` is a Python library for communicating with and controlling Benshi
-radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro) over BLE and
-Bluetooth Classic (RFCOMM).
+`benlink` is a cross-platform Python library for communicating with and
+controlling Benshi radios (e.g. Vero VR-N76, RadioOddity GA-5WB, BTech UV-Pro)
+over BLE and Bluetooth Classic (RFCOMM).
 
 In addition to providing a high-level async Python interface for controlling
 Benshi radios, the larger goal of this project is to document their BLE / RFCOMM
@@ -28,7 +28,14 @@ Benshi radio owners and the wider open source community to:
 It is a work in progress and is nowhere close to feature complete.
 [Pull requests](https://github.com/khusmann/benlink) are welcome!
 
-### Radio Support
+### Software / Hardware Support
+
+benlink uses [bleak](https://github.com/hbldh/bleak) for BLE communication,
+making it compatible with Windows, macOS, and Linux. (Theoretically
+python-for-android should also work, but I haven't tested it yet). RFCOMM
+support is via python's built-in `socket` module, and also works on Windows,
+macOS, and Linux. (Although automatic service discovery
+[isn't supported yet](https://github.com/khusmann/benlink/issues/9)).
 
 The following radios should work with this library:
 
