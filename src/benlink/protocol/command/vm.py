@@ -9,20 +9,20 @@ from enum import IntEnum
 #
 # 1. VM_CONNECT
 # 2. VM_CONTROL:
-#    a. UPDATE_SYNC (with last 4 bytes of firmware md5sum)
-#    b. UPDATE_START
-#    c. UPDATE_DATA_START
-#    d. UPDATE_DATA (145 bytes at a time. repeat until all data is sent, except for the last fragment)
+#    a. UPDATE_SYNC_REQ (UPDATE_SYNC_CFM) (with last 4 bytes of firmware md5sum)
+#    b. UPDATE_START_REQ (UPDATE_START_CFM)
+#    c. UPDATE_DATA_START_REQ
+#    d. (UPDATE_DATA_BYTES_REQ) UPDATE_DATA (145 bytes at a time. repeat until all data is sent, except for the last fragment)
 #    e. UPDATE_DATA (final fragment with is_final_fragment=True)
-#    f. UPDATE_IS_VALIDATION_DONE
-#    g. UPDATE_TRANSFER_COMPLETE (triggers reboot?)
+#    f. UPDATE_IS_VALIDATION_DONE_REQ (UPDATE_TRANSFER_COMPLETE_IND)
+#    g. UPDATE_TRANSFER_COMPLETE_RES (triggers REStart?)
 #
 # Reboot happens?
 #
 # 3. VM_CONNECT
-#    h. UPDATE_SYNC (with last 4 bytes of firmware md5sum)
-#    i. UPDATE_START
-#    j. UPDATE_IN_PROGRESS
+#    h. UPDATE_SYNC_REQ (UPDATE_SYNC_CFM) (with last 4 bytes of firmware md5sum)
+#    i. UPDATE_START_REQ (UPDATE_START_CFM)
+#    j. UPDATE_IN_PROGRESS_RES (UPDATE_COMPLETE_IND)
 # 4. VM_DISCONNECT
 
 #####################################################################
@@ -30,11 +30,11 @@ from enum import IntEnum
 #
 # 1. VM_CONNECT
 # 2. VM_CONTROL:
-#    a. UPDATE_SYNC (with last 4 bytes of firmware md5sum)
-#    b. UPDATE_START
-#    c. UPDATE_DATA_START
-#    d. UPDATE_DATA (repeat until all data is sent)
-#    e. UPDATE_ABORT
+#    a. UPDATE_SYNC_REQ (UPDATE_SYNC_CFM)
+#    b. UPDATE_START_REQ (UPDATE_START_CFM)
+#    c. UPDATE_DATA_START_REQ
+#    d. (UPDATE_DATA_BYTES_REQ) UPDATE_DATA
+#    e. UPDATE_ABORT_REQ (UPDATE_ABORT_CFM)
 # 3. VM_DISCONNECT
 
 
@@ -71,12 +71,12 @@ class VmuPacketType(IntEnum):
     UPDATE_DATA_BYTES_REQ = 3
     UPDATE_ABORT_CFM = 8
     UPDATE_TRANSFER_COMPLETE_IND = 11
-    UPDATE_COMMIT_RES = 15
     UPDATE_SYNC_CFM = 20
-    UPDATE_IS_VALIDATION_DONE_CFM = 23
-    UPDATE_COMMIT_ERASE_SQIF_RES = 29
-    UPDATE_ERROR = 17
     UPDATE_COMPLETE_IND = 18
+    UPDATE_ERROR = 17  # Not seen in logs
+    UPDATE_IS_VALIDATION_DONE_CFM = 23  # Not seen in logs
+    UPDATE_COMMIT_ERASE_SQIF_RES = 29  # Not seen in logs
+    UPDATE_COMMIT_RES = 15  # Not seen in logs
 
 
 class BoolTransform:
@@ -129,6 +129,10 @@ class UpdateState(IntEnum):
     TRANSFER_COMPLETE = 2
     IN_PROGRESS = 3
     COMMIT = 4
+
+
+class UpdateStartCfmCode(IntEnum):
+    OK = 0
     GOTO_NEXT_STATE = 9
 
 
@@ -153,7 +157,7 @@ class VmControlUpdateSyncCfm(Bitfield):
 
 
 class VmControlUpdateStartCfm(Bitfield):
-    update_state: UpdateState = bf_int_enum(UpdateState, 8)
+    cfm_code: UpdateStartCfmCode = bf_int_enum(UpdateStartCfmCode, 8)
     unknown: bytes = bf_bytes(2)
 
 
