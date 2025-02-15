@@ -31,10 +31,9 @@ It is a work in progress and is nowhere close to feature complete.
 ### Software / Hardware Support
 
 benlink uses [bleak](https://github.com/hbldh/bleak) for BLE communication,
-making it compatible with Windows, macOS, and Linux. (Theoretically
-python-for-android should also work, but I haven't tested it yet). RFCOMM
-support is via python's built-in `socket` module, and also works on Windows,
-macOS, and Linux. (Although automatic service discovery
+making it compatible with Windows, macOS, and Linux. RFCOMM support is via
+python's built-in `socket` module, and also works on Windows, macOS, and Linux.
+(Although automatic service discovery for RFCOMM
 [isn't supported yet](https://github.com/khusmann/benlink/issues/9)).
 
 The following radios should work with this library:
