@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benlink"
-version = "0.1.0"
-description = "A library for Bluetooth communication with Benshi radios like the Vero VR-N76, RadioOddity GA5WB, and BTech UV-Pro."
+version = "0.1.1"
+description = "A cross-platform library for Bluetooth communication with Benshi radios like the Vero VR-N76, RadioOddity GA5WB, and BTech UV-Pro."
 authors = [{name = "Kyle Husmann", email = "benlink@kylehusmann.com"}]
 readme = "README.md"
 license = {text = "Apache-2.0"}
