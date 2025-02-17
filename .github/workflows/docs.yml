@@ -29,7 +29,10 @@ jobs:
       # Build the documentation
       - run: pdoc src/benlink -o docs --logo /benlink/logo-transparent.png --logo-link "https://kylehusmann.com/benlink" --edit-url "benlink=https://github.com/khusmann/benlink/blob/main/src/benlink/"
       - run: cp assets/logo-transparent.png docs
-
+      - run: |
+          find docs -type f -name "*.html" -exec sed -i '/<\/head>/i \
+          <script data-goatcounter="https://benlink.goatcounter.com/count" \
+          async src="//gc.zgo.at/count.js"></script>' {} +
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs/
