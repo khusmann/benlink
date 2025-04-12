@@ -290,14 +290,17 @@ class RadioController:
         return await self._conn.get_rc_battery_level()
 
     async def send_tnc_data(self, data: bytes) -> None:
-        if len(data) > 50:
-            raise ValueError("Data too long -- TODO: implement fragmentation")
-
-        await self._conn.send_tnc_data_fragment(TncDataFragment(
-            is_final_fragment=True,
-            fragment_id=0,
-            data=data
-        ))
+        chunk_size = 50
+        fragment_id = 0
+        for i in range(0, len(data), chunk_size):
+            chunk = data[i:i+chunk_size]
+            is_final = (i + chunk_size) >= len(data)  # Only last fragment is final
+            fragment_id += 1
+            await self._conn.send_tnc_data_fragment(TncDataFragment(
+                data=chunk,
+                fragment_id=fragment_id,
+                is_final_fragment=is_final
+            ))
 
     def add_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
         return self._conn.add_event_handler(handler)
