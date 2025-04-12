@@ -295,12 +295,12 @@ class RadioController:
         for i in range(0, len(data), chunk_size):
             chunk = data[i:i+chunk_size]
             is_final = (i + chunk_size) >= len(data)  # Only last fragment is final
-            fragment_id += 1
             await self._conn.send_tnc_data_fragment(TncDataFragment(
                 data=chunk,
                 fragment_id=fragment_id,
                 is_final_fragment=is_final
             ))
+            fragment_id += 1
 
     def add_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
         return self._conn.add_event_handler(handler)
