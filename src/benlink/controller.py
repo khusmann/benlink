@@ -293,14 +293,14 @@ class RadioController:
     async def send_tnc_data(self, data: bytes) -> None:
         chunk_size = 50
         max_retries = 2  # Total transmissions = 1 original + 1 retry
-        
+        total_fragments = (len(data) + chunk_size - 1) // chunk_size
         # Send twice because first packet always fails
         for retry in range(max_retries):
             fragment_id = 0
             
-            for i in range(0, len(packet), chunk_size):
-                chunk = packet[i:i+chunk_size]
-                is_final = (i + chunk_size) >= len(packet)
+            for i in range(0, len(data), chunk_size):
+                chunk = data[i:i+chunk_size]
+                is_final = (i + chunk_size) >= len(data)
                 
                 payload = TncDataFragment(
                     data=chunk,
@@ -311,7 +311,7 @@ class RadioController:
                 command = SendTncDataFragment(payload)
                 
                 await self._conn.send_tnc_data_fragment(command)
-                if fragment_id == 0:
+                if fragment_id == 0 and total_fragments > 1:
                     # Add small delay between fragments
                     await asyncio.sleep(0.01)
                     await self._conn.send_tnc_data_fragment(command) # Repeat because first fragment always fails
