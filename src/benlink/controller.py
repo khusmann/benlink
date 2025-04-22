@@ -150,6 +150,7 @@ from typing_extensions import Unpack
 from dataclasses import dataclass
 import typing as t
 import sys
+import asyncio
 
 from .command import (
     CommandConnection,
@@ -291,16 +292,35 @@ class RadioController:
 
     async def send_tnc_data(self, data: bytes) -> None:
         chunk_size = 50
-        fragment_id = 0
-        for i in range(0, len(data), chunk_size):
-            chunk = data[i:i+chunk_size]
-            is_final = (i + chunk_size) >= len(data)  # Only last fragment is final
-            await self._conn.send_tnc_data_fragment(TncDataFragment(
-                data=chunk,
-                fragment_id=fragment_id,
-                is_final_fragment=is_final
-            ))
-            fragment_id += 1
+        max_retries = 2  # Total transmissions = 1 original + 1 retry
+        
+        # Send twice because first packet always fails
+        for retry in range(max_retries):
+            fragment_id = 0
+            
+            for i in range(0, len(packet), chunk_size):
+                chunk = packet[i:i+chunk_size]
+                is_final = (i + chunk_size) >= len(packet)
+                
+                payload = TncDataFragment(
+                    data=chunk,
+                    fragment_id=fragment_id,
+                    is_final_fragment=is_final,
+                )
+                
+                command = SendTncDataFragment(payload)
+                
+                await self._conn.send_tnc_data_fragment(command)
+                if fragment_id == 0:
+                    # Add small delay between fragments
+                    await asyncio.sleep(0.01)
+                    await self._conn.send_tnc_data_fragment(command) # Repeat because first fragment always fails
+                
+                fragment_id += 1
+            
+            # Add delay between retransmissions if not the last attempt
+            if retry < max_retries - 1:
+                await asyncio.sleep(0.1)
 
     def add_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
         return self._conn.add_event_handler(handler)
