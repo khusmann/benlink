@@ -77,7 +77,7 @@ asyncio.run(main())
 # Next Steps
 
 To see what else you can do with this library, check out the examples in the
-[benlink.controller](https://kylehusmann.com/benlink/benlink/controller.html)
+[benlink.controller](https://benlink.kylehusmann.com/benlink/controller.html)
 module documentation.
 
 # Other Projects
