@@ -22,7 +22,9 @@ class DevInfo(Bitfield):
     support_dmr: bool
     channel_count: int = bf_int(8)
     freq_range_count: int = bf_int(4)
-    _pad: t.Literal[0] = bf_lit_int(4, default=0)
+    unknown1: bool
+    unknown2: bool
+    _pad: t.Literal[0] = bf_lit_int(2, default=0)
 
 
 class GetDevInfoBody(Bitfield):
