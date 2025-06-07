@@ -29,6 +29,7 @@ from .bss_settings import (
 )
 from .phone_status import SetPhoneStatusBody, SetPhoneStatusReplyBody
 from .status import GetHtStatusBody, GetHtStatusReplyBody
+from .position import GetPositionBody, GetPositionReplyBody
 
 
 class CommandGroup(IntEnum):
@@ -130,6 +131,7 @@ class BasicCommand(IntEnum):
     READ_REGION_NAME = 73
     SET_DEV_ID = 74
     GET_PF_ACTIONS = 75
+    GET_POSITION = 76
 
 
 def frame_type_disc(m: Message):
@@ -179,6 +181,8 @@ def body_disc(m: Message, n: int):
                     out = SetPhoneStatusReplyBody if m.is_reply else SetPhoneStatusBody
                 case BasicCommand.GET_HT_STATUS:
                     out = GetHtStatusReplyBody if m.is_reply else GetHtStatusBody
+                case BasicCommand.GET_POSITION:
+                    out = GetPositionReplyBody if m.is_reply else GetPositionBody
                 case _:
                     return bf_bytes(n // 8)
         case CommandGroup.EXTENDED:
@@ -216,6 +220,8 @@ MessageBody = t.Union[
     SetPhoneStatusReplyBody,
     GetHtStatusBody,
     GetHtStatusReplyBody,
+    GetPositionReplyBody,
+    GetPositionBody,
 ]
 
 

@@ -38,6 +38,7 @@ import asyncio
 from pydantic import BaseModel, ConfigDict
 from . import protocol as p
 from .link import CommandLink, BleCommandLink, RfcommCommandLink
+from datetime import datetime
 
 RADIO_SERVICE_UUID = "00001100-d102-11e1-9b23-00025b00a5a5"
 """@private"""
@@ -220,6 +221,13 @@ class CommandConnection:
             raise reply.as_exception()
         return reply.status
 
+    async def get_position(self) -> Position:
+        """Get the radio position"""
+        reply = await self.send_message_expect_reply(GetPosition(), GetPositionReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+        return reply.position
+
     async def __aenter__(self):
         await self.connect()
         return self
@@ -362,11 +370,25 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 command=p.BasicCommand.GET_HT_STATUS,
                 body=p.GetHtStatusBody()
             )
+        case GetPosition():
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.GET_POSITION,
+                body=p.GetPositionBody()
+            )
 
 
 def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
     """@private (Protocol helper)"""
     match mf.body:
+        case p.GetPositionReplyBody(reply_status=reply_status, position=position):
+            if position is None:
+                return MessageReplyError(
+                    message_type=GetPositionReply,
+                    reason=reply_status.name
+                )
+            return GetPositionReply(Position.from_protocol(position))
         case p.GetHtStatusReplyBody(reply_status=reply_status, status=status):
             if status is None:
                 return MessageReplyError(
@@ -572,6 +594,10 @@ class GetStatus(t.NamedTuple):
     pass
 
 
+class GetPosition(t.NamedTuple):
+    pass
+
+
 class SendTncDataFragment(t.NamedTuple):
     tnc_data_fragment: TncDataFragment
 
@@ -591,6 +617,7 @@ CommandMessage = t.Union[
     SendTncDataFragment,
     EnableEvents,
     GetStatus,
+    GetPosition,
 ]
 
 #####################
@@ -649,6 +676,10 @@ class GetSettingsReply(t.NamedTuple):
     settings: Settings
 
 
+class GetPositionReply(t.NamedTuple):
+    position: Position
+
+
 ReplyStatus = t.Literal[
     "SUCCESS",
     "NOT_SUPPORTED",
@@ -683,6 +714,7 @@ ReplyMessage = t.Union[
     SetSettingsReply,
     SendTncDataFragmentReply,
     GetStatusReply,
+    GetPositionReply,
     MessageReplyError,
 ]
 
@@ -1331,4 +1363,40 @@ class Status(ImmutableBaseModel):
             curr_region=self.curr_region,
             curr_channel_id_upper=self._channel_split.get_upper(
                 self.curr_ch_id)
+        )
+
+
+class Position(ImmutableBaseModel):
+    """A data object for representing GPS positions"""
+    latitude: float
+    longitude: float
+    altitude: int | None
+    speed: int | None
+    heading: int | None
+    time: datetime
+    accuracy: int
+
+    @classmethod
+    def from_protocol(cls, x: p.Position) -> Position:
+        """@private (Protocol helper)"""
+        return Position(
+            latitude=x.latitude,
+            longitude=x.longitude,
+            altitude=x.altitude,
+            speed=x.speed,
+            heading=x.heading,
+            time=x.time,
+            accuracy=x.accuracy,
+        )
+
+    def to_protocol(self) -> p.Position:
+        """@private (Protocol helper)"""
+        return p.Position(
+            latitude=self.latitude,
+            longitude=self.longitude,
+            altitude=self.altitude,
+            speed=self.speed,
+            heading=self.heading,
+            time=self.time,
+            accuracy=self.accuracy,
         )

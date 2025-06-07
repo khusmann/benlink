@@ -168,7 +168,8 @@ from .command import (
     ChannelChangedEvent,
     StatusChangedEvent,
     UnknownProtocolMessage,
-    Status
+    Status,
+    Position,
 )
 
 
@@ -288,6 +289,9 @@ class RadioController:
 
     async def rc_battery_level(self) -> int:
         return await self._conn.get_rc_battery_level()
+
+    async def position(self) -> Position:
+        return await self._conn.get_position()
 
     async def send_tnc_data(self, data: bytes) -> None:
         if len(data) > 50:

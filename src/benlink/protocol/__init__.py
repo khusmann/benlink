@@ -8,4 +8,5 @@ from .command.notification import *
 from .command.pf import *
 from .command.power_status import *
 from .command.status import *
+from .command.position import *
 from .audio import *
