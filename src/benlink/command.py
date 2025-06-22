@@ -127,12 +127,12 @@ class CommandConnection:
 
     # Command API
 
-    async def enable_events(self) -> None:
+    async def enable_event(self, event_type: EventType) -> None:
         """Enable an event"""
-        # This event doesn't get a reply version of EnableEvents. It does, however
+        # This event doesn't get a reply version of EnableEvent. It does, however
         # does trigger a StatusChangedEvent... but we don't wait for it here.
         # Instead, we just fire and forget
-        await self.send_message(EnableEvents())
+        await self.send_message(EnableEvent(event_type))
 
     async def send_tnc_data_fragment(self, tnc_data_fragment: TncDataFragment) -> None:
         """Send Tnc data"""
@@ -251,16 +251,13 @@ class ImmutableBaseModel(BaseModel):
 def command_message_to_protocol(m: CommandMessage) -> p.Message:
     """@private (Protocol helper)"""
     match m:
-        case EnableEvents():
-            # For some reason, enabling the HT_STATUS_CHANGED event
-            # also enables the DATA_RXD event, and maybe others...
-            # need to investigate further.
+        case EnableEvent(event_type):
             return p.Message(
                 command_group=p.CommandGroup.BASIC,
                 is_reply=False,
                 command=p.BasicCommand.REGISTER_NOTIFICATION,
                 body=p.RegisterNotificationBody(
-                    event_type=p.EventType.HT_STATUS_CHANGED,
+                    event_type=p.EventType[event_type],
                 )
             )
         case SendTncDataFragment(tnc_data_fragment):
@@ -542,8 +539,8 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
 #####################
 # CommandMessage
 
-class EnableEvents(t.NamedTuple):
-    pass
+class EnableEvent(t.NamedTuple):
+    event_type: EventType
 
 
 class GetBeaconSettings(t.NamedTuple):
@@ -615,7 +612,7 @@ CommandMessage = t.Union[
     GetSettings,
     SetSettings,
     SendTncDataFragment,
-    EnableEvents,
+    EnableEvent,
     GetStatus,
     GetPosition,
 ]
@@ -745,9 +742,25 @@ class UnknownProtocolMessage(t.NamedTuple):
 EventMessage = t.Union[
     TncDataFragmentReceivedEvent,
     SettingsChangedEvent,
-    UnknownProtocolMessage,
     ChannelChangedEvent,
     StatusChangedEvent,
+    UnknownProtocolMessage,
+]
+
+EventType = t.Literal[
+    "HT_STATUS_CHANGED",
+    "DATA_RXD",
+    "NEW_INQUIRY_DATA",
+    "RESTORE_FACTORY_SETTINGS",
+    "HT_CH_CHANGED",
+    "HT_SETTINGS_CHANGED",
+    "RINGING_STOPPED"
+    "RADIO_STATUS_CHANGED",
+    "USER_ACTION",
+    "SYSTEM_EVENT",
+    "BSS_SETTINGS_CHANGED",
+    "DATA_TXD",
+    "POSITION_CHANGED"
 ]
 
 RadioMessage = ReplyMessage | EventMessage

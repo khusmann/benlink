@@ -163,6 +163,7 @@ from .command import (
     BeaconSettingsArgs,
     TncDataFragment,
     EventMessage,
+    EventType,
     SettingsChangedEvent,
     TncDataFragmentReceivedEvent,
     ChannelChangedEvent,
@@ -306,6 +307,9 @@ class RadioController:
     def add_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
         return self._conn.add_event_handler(handler)
 
+    async def enable_event(self, event_type: EventType):
+        await self._conn.enable_event(event_type)
+
     async def _hydrate(self) -> None:
         device_info = await self._conn.get_device_info()
 
@@ -327,7 +331,14 @@ class RadioController:
             self._on_event_message
         )
 
-        await self._conn.enable_events()
+        # For some reason, enabling the HT_STATUS_CHANGED event
+        # also enables the DATA_RXD event, and maybe others...
+        # need to investigate further.
+        await self.enable_event("HT_STATUS_CHANGED")
+
+        # TODO: should these events be enabled by default? perhaps I should have
+        # users enable events manually, while simultaneously registering handlers
+        # of the proper type?
 
         self._state = _RadioState(
             device_info=device_info,
