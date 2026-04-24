@@ -997,7 +997,8 @@ class SettingsArgs(t.TypedDict, total=False):
     leading_sync_bit_en: bool
     pairing_at_power_on: bool
     screen_timeout: int
-    vfo_x: int
+    kiss_upload_tx_msg: bool
+    kiss_en: bool
     imperial_unit: bool
     wx_mode: int
     noaa_ch: int
@@ -1006,13 +1007,25 @@ class SettingsArgs(t.TypedDict, total=False):
     dis_digital_mute: bool
     signaling_ecc_en: bool
     ch_data_lock: bool
+    kiss_tx_delay: int
+    kiss_tx_tail: int
+    vox_en: bool
+    vox_level: int
+    dis_bt_mic: bool
+    vox_delay: int
+    ns_en: bool
+    alarm_volume: int
+    use_custom_location: bool
+    gpwpl_upload_en: bool
     vfo1_mod_freq_x: int
-    vfo2_mod_freq_x: int
+    custom_location_lat: int
+    custom_location_lon: int
 
 
 class Settings(ImmutableBaseModel):
     """A data object representing the radio settings"""
     _channel_split: t.ClassVar[IntSplit] = IntSplit(4, 4)
+    _auto_share_loc_ch_split: t.ClassVar[IntSplit] = IntSplit(3, 5)
     channel_a: int
     channel_b: int
     scan: bool
@@ -1041,7 +1054,8 @@ class Settings(ImmutableBaseModel):
     leading_sync_bit_en: bool
     pairing_at_power_on: bool
     screen_timeout: int
-    vfo_x: int
+    kiss_upload_tx_msg: bool
+    kiss_en: bool
     imperial_unit: bool
     wx_mode: int
     noaa_ch: int
@@ -1050,12 +1064,26 @@ class Settings(ImmutableBaseModel):
     dis_digital_mute: bool
     signaling_ecc_en: bool
     ch_data_lock: bool
+    kiss_tx_delay: int
+    kiss_tx_tail: int
+    vox_en: bool
+    vox_level: int
+    dis_bt_mic: bool
+    vox_delay: int
+    ns_en: bool
+    alarm_volume: int
+    use_custom_location: bool
+    gpwpl_upload_en: bool
     vfo1_mod_freq_x: int
-    vfo2_mod_freq_x: int
+    custom_location_lat: int
+    custom_location_lon: int
 
     @classmethod
     def from_protocol(cls, rs: p.Settings) -> Settings:
         """@private (Protocol helper)"""
+        _raw_auto_share_loc_ch = cls._auto_share_loc_ch_split.from_parts(
+            rs.auto_share_loc_ch_upper, rs.auto_share_loc_ch
+        )
         return Settings(
             channel_a=cls._channel_split.from_parts(
                 rs.channel_a_upper, rs.channel_a_lower
@@ -1080,7 +1108,7 @@ class Settings(ImmutableBaseModel):
             dis_tone=rs.dis_tone,
             power_saving_mode=rs.power_saving_mode,
             auto_power_off=rs.auto_power_off,
-            auto_share_loc_ch=rs.auto_share_loc_ch,
+            auto_share_loc_ch=_raw_auto_share_loc_ch - 1 if _raw_auto_share_loc_ch > 0 else "current",
             hm_speaker=rs.hm_speaker,
             positioning_system=rs.positioning_system,
             time_offset=rs.time_offset,
@@ -1089,7 +1117,8 @@ class Settings(ImmutableBaseModel):
             leading_sync_bit_en=rs.leading_sync_bit_en,
             pairing_at_power_on=rs.pairing_at_power_on,
             screen_timeout=rs.screen_timeout,
-            vfo_x=rs.vfo_x,
+            kiss_upload_tx_msg=rs.kiss_upload_tx_msg,
+            kiss_en=rs.kiss_en,
             imperial_unit=rs.imperial_unit,
             wx_mode=rs.wx_mode,
             noaa_ch=rs.noaa_ch,
@@ -1098,12 +1127,24 @@ class Settings(ImmutableBaseModel):
             dis_digital_mute=rs.dis_digital_mute,
             signaling_ecc_en=rs.signaling_ecc_en,
             ch_data_lock=rs.ch_data_lock,
+            kiss_tx_delay=rs.kiss_tx_delay,
+            kiss_tx_tail=rs.kiss_tx_tail,
+            vox_en=rs.vox_en,
+            vox_level=rs.vox_level,
+            dis_bt_mic=rs.dis_bt_mic,
+            vox_delay=rs.vox_delay,
+            ns_en=rs.ns_en,
+            alarm_volume=rs.alarm_volume,
+            use_custom_location=rs.use_custom_location,
+            gpwpl_upload_en=rs.gpwpl_upload_en,
             vfo1_mod_freq_x=rs.vfo1_mod_freq_x,
-            vfo2_mod_freq_x=rs.vfo2_mod_freq_x
+            custom_location_lat=rs.custom_location_lat,
+            custom_location_lon=rs.custom_location_lon
         )
 
     def to_protocol(self):
         """@private (Protocol helper)"""
+        _raw_auto_share_loc_ch = 0 if self.auto_share_loc_ch == "current" else self.auto_share_loc_ch + 1
         return p.Settings(
             channel_a_lower=self._channel_split.get_lower(self.channel_a),
             channel_b_lower=self._channel_split.get_lower(self.channel_b),
@@ -1124,7 +1165,7 @@ class Settings(ImmutableBaseModel):
             dis_tone=self.dis_tone,
             power_saving_mode=self.power_saving_mode,
             auto_power_off=self.auto_power_off,
-            auto_share_loc_ch=self.auto_share_loc_ch,
+            auto_share_loc_ch=self._auto_share_loc_ch_split.get_lower(_raw_auto_share_loc_ch),
             hm_speaker=self.hm_speaker,
             positioning_system=self.positioning_system,
             time_offset=self.time_offset,
@@ -1133,7 +1174,8 @@ class Settings(ImmutableBaseModel):
             leading_sync_bit_en=self.leading_sync_bit_en,
             pairing_at_power_on=self.pairing_at_power_on,
             screen_timeout=self.screen_timeout,
-            vfo_x=self.vfo_x,
+            kiss_upload_tx_msg=self.kiss_upload_tx_msg,
+            kiss_en=self.kiss_en,
             imperial_unit=self.imperial_unit,
             channel_a_upper=self._channel_split.get_upper(self.channel_a),
             channel_b_upper=self._channel_split.get_upper(self.channel_b),
@@ -1144,8 +1186,20 @@ class Settings(ImmutableBaseModel):
             dis_digital_mute=self.dis_digital_mute,
             signaling_ecc_en=self.signaling_ecc_en,
             ch_data_lock=self.ch_data_lock,
+            auto_share_loc_ch_upper=self._auto_share_loc_ch_split.get_upper(_raw_auto_share_loc_ch),
+            kiss_tx_delay=self.kiss_tx_delay,
+            kiss_tx_tail=self.kiss_tx_tail,
+            vox_en=self.vox_en,
+            vox_level=self.vox_level,
+            dis_bt_mic=self.dis_bt_mic,
+            vox_delay=self.vox_delay,
+            ns_en=self.ns_en,
+            alarm_volume=self.alarm_volume,
+            use_custom_location=self.use_custom_location,
+            gpwpl_upload_en=self.gpwpl_upload_en,
             vfo1_mod_freq_x=self.vfo1_mod_freq_x,
-            vfo2_mod_freq_x=self.vfo2_mod_freq_x
+            custom_location_lat=self.custom_location_lat,
+            custom_location_lon=self.custom_location_lon
         )
 
 
