@@ -1108,7 +1108,8 @@ class Settings(ImmutableBaseModel):
             dis_tone=rs.dis_tone,
             power_saving_mode=rs.power_saving_mode,
             auto_power_off=rs.auto_power_off,
-            auto_share_loc_ch=_raw_auto_share_loc_ch - 1 if _raw_auto_share_loc_ch > 0 else "current",
+            auto_share_loc_ch=_raw_auto_share_loc_ch -
+            1 if _raw_auto_share_loc_ch > 0 else "current",
             hm_speaker=rs.hm_speaker,
             positioning_system=rs.positioning_system,
             time_offset=rs.time_offset,
@@ -1165,7 +1166,8 @@ class Settings(ImmutableBaseModel):
             dis_tone=self.dis_tone,
             power_saving_mode=self.power_saving_mode,
             auto_power_off=self.auto_power_off,
-            auto_share_loc_ch=self._auto_share_loc_ch_split.get_lower(_raw_auto_share_loc_ch),
+            auto_share_loc_ch=self._auto_share_loc_ch_split.get_lower(
+                _raw_auto_share_loc_ch),
             hm_speaker=self.hm_speaker,
             positioning_system=self.positioning_system,
             time_offset=self.time_offset,
@@ -1186,7 +1188,8 @@ class Settings(ImmutableBaseModel):
             dis_digital_mute=self.dis_digital_mute,
             signaling_ecc_en=self.signaling_ecc_en,
             ch_data_lock=self.ch_data_lock,
-            auto_share_loc_ch_upper=self._auto_share_loc_ch_split.get_upper(_raw_auto_share_loc_ch),
+            auto_share_loc_ch_upper=self._auto_share_loc_ch_split.get_upper(
+                _raw_auto_share_loc_ch),
             kiss_tx_delay=self.kiss_tx_delay,
             kiss_tx_tail=self.kiss_tx_tail,
             vox_en=self.vox_en,
@@ -1310,14 +1313,8 @@ class BeaconSettings(ImmutableBaseModel):
     aprs_callsign: str
 
     @classmethod
-    def from_protocol(cls, bs: p.BSSSettingsExt | p.BSSSettings) -> BeaconSettings:
+    def from_protocol(cls, bs: p.BSSSettingsV2 | p.BSSSettings) -> BeaconSettings:
         """@private (Protocol helper)"""
-
-        if not isinstance(bs, p.BSSSettingsExt):
-            raise ValueError(
-                "Radio replied with old BSSSettings message version. Upgrade your firmware!"
-            )
-
         return BeaconSettings(
             max_fwd_times=bs.max_fwd_times,
             time_to_live=bs.time_to_live,
@@ -1339,9 +1336,9 @@ class BeaconSettings(ImmutableBaseModel):
             aprs_callsign=bs.aprs_callsign
         )
 
-    def to_protocol(self) -> p.BSSSettingsExt:
+    def to_protocol(self) -> p.BSSSettingsV2:
         """@private (Protocol helper)"""
-        return p.BSSSettingsExt(
+        return p.BSSSettingsV2(
             max_fwd_times=self.max_fwd_times,
             time_to_live=self.time_to_live,
             ptt_release_send_location=self.ptt_release_send_location,
