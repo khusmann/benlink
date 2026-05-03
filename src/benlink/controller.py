@@ -325,12 +325,6 @@ class RadioController:
 
         status = await self._conn.get_status()
 
-        # No need to save the remove event handler function, since we don't
-        # need to unregister it when we disconnect (the connection will take care of that)
-        self._conn.add_event_handler(
-            self._on_event_message
-        )
-
         # For some reason, enabling the HT_STATUS_CHANGED event
         # also enables the DATA_RXD event, and maybe others...
         # need to investigate further.
@@ -346,6 +340,12 @@ class RadioController:
             status=status,
             settings=settings,
             channels=channels,
+        )
+
+        # No need to save the remove event handler function, since we don't
+        # need to unregister it when we disconnect (the connection will take care of that)
+        self._conn.add_event_handler(
+            self._on_event_message
         )
 
     def _on_event_message(self, event_message: EventMessage) -> None:
