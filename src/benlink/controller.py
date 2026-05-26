@@ -163,12 +163,14 @@ from .command import (
     BeaconSettingsArgs,
     TncDataFragment,
     EventMessage,
+    EventType,
     SettingsChangedEvent,
     TncDataFragmentReceivedEvent,
     ChannelChangedEvent,
     StatusChangedEvent,
     UnknownProtocolMessage,
-    Status
+    Status,
+    Position,
 )
 
 
@@ -289,6 +291,9 @@ class RadioController:
     async def rc_battery_level(self) -> int:
         return await self._conn.get_rc_battery_level()
 
+    async def position(self) -> Position:
+        return await self._conn.get_position()
+
     async def send_tnc_data(self, data: bytes) -> None:
         if len(data) > 50:
             raise ValueError("Data too long -- TODO: implement fragmentation")
@@ -301,6 +306,9 @@ class RadioController:
 
     def add_event_handler(self, handler: EventHandler) -> t.Callable[[], None]:
         return self._conn.add_event_handler(handler)
+
+    async def enable_event(self, event_type: EventType):
+        await self._conn.enable_event(event_type)
 
     async def _hydrate(self) -> None:
         device_info = await self._conn.get_device_info()
@@ -317,13 +325,14 @@ class RadioController:
 
         status = await self._conn.get_status()
 
-        # No need to save the remove event handler function, since we don't
-        # need to unregister it when we disconnect (the connection will take care of that)
-        self._conn.add_event_handler(
-            self._on_event_message
-        )
+        # For some reason, enabling the HT_STATUS_CHANGED event
+        # also enables the DATA_RXD event, and maybe others...
+        # need to investigate further.
+        await self.enable_event("HT_STATUS_CHANGED")
 
-        await self._conn.enable_events()
+        # TODO: should these events be enabled by default? perhaps I should have
+        # users enable events manually, while simultaneously registering handlers
+        # of the proper type?
 
         self._state = _RadioState(
             device_info=device_info,
@@ -331,6 +340,12 @@ class RadioController:
             status=status,
             settings=settings,
             channels=channels,
+        )
+
+        # No need to save the remove event handler function, since we don't
+        # need to unregister it when we disconnect (the connection will take care of that)
+        self._conn.add_event_handler(
+            self._on_event_message
         )
 
     def _on_event_message(self, event_message: EventMessage) -> None:
