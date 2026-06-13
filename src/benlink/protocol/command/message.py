@@ -132,6 +132,7 @@ class BasicCommand(IntEnum):
     SET_DEV_ID = 74
     GET_PF_ACTIONS = 75
     GET_POSITION = 76
+    SET_SATELLITE_INFO = 77
 
 
 def frame_type_disc(m: Message):
