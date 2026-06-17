@@ -30,6 +30,7 @@ from .bss_settings import (
 from .phone_status import SetPhoneStatusBody, SetPhoneStatusReplyBody
 from .status import GetHtStatusBody, GetHtStatusReplyBody
 from .position import GetPositionBody, GetPositionReplyBody
+from .satellite_info import SetSatelliteInfoBody, SetSatelliteInfoReplyBody
 
 
 class CommandGroup(IntEnum):
@@ -184,6 +185,11 @@ def body_disc(m: Message, n: int):
                     out = GetHtStatusReplyBody if m.is_reply else GetHtStatusBody
                 case BasicCommand.GET_POSITION:
                     out = GetPositionReplyBody if m.is_reply else GetPositionBody
+                case BasicCommand.SET_SATELLITE_INFO:
+                    out = (
+                        SetSatelliteInfoReplyBody if m.is_reply
+                        else SetSatelliteInfoBody
+                    )
                 case _:
                     return bf_bytes(n // 8)
         case CommandGroup.EXTENDED:
@@ -223,6 +229,8 @@ MessageBody = t.Union[
     GetHtStatusReplyBody,
     GetPositionReplyBody,
     GetPositionBody,
+    SetSatelliteInfoBody,
+    SetSatelliteInfoReplyBody,
 ]
 
 
