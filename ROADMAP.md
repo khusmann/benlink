@@ -138,31 +138,24 @@ real `Bitfield` types is straightforward once we have a few more samples.
   correlated capture: change one thing at a time on the radio and log
   which byte/bit flips.
 
-**3.5.b `BSS_SETTINGS_CHANGED` (event_type=11) — partially decoded 2026-07-04**
-- Observed body: 52 bytes. Cross-referenced with Tier 2.3 beacon read.
-- Sample (callsign KC9MHE, aprs_ssid=4, aprs_symbol=`/[`, bss_user_id=101976):
-  ```
-  00 ee 48 b4 00 01 8e 58                           # 8-byte header
-                                                    # (contains bss_user_id
-                                                    #  = 101976 = 0x00018E58
-                                                    #  → little-endian? big-endian?
-                                                    #  0x00018E58 = 101976 ✓)
-  4b 43 39 4d 48 45 00 00 00 00 00 00 00 00 00 00   # aprs_callsign 'KC9MHE',
-  00 00 00 00 00 00 00 00                           # 24-byte null-padded field
-  2f 5b                                             # aprs_symbol '/['
-  4b 43 39 4d 48 45 00 00 00 00                     # ptt_release_id_info 'KC9MHE',
-                                                    # 10-byte null-padded field
-  0f 00                                             # trailer (aprs_ssid=4? flags?)
-  ```
-- **Reliable interpretation:** this event is a `BeaconSettings` change
-  broadcast — same struct that `GetBeaconSettingsReply` returns, wire
-  format matches. Not a group-relay message.
-- Still open: header (first 6 bytes), trailer (`0f 00`), and where
-  bss_user_id lives exactly. Reads look consistent with an implicit
-  `BSSSettings` protocol type — parsing this as a `p.BSSSettings` or
-  `p.BSSSettingsV2` in `event.py` may Just Work.
-- Next step: try wiring `BSS_SETTINGS_CHANGED` body to
-  `BSSSettings`/`BSSSettingsV2` and see if benlink parses it cleanly.
+**3.5.b `BSS_SETTINGS_CHANGED` (event_type=11) — ✅ decoded and wired 2026-07-04**
+- Body is a bare `BSSSettings` (50 bytes) or `BSSSettingsV2` (52 bytes),
+  same wire format as `ReadBSSSettingsReplyBody.bss_settings`. Not a
+  group-relay message; it's the same struct the HT app receives when a
+  BSS/beacon field changes.
+- Field-by-field parse of the captured 52-byte payload matches the
+  Tier 2.3 beacon read exactly (packet_format=APRS, aprs_callsign=
+  'KC9MHE', aprs_ssid=4, aprs_symbol='/[', ptt_release_id_info='KC9MHE',
+  bss_user_id=101976, location_share_interval=1800, all boolean flags
+  identical). Plus one bonus: `smart_beacon_max_interval=30` (V2 tail
+  `0f 00`) which isn't exposed on the high-level `BeaconSettings` yet.
+- Wired: `BSSSettingsChangedEvent` in `protocol/command/notification.py`
+  + `BeaconSettingsChangedEvent` in `command.py`. Now surfaces cleanly
+  through the event handler API instead of falling through to
+  `UnknownEvent`.
+- Follow-up: `BeaconSettings` (high-level) doesn't expose
+  `smart_beacon_min_interval`, `smart_beacon_max_interval`, or the
+  other `_unk_bss_*` bits. Add them to `BeaconSettings` + `BeaconSettingsArgs`.
 
 **3.5.c Missing event types on N76**
 During the 60s event watch, these types never fired:

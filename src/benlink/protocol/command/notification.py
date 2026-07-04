@@ -11,6 +11,7 @@ from .settings import Settings
 from .rf_ch import RfCh
 from .common import TncDataFragment
 from .status import Status, StatusExt
+from .bss_settings import BSSSettings, BSSSettingsV2
 
 from enum import IntEnum
 
@@ -67,6 +68,21 @@ class HTChChangedEvent(Bitfield):
     rf_ch: RfCh
 
 
+# Observed on VR-N76 fw=147: `BSS_SETTINGS_CHANGED` bodies are the same
+# on-wire shape as `ReadBSSSettingsReplyBody.bss_settings` (i.e. a bare
+# BSSSettings/BSSSettingsV2), 50 or 52 bytes depending on soft_ver.
+def bss_settings_event_disc(_: BSSSettingsChangedEvent, n: int):
+    if n == BSSSettings.length():
+        return BSSSettings
+    if n == BSSSettingsV2.length():
+        return BSSSettingsV2
+    raise ValueError(f"Unknown size for BSS_SETTINGS_CHANGED payload ({n})")
+
+
+class BSSSettingsChangedEvent(Bitfield):
+    bss_settings: BSSSettings | BSSSettingsV2 = bf_dyn(bss_settings_event_disc)
+
+
 def event_notification_disc(m: EventNotificationBody, n: int):
     match m.event_type:
         case EventType.HT_SETTINGS_CHANGED:
@@ -77,6 +93,8 @@ def event_notification_disc(m: EventNotificationBody, n: int):
             return bf_bitfield(DataRxdEvent, n)
         case EventType.HT_CH_CHANGED:
             return HTChChangedEvent
+        case EventType.BSS_SETTINGS_CHANGED:
+            return bf_bitfield(BSSSettingsChangedEvent, n)
         case _:
             return bf_bitfield(UnknownEvent, n)
 
@@ -87,6 +105,7 @@ Event = t.Union[
     HTStatusChangedEvent,
     HTSettingsChangedEvent,
     HTChChangedEvent,
+    BSSSettingsChangedEvent,
 ]
 
 

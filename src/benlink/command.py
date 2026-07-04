@@ -481,6 +481,12 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     status=status
                 ):
                     return StatusChangedEvent(Status.from_protocol(status))
+                case p.BSSSettingsChangedEvent(
+                    bss_settings=bss_settings
+                ):
+                    return BeaconSettingsChangedEvent(
+                        BeaconSettings.from_protocol(bss_settings)
+                    )
                 case _:
                     return UnknownProtocolMessage(mf)
         case p.ReadSettingsReplyBody(
@@ -735,6 +741,10 @@ class SettingsChangedEvent(t.NamedTuple):
     settings: Settings
 
 
+class BeaconSettingsChangedEvent(t.NamedTuple):
+    beacon_settings: BeaconSettings
+
+
 class UnknownProtocolMessage(t.NamedTuple):
     message: p.Message
 
@@ -742,6 +752,7 @@ class UnknownProtocolMessage(t.NamedTuple):
 EventMessage = t.Union[
     TncDataFragmentReceivedEvent,
     SettingsChangedEvent,
+    BeaconSettingsChangedEvent,
     ChannelChangedEvent,
     StatusChangedEvent,
     UnknownProtocolMessage,
