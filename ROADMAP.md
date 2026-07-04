@@ -101,11 +101,25 @@ switching groups on the N76 and watching `HT_STATUS_CHANGED` payloads.
 `HT_SETTINGS_CHANGED` with the group's own `channel_a` / `channel_b`
 values (settings appear region-scoped). `HT_CH_CHANGED` does **not**
 fire on region switch — so `radio.channels[]` cache does not
-auto-refresh when the region changes. Need to add either an explicit
-refresh call after `set_region()` or teach the controller to re-read
-`channels[]` on `curr_region` transitions.
+auto-refresh when the region changes.
 
-**No body structs exist yet** for the write-side opcodes.
+**✅ SET_REGION decoded and wired 2026-07-04.** Confirmed on N76 fw=147
+via `scripts/t3_1_set_region_probe.py`:
+- Request body: 1 byte `region_id` (0-based).
+- Reply body: 1 byte `reply_status` (0 = SUCCESS).
+- Probe: 3→0 flipped `curr_region` cleanly and the 32-slot channel
+  table differed at every position (baseline had 32 named ham/APRS
+  channels, region 0 had 10 named FRS/GMRS channels + empty slots).
+  Restore back to 3 was bit-exact (0/32 slots drifted).
+- Wired: `protocol/command/region.py` (SetRegionBody / SetRegionReplyBody),
+  `SetRegion` / `SetRegionReply` in `command.py`, `radio.set_region(id)`
+  on the controller. `set_region()` also re-reads `status` and the full
+  `channels[]` table into the cache so the API stays coherent.
+
+**Still open:** `READ_REGION_NAME` (73), `WRITE_REGION_NAME` (59),
+`WRITE_REGION_CH` (58). Body structs unknown. `READ_REGION_NAME` is the
+next cheap probe — likely `<region_id: u8>` request, reply is name
+string.
 
 Suggested attack:
 

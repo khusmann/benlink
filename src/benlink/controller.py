@@ -274,6 +274,32 @@ class RadioController:
 
         self._state.channels[channel_id] = new_channel
 
+    async def set_region(self, region_id: int) -> None:
+        """Switch to a different channel-bank / group / region.
+
+        Wire format is 0-based (the N76 UI shows groups 1-based, so a user
+        who wants "Group 3" passes region_id=2). This also refreshes the
+        cached `channels[]` and `status` from the new region.
+
+        Verified on VR-N76 fw=147 (2026-07-04).
+        """
+        if self._state is None:
+            raise StateNotInitializedError()
+
+        await self._conn.set_region(region_id)
+
+        # The N76 emits HT_SETTINGS_CHANGED + HT_STATUS_CHANGED after a
+        # region switch, but does NOT emit HT_CH_CHANGED for the new
+        # channel table, so our cache is stale. Re-read everything the
+        # region owns.
+        new_status = await self._conn.get_status()
+        new_channels = []
+        for i in range(self._state.device_info.channel_count):
+            new_channels.append(await self._conn.get_channel(i))
+
+        self._state.status = new_status
+        self._state.channels = new_channels
+
     def is_connected(self) -> bool:
         return self._state is not None and self._conn.is_connected()
 

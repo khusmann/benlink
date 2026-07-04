@@ -228,6 +228,18 @@ class CommandConnection:
             raise reply.as_exception()
         return reply.position
 
+    async def set_region(self, region_id: int) -> None:
+        """Switch to a different channel-bank / group / region (0-based).
+
+        On the VR-N76 UI, groups are shown 1-based; pass region_id-1 here.
+        The radio's `channels[]` table maps to the *current* region only,
+        so callers should re-read channels after switching if they need
+        the new table.
+        """
+        reply = await self.send_message_expect_reply(SetRegion(region_id), SetRegionReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+
     async def __aenter__(self):
         await self.connect()
         return self
@@ -373,6 +385,13 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 is_reply=False,
                 command=p.BasicCommand.GET_POSITION,
                 body=p.GetPositionBody()
+            )
+        case SetRegion(region_id):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.SET_REGION,
+                body=p.SetRegionBody(region_id=region_id)
             )
 
 
@@ -557,6 +576,14 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                 )
             return SetChannelReply()
 
+        case p.SetRegionReplyBody(reply_status=reply_status):
+            if reply_status != p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    message_type=SetRegionReply,
+                    reason=reply_status.name,
+                )
+            return SetRegionReply()
+
         case _:
             return UnknownProtocolMessage(mf)
 
@@ -624,6 +651,10 @@ class SendTncDataFragment(t.NamedTuple):
     tnc_data_fragment: TncDataFragment
 
 
+class SetRegion(t.NamedTuple):
+    region_id: int
+
+
 CommandMessage = t.Union[
     GetBeaconSettings,
     SetBeaconSettings,
@@ -640,6 +671,7 @@ CommandMessage = t.Union[
     EnableEvent,
     GetStatus,
     GetPosition,
+    SetRegion,
 ]
 
 #####################
@@ -702,6 +734,10 @@ class GetPositionReply(t.NamedTuple):
     position: Position
 
 
+class SetRegionReply(t.NamedTuple):
+    pass
+
+
 ReplyStatus = t.Literal[
     "SUCCESS",
     "NOT_SUPPORTED",
@@ -737,6 +773,7 @@ ReplyMessage = t.Union[
     SendTncDataFragmentReply,
     GetStatusReply,
     GetPositionReply,
+    SetRegionReply,
     MessageReplyError,
 ]
 
