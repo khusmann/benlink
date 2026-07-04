@@ -40,7 +40,8 @@ The following radios should work with this library:
 
 - BTech UV-Pro
 - RadioOddity GA-5WB
-- Vero VR-N76 (untested)
+- Vero VR-N76 (basic control + channel programming tested, 2026-07-03 —
+  see [docs/testing/N76.md](docs/testing/N76.md))
 - Vero VR-N7500 (untested)
 - BTech GMRS-Pro (untested)
 
