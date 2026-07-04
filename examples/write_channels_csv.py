@@ -9,7 +9,8 @@ Usage:
 CSV columns (see hull_ma_channels.csv for a full example):
     slot,name,rx_freq,tx_freq,tone_out,tone_in,mode,bandwidth,tx_disable,notes
 
-- slot: 0-based channel index (0 .. channel_count-1 as reported by device_info)
+- slot: 1-based channel index (matches what the radio shows on-screen).
+  Internally translated to benlink's 0-based `radio.channels[]` API.
 - name: up to 10 characters (radio limit)
 - rx_freq / tx_freq: MHz as float (e.g. 146.520)
 - tone_out / tone_in: CTCSS tone (Hz) or blank for none
@@ -70,7 +71,16 @@ async def run(csv_path: Path, uuid: str, go: bool) -> None:
     async with RadioController.new_ble(uuid) as radio:
         for entry in plan:
             slot = entry["slot"]
-            current = radio.channels[slot]
+            # CSV uses 1-based slots (matches the radio's on-screen numbering);
+            # benlink's channels[] and set_channel() are 0-based.
+            idx = slot - 1
+            if idx < 0 or idx >= len(radio.channels):
+                print(
+                    f"[{slot:2d}] SKIP -- out of range "
+                    f"(radio has {len(radio.channels)} channels, valid slots 1..{len(radio.channels)})"
+                )
+                continue
+            current = radio.channels[idx]
             txd = "RX-only" if entry["tx_disable"] else "TX+RX"
             print(
                 f"[{slot:2d}] {entry['name']:<12} "
@@ -85,7 +95,7 @@ async def run(csv_path: Path, uuid: str, go: bool) -> None:
 
             if go:
                 await radio.set_channel(
-                    slot,
+                    idx,
                     name=entry["name"],
                     rx_freq=entry["rx_freq"],
                     tx_freq=entry["tx_freq"],
