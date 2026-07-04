@@ -49,17 +49,22 @@ Low risk, no protocol changes needed, just exercise more of the existing
   - `power_saving_mode`
   Confirm each takes effect on the device and survives a reboot.
 
-### 2.3 Beacon (APRS) settings ✅ (read-side verified 2026-07-04)
-- `radio.beacon_settings` populates cleanly on connect. Full field dump
-  via `scripts/t2_3_beacon_read.py`. Verified on N76 fw=147 with all
-  16 documented fields returning coherent values (packet_format='APRS',
-  aprs_callsign, aprs_ssid, aprs_symbol, beacon_message,
-  ptt_release_id_info, bss_user_id, location_share_interval, and 7
-  boolean flags).
-- Write test with a **placeholder** callsign (e.g. `TEST-1`) still
-  pending. Do **not** actually transmit a beacon on a live APRS
-  frequency during testing — put the radio on a dummy load or a
-  non-APRS frequency.
+### 2.3 Beacon (APRS) settings ✅ (read + write verified 2026-07-04)
+- Read: `radio.beacon_settings` populates cleanly on connect. Full
+  21-field dump via `scripts/t2_3_beacon_read.py`. Verified on N76
+  fw=147 with `smart_beacon_en`, `smart_beacon_min/max_interval`,
+  `mic_e_en`, and `send_id_by_aprs` exposed after the follow-up in
+  3.5.b landed.
+- Write: `scripts/t2_3b_beacon_write.py` toggles `should_share_location`
+  False↔True and verifies (a) only the target field changes on the
+  wire and in the cached state, (b) full baseline is restored after
+  the round-trip. Passed clean on N76 fw=147; no adjacent-field
+  damage. This confirms `set_beacon_settings(**kwargs)` is a
+  targeted write like `set_settings(**kwargs)`.
+- Placeholder-callsign write test on a safe (non-APRS) frequency
+  still worth doing if we ever change `aprs_callsign` / `aprs_ssid` /
+  `beacon_message`, but for the low-risk boolean case the API is
+  proven safe.
 
 ### 2.4 Event handler / notifications
 - Subscribe with `radio.add_event_handler(...)`, then wiggle knobs on
