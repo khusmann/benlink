@@ -92,7 +92,20 @@ The N76 UI calls them "groups" (up to 12), each with a 32-channel table
 - `SET_REGION` (60)
 - `Status.curr_region` (already parsed)
 
-**No body structs exist yet** for any of these opcodes.
+**Reading the current region works today** — verified 2026-07-04 by
+switching groups on the N76 and watching `HT_STATUS_CHANGED` payloads.
+`curr_region` is 0-based (radio UI shows 1-based). Switching from Group
+1→3→6→1→2→3 emitted `curr_region` 0→2→5→0→1→2 in that order.
+
+**Also observed 2026-07-04:** every group switch also fires
+`HT_SETTINGS_CHANGED` with the group's own `channel_a` / `channel_b`
+values (settings appear region-scoped). `HT_CH_CHANGED` does **not**
+fire on region switch — so `radio.channels[]` cache does not
+auto-refresh when the region changes. Need to add either an explicit
+refresh call after `set_region()` or teach the controller to re-read
+`channels[]` on `curr_region` transitions.
+
+**No body structs exist yet** for the write-side opcodes.
 
 Suggested attack:
 
@@ -154,6 +167,44 @@ real `Bitfield` types is straightforward once we have a few more samples.
   radio is sitting still. For a guaranteed TX inside the window,
   either disable smart_beacon_en (fixed `location_share_interval`
   applies) or wait long enough for the stationary cap.
+
+**3.5.c `POSITION_CHANGE` / `POSITION_CHANGED` (event_type=13) — seen firing but body not decoded**
+
+When `should_share_location=True` and the N76 has a GPS fix, this event
+fires every ~1s with an 18-byte body. Sample from 2026-07-04 (radio
+stationary on m2uehlair):
+```
+13 5d 37 df 8d 24 00 07 00 00 00 a7 6a 49 16 8c 00 06
+13 5d 37 df 8d 24 00 07 00 00 00 a7 6a 49 16 8d 00 06
+13 5d 37 df 8d 24 00 07 00 00 00 a7 6a 49 16 8e 00 06
+...
+13 5d 37 df 8d 24 00 08 00 00 00 a7 6a 49 16 a9 00 06
+```
+- Bytes 0-3: `13 5d 37 df` constant — could be a GPS timestamp base
+  (0xdf375d13 LE = 3745577747 = 2088-09-... probably GPS week seconds
+  from a fixed epoch) or a session id.
+- Byte 4: `8d` constant (radio was stationary; would probably encode
+  something like speed / fix-quality on movement)
+- Bytes 4-5: `8d 24` — constant. Possibly heading + something.
+- Bytes 6-7: `00 07` observed for the first ~30s, then `00 08` for
+  the rest. Number of visible sats climbed 7→8.
+- Bytes 8-10: `00 00 00` constant.
+- Bytes 11-14: `a7 6a 49 16` constant (stationary radio in Boston). If
+  interpreted as int32 little-endian, `0x16496aa7 = 374,548,647`.
+  In degrees×10^7 that's 37.4548647° — doesn't match Boston (42.36°N,
+  -71.06°W). Might be lon (−71.0648° = −710648333 →
+  0xD5A94DBB… doesn't match either). Encoding is not straight int32
+  ×10^7; possibly Locus / Maidenhead-style packed, or a coord
+  reference frame we haven't figured out.
+- Byte 15: monotonic 1-byte counter (0x86 → 0xB6 across 48s, wraps at
+  0xFF presumably). Ticks ~once per second, matches the event rate.
+- Bytes 16-17: `00 06` constant.
+- Total: 18 bytes.
+- Next step: capture a second sample from a different location and diff
+  bytes 11-14 to lock down the coordinate encoding.
+- Fix for `enable_event("POSITION_CHANGED")`: the alias trick works
+  (`POSITION_CHANGED` == `POSITION_CHANGE` in the enum), events flow
+  in fine; only the body decode is missing.
 
 **3.5.b `BSS_SETTINGS_CHANGED` (event_type=11) — ✅ decoded and wired 2026-07-04**
 - Body is a bare `BSSSettings` (50 bytes) or `BSSSettingsV2` (52 bytes),
