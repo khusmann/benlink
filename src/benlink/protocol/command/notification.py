@@ -30,6 +30,11 @@ class EventType(IntEnum):
     BSS_SETTINGS_CHANGED = 11
     DATA_TXD = 12
     POSITION_CHANGE = 13
+    # Alias — the public EventType Literal in `command.py` uses the tense
+    # "POSITION_CHANGED" (matching all the other *_CHANGED members).
+    # `enable_event("POSITION_CHANGED")` used to KeyError because the enum
+    # only had `POSITION_CHANGE`. Aliasing here keeps both spellings valid.
+    POSITION_CHANGED = 13
 
 
 class HTSettingsChangedEvent(Bitfield):

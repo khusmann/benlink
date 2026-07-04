@@ -168,13 +168,20 @@ def body_disc(m: Message, n: int):
                     out = WriteBSSSettingsReplyBody if m.is_reply else WriteBSSSettingsBody
                 case BasicCommand.EVENT_NOTIFICATION:
                     if m.is_reply:
-                        raise ValueError("EventNotification cannot be a reply")
+                        # VR-N76 (fw 147) sometimes tags EventNotification
+                        # frames with is_reply=True. Fall back to opaque
+                        # bytes instead of raising, so the frame surfaces
+                        # as UnknownProtocolMessage rather than crashing
+                        # the BLE callback.
+                        return bf_bytes(n // 8)
                     out = EventNotificationBody
                 case BasicCommand.REGISTER_NOTIFICATION:
                     if m.is_reply:
-                        raise ValueError(
-                            "RegisterNotification cannot be a reply"
-                        )
+                        # Same rationale as EVENT_NOTIFICATION above. The
+                        # N76 firmware echoes register-notification acks
+                        # with the reply bit set; benlink upstream raised
+                        # ValueError here, taking down the notify pipe.
+                        return bf_bytes(n // 8)
                     out = RegisterNotificationBody
                 case BasicCommand.HT_SEND_DATA:
                     out = HTSendDataReplyBody if m.is_reply else HTSendDataBody
