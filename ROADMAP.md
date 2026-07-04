@@ -142,6 +142,18 @@ real `Bitfield` types is straightforward once we have a few more samples.
 - Probably a status bitmask (screen mode / PTT / squelch flags). Need
   correlated capture: change one thing at a time on the radio and log
   which byte/bit flips.
+- Capture script: `scripts/t3_5a_radio_status_capture.py`. Subscribes
+  to RADIO_STATUS_CHANGED + HT_STATUS_CHANGED, prints each body with
+  timestamp + bit-level diff vs previous, plus summary of distinct
+  payloads. Ideal correlation source: watch TX bits flip while an
+  auto-beacon fires.
+- Timing gotcha: smart-beacon interval is not fixed. On the N76,
+  `smart_beacon_min_interval` is the fast-moving cadence and
+  `smart_beacon_max_interval` is the stationary cap (up to 30 min).
+  Auto-beacon might not fire inside a short capture window if the
+  radio is sitting still. For a guaranteed TX inside the window,
+  either disable smart_beacon_en (fixed `location_share_interval`
+  applies) or wait long enough for the stationary cap.
 
 **3.5.b `BSS_SETTINGS_CHANGED` (event_type=11) — ✅ decoded and wired 2026-07-04**
 - Body is a bare `BSSSettings` (50 bytes) or `BSSSettingsV2` (52 bytes),
