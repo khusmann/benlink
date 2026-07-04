@@ -122,13 +122,49 @@ notes). Need to confirm:
 app maps these to human-readable strings (e.g. "0.7.1"). Figure out the
 mapping (probably major.minor.patch nibbles) and add a helper.
 
-### 3.5 Audio TX/RX
+### 3.5 Event payload decode gaps (raw samples captured 2026-07-04)
+
+During Tier 2.4 testing on N76 (fw 147), these `EventNotification` events
+fire but their bodies fall through to `UnknownEvent(data=...)`. Adding
+real `Bitfield` types is straightforward once we have a few more samples.
+
+**3.5.a `RADIO_STATUS_CHANGED` (event_type=8)**
+- Observed body: 4 bytes, e.g. `00 00 00 00`
+- Probably a status bitmask (screen mode / PTT / squelch flags). Need
+  correlated capture: change one thing at a time on the radio and log
+  which byte/bit flips.
+
+**3.5.b `BSS_SETTINGS_CHANGED` (event_type=11)**
+- Observed body: 52 bytes, contains the operator callsign twice.
+- Sample (callsign KC9MHE):
+  ```
+  00 ee 48 b4 00 01 8e 58                           # 8-byte header
+  4b 43 39 4d 48 45 00 00 00 00 00 00 00 00 00 00   # "KC9MHE" + null pad (24)
+  00 00 00 00 00 00 00 00                           # …continued
+  2f 5b                                             # separator "/["
+  4b 43 39 4d 48 45 00 00 00 00                     # "KC9MHE" + null pad (10)
+  0f 00                                             # trailer
+  ```
+- Hypothesis: BSS group-status broadcast. Header may be group id + counter;
+  two callsigns are likely `source` and `via`/`relay`.
+- To decode: multi-radio testing (two N76s in a BSS group), plus toggling
+  BSS settings in the HT app and diffing.
+
+**3.5.c Missing event types on N76**
+During the 60s event watch, these types never fired:
+- `HT_CH_CHANGED` — channel changes appear to come through
+  `HT_SETTINGS_CHANGED` instead. Consider adding a controller-side
+  synth event when the channel field of `Settings` mutates.
+- `USER_ACTION`, `DATA_RXD`, `DATA_TXD` — not exercised (no APRS/DMR
+  traffic during the test). Rerun with an APRS beacon nearby to confirm.
+
+### 3.6 Audio TX/RX
 Author flagged in the README that audio is awkward pending libsbc
 bindings. Confirmed audio bytes come out of the N76 during RX with
 squelch open (based on `bt-ht-n76` prior art), but decoding needs pyav
 or libsbc. Out of scope for a single evening; parking here.
 
-### 3.6 Firmware update path
+### 3.7 Firmware update path
 Issue #10 in the upstream repo asks for firmware flashing over BLE.
 Not attempting this on the N76 — the risk/reward is bad while the HT
 app still works and can flash. Revisit only if Vero stops maintaining
