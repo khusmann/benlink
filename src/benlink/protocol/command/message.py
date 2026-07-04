@@ -30,7 +30,12 @@ from .bss_settings import (
 from .phone_status import SetPhoneStatusBody, SetPhoneStatusReplyBody
 from .status import GetHtStatusBody, GetHtStatusReplyBody
 from .position import GetPositionBody, GetPositionReplyBody
-from .region import SetRegionBody, SetRegionReplyBody
+from .region import (
+    SetRegionBody,
+    SetRegionReplyBody,
+    ReadRegionNameBody,
+    ReadRegionNameReplyBody,
+)
 
 
 class CommandGroup(IntEnum):
@@ -194,6 +199,8 @@ def body_disc(m: Message, n: int):
                     out = GetPositionReplyBody if m.is_reply else GetPositionBody
                 case BasicCommand.SET_REGION:
                     out = SetRegionReplyBody if m.is_reply else SetRegionBody
+                case BasicCommand.READ_REGION_NAME:
+                    out = ReadRegionNameReplyBody if m.is_reply else ReadRegionNameBody
                 case _:
                     return bf_bytes(n // 8)
         case CommandGroup.EXTENDED:
@@ -235,6 +242,8 @@ MessageBody = t.Union[
     GetPositionBody,
     SetRegionBody,
     SetRegionReplyBody,
+    ReadRegionNameBody,
+    ReadRegionNameReplyBody,
 ]
 
 

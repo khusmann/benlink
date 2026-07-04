@@ -274,6 +274,31 @@ class RadioController:
 
         self._state.channels[channel_id] = new_channel
 
+    async def get_region_name(self, region_id: int) -> str | None:
+        """Read a region's display name (0-based).
+
+        Returns None if the region_id is out of range (i.e. the radio
+        reports INVALID_PARAMETER). Returns an empty string if the
+        region exists but has never been named.
+        """
+        return await self._conn.read_region_name(region_id)
+
+    async def get_region_names(self, max_regions: int = 12) -> t.List[str]:
+        """Read display names for all existing regions.
+
+        Probes region_id 0..max_regions-1 (default 12, the N76 UI's cap)
+        and stops at the first INVALID_PARAMETER. Verified on VR-N76
+        fw=147: 6 regions exist (0..5), regions 6..11 return
+        INVALID_PARAMETER.
+        """
+        names: t.List[str] = []
+        for i in range(max_regions):
+            name = await self._conn.read_region_name(i)
+            if name is None:
+                break
+            names.append(name)
+        return names
+
     async def set_region(self, region_id: int) -> None:
         """Switch to a different channel-bank / group / region.
 

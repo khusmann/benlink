@@ -116,10 +116,33 @@ via `scripts/t3_1_set_region_probe.py`:
   on the controller. `set_region()` also re-reads `status` and the full
   `channels[]` table into the cache so the API stays coherent.
 
-**Still open:** `READ_REGION_NAME` (73), `WRITE_REGION_NAME` (59),
-`WRITE_REGION_CH` (58). Body structs unknown. `READ_REGION_NAME` is the
-next cheap probe — likely `<region_id: u8>` request, reply is name
-string.
+**✅ READ_REGION_NAME decoded and wired 2026-07-04.** Confirmed on N76
+fw=147 via `scripts/t3_1_read_region_name_probe.py`:
+- Request body: 1 byte `region_id`.
+- Reply body on success (12 bytes): `<reply_status: u8=0><region_id: u8><name: str(10)>`,
+  name null-padded fixed width.
+- Reply body on out-of-range (1 byte): `<reply_status: u8=5=INVALID_PARAMETER>`.
+- Wired the dynamic reply discriminator in `protocol/command/region.py`.
+- New API: `radio.get_region_name(id)` (returns str or None if
+  out-of-range) and `radio.get_region_names()` (auto-probes 0..N,
+  stops at first INVALID_PARAMETER).
+
+**Real-world regions on Eric's N76** (2026-07-04): 6 regions exist,
+names 'NOAA Weath', 'Family Ops', 'NOAA Weath', '', '', ''. Regions
+6..11 return INVALID_PARAMETER. So the enum's implicit "up to 12"
+assumption was wrong — the N76 has 6 groups, not 12.
+
+**Still open:** `WRITE_REGION_NAME` (59), `WRITE_REGION_CH` (58).
+Body structs unknown.
+
+- `WRITE_REGION_NAME` is probably the mirror of READ_REGION_NAME:
+  1B region_id + 10B name string in the request, 1B reply_status back.
+  Safe to probe once we're willing to overwrite one of the blank
+  regions (3, 4, or 5).
+- `WRITE_REGION_CH` is the big one. The request must include a
+  region_id and a full RfCh record (there's already `WRITE_RF_CH`=14
+  for the current region, so this is essentially the same body with
+  a region_id prefix). Likely shape: `<region_id: u8><RfCh>`.
 
 Suggested attack:
 

@@ -240,6 +240,23 @@ class CommandConnection:
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
+    async def read_region_name(self, region_id: int) -> str | None:
+        """Read the display name of a region (0-based).
+
+        Returns the name string (max 10 chars, null-trimmed), or None if
+        the region_id is out of range (radio returns INVALID_PARAMETER).
+        A named region may still return an empty string if the user
+        never set a name; that's not the same as "region doesn't exist".
+        """
+        reply = await self.send_message_expect_reply(
+            ReadRegionName(region_id), ReadRegionNameReply
+        )
+        if isinstance(reply, MessageReplyError):
+            if reply.reason == "INVALID_PARAMETER":
+                return None
+            raise reply.as_exception()
+        return reply.name
+
     async def __aenter__(self):
         await self.connect()
         return self
@@ -392,6 +409,13 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 is_reply=False,
                 command=p.BasicCommand.SET_REGION,
                 body=p.SetRegionBody(region_id=region_id)
+            )
+        case ReadRegionName(region_id):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.READ_REGION_NAME,
+                body=p.ReadRegionNameBody(region_id=region_id)
             )
 
 
@@ -584,6 +608,20 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                 )
             return SetRegionReply()
 
+        case p.ReadRegionNameReplyBody(
+            reply_status=reply_status,
+            payload=payload,
+        ):
+            if reply_status != p.ReplyStatus.SUCCESS or payload is None:
+                return MessageReplyError(
+                    message_type=ReadRegionNameReply,
+                    reason=reply_status.name,
+                )
+            return ReadRegionNameReply(
+                region_id=payload.region_id,
+                name=payload.name,
+            )
+
         case _:
             return UnknownProtocolMessage(mf)
 
@@ -655,7 +693,12 @@ class SetRegion(t.NamedTuple):
     region_id: int
 
 
+class ReadRegionName(t.NamedTuple):
+    region_id: int
+
+
 CommandMessage = t.Union[
+    ReadRegionName,
     GetBeaconSettings,
     SetBeaconSettings,
     GetRCBatteryLevel,
@@ -673,6 +716,7 @@ CommandMessage = t.Union[
     GetPosition,
     SetRegion,
 ]
+
 
 #####################
 # ReplyMessage
@@ -738,6 +782,11 @@ class SetRegionReply(t.NamedTuple):
     pass
 
 
+class ReadRegionNameReply(t.NamedTuple):
+    region_id: int
+    name: str
+
+
 ReplyStatus = t.Literal[
     "SUCCESS",
     "NOT_SUPPORTED",
@@ -774,6 +823,7 @@ ReplyMessage = t.Union[
     GetStatusReply,
     GetPositionReply,
     SetRegionReply,
+    ReadRegionNameReply,
     MessageReplyError,
 ]
 
