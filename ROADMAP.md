@@ -132,17 +132,36 @@ names 'NOAA Weath', 'Family Ops', 'NOAA Weath', '', '', ''. Regions
 6..11 return INVALID_PARAMETER. So the enum's implicit "up to 12"
 assumption was wrong — the N76 has 6 groups, not 12.
 
-**Still open:** `WRITE_REGION_NAME` (59), `WRITE_REGION_CH` (58).
-Body structs unknown.
+**✅ WRITE_REGION_NAME decoded and wired 2026-07-04.** Confirmed on N76
+fw=147 via `scripts/t3_1_write_region_name_probe.py`:
+- Request body: 11 bytes = `<region_id: u8><name: str(10)>`
+- Reply body: 1 byte = `<reply_status>` (0 = SUCCESS)
+- Round-trip on blank region 5: 'BENLINK' → read-back → restore → ''
+- New API: `radio.set_region_name(region_id, name)`
 
-- `WRITE_REGION_NAME` is probably the mirror of READ_REGION_NAME:
-  1B region_id + 10B name string in the request, 1B reply_status back.
-  Safe to probe once we're willing to overwrite one of the blank
-  regions (3, 4, or 5).
-- `WRITE_REGION_CH` is the big one. The request must include a
-  region_id and a full RfCh record (there's already `WRITE_RF_CH`=14
-  for the current region, so this is essentially the same body with
-  a region_id prefix). Likely shape: `<region_id: u8><RfCh>`.
+**✅ WRITE_REGION_CH decoded and wired 2026-07-04.** Confirmed on N76
+fw=147 via `scripts/t3_1_write_region_ch_probe.py`:
+- Request body: 26 bytes = `<region_id: u8><RfCh (25 bytes)>`
+- Reply body: 3 bytes = `<reply_status><region_id><channel_id>`
+  (radio echoes both region_id and channel_id — nice defense-in-depth)
+- Round-trip on region 5 slot 31: 'Quin 550' baseline → write 'TEST31'
+  → verify → restore 'Quin 550' → verify. Bit-exact both ways.
+- New API: `radio.set_region_channel(region_id, channel_id, **channel_args)`.
+  Analogous to `set_channel()` but targets an arbitrary region, not
+  just the currently-active one. Cache updates in-place if the target
+  region is the current one; otherwise remains stale until the next
+  region switch (which triggers a full channels[] refresh).
+
+**Tier 3.1 is now complete on the read side and mostly complete on the
+write side.** Remaining nice-to-haves:
+- Auto-discover N regions at connect time and cache their names
+  (currently `get_region_names()` probes on demand)
+- Add a hydrator that reads all N region tables into memory on connect
+  (would enable a `channels_in_region(region_id)` accessor without
+  requiring a region switch)
+- Confirm `WRITE_REGION_CH` into a *foreign* region survives a
+  reboot (only round-trip has been verified; long-term persistence
+  is very likely but worth checking on next power cycle)
 
 Suggested attack:
 

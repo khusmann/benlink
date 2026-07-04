@@ -292,6 +292,39 @@ class RadioController:
         """
         await self._conn.write_region_name(region_id, name)
 
+    async def set_region_channel(
+        self,
+        region_id: int,
+        channel_id: int,
+        **channel_args: Unpack[ChannelArgs],
+    ) -> None:
+        """Write a channel into a specific region's channel table.
+
+        Works whether or not the target region is the currently-active
+        one. When writing into the active region, the local
+        `channels[]` cache is updated in-place.
+
+        Uses the current-region channel at `channel_id` as the base
+        template for anything not overridden in kwargs — same behavior
+        as `set_channel()`.
+
+        Verified on VR-N76 fw=147 (2026-07-04).
+        """
+        if self._state is None:
+            raise StateNotInitializedError()
+
+        template = self._state.channels[channel_id]
+        new_channel = template.model_copy(
+            update={**dict(channel_args), "channel_id": channel_id}
+        )
+
+        await self._conn.write_region_channel(region_id, new_channel)
+
+        # If we wrote into the currently-active region, our cache is now
+        # authoritative for that slot too.
+        if region_id == self._state.status.curr_region:
+            self._state.channels[channel_id] = new_channel
+
     async def get_region_names(self, max_regions: int = 12) -> t.List[str]:
         """Read display names for all existing regions.
 

@@ -37,6 +37,8 @@ from .region import (
     ReadRegionNameReplyBody,
     WriteRegionNameBody,
     WriteRegionNameReplyBody,
+    WriteRegionChBody,
+    WriteRegionChReplyBody,
 )
 
 
@@ -205,6 +207,8 @@ def body_disc(m: Message, n: int):
                     out = ReadRegionNameReplyBody if m.is_reply else ReadRegionNameBody
                 case BasicCommand.WRITE_REGION_NAME:
                     out = WriteRegionNameReplyBody if m.is_reply else WriteRegionNameBody
+                case BasicCommand.WRITE_REGION_CH:
+                    out = WriteRegionChReplyBody if m.is_reply else WriteRegionChBody
                 case _:
                     return bf_bytes(n // 8)
         case CommandGroup.EXTENDED:
@@ -250,6 +254,8 @@ MessageBody = t.Union[
     ReadRegionNameReplyBody,
     WriteRegionNameBody,
     WriteRegionNameReplyBody,
+    WriteRegionChBody,
+    WriteRegionChReplyBody,
 ]
 
 

@@ -272,6 +272,22 @@ class CommandConnection:
         if isinstance(reply, MessageReplyError):
             raise reply.as_exception()
 
+    async def write_region_channel(self, region_id: int, channel: Channel) -> None:
+        """Write a channel into a specific region's channel table.
+
+        The channel's `channel_id` field determines the slot within the
+        target region. Unlike `set_channel()`, this does not require the
+        radio to be currently on `region_id` and does not touch the
+        currently-active region's table.
+
+        Verified on VR-N76 fw=147 (2026-07-04).
+        """
+        reply = await self.send_message_expect_reply(
+            WriteRegionChannel(region_id, channel), WriteRegionChannelReply
+        )
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+
     async def __aenter__(self):
         await self.connect()
         return self
@@ -438,6 +454,16 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 is_reply=False,
                 command=p.BasicCommand.WRITE_REGION_NAME,
                 body=p.WriteRegionNameBody(region_id=region_id, name=name)
+            )
+        case WriteRegionChannel(region_id, channel):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.WRITE_REGION_CH,
+                body=p.WriteRegionChBody(
+                    region_id=region_id,
+                    rf_ch=channel.to_protocol(),
+                )
             )
 
 
@@ -652,6 +678,21 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                 )
             return WriteRegionNameReply()
 
+        case p.WriteRegionChReplyBody(
+            reply_status=reply_status,
+            region_id=region_id,
+            channel_id=channel_id,
+        ):
+            if reply_status != p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    message_type=WriteRegionChannelReply,
+                    reason=reply_status.name,
+                )
+            return WriteRegionChannelReply(
+                region_id=region_id,
+                channel_id=channel_id,
+            )
+
         case _:
             return UnknownProtocolMessage(mf)
 
@@ -732,9 +773,15 @@ class WriteRegionName(t.NamedTuple):
     name: str
 
 
+class WriteRegionChannel(t.NamedTuple):
+    region_id: int
+    channel: Channel
+
+
 CommandMessage = t.Union[
     ReadRegionName,
     WriteRegionName,
+    WriteRegionChannel,
     GetBeaconSettings,
     SetBeaconSettings,
     GetRCBatteryLevel,
@@ -827,6 +874,11 @@ class WriteRegionNameReply(t.NamedTuple):
     pass
 
 
+class WriteRegionChannelReply(t.NamedTuple):
+    region_id: int
+    channel_id: int
+
+
 ReplyStatus = t.Literal[
     "SUCCESS",
     "NOT_SUPPORTED",
@@ -865,6 +917,7 @@ ReplyMessage = t.Union[
     SetRegionReply,
     ReadRegionNameReply,
     WriteRegionNameReply,
+    WriteRegionChannelReply,
     MessageReplyError,
 ]
 
