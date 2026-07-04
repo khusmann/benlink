@@ -83,8 +83,9 @@ async def main() -> None:
         # Round-trip check: also fetch fresh via the low-level conn to
         # confirm the cached copy matches what the radio reports now.
         try:
-            fresh = await radio._conn.get_beacon_settings()
-            fresh_bs = fresh.tnc_settings
+            # _conn.get_beacon_settings() already unwraps the reply and
+            # returns a BeaconSettings directly (not GetBeaconSettingsReply).
+            fresh_bs = await radio._conn.get_beacon_settings()
             print()
             print("--- fresh read via _conn.get_beacon_settings() ---")
             same = all(

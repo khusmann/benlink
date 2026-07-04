@@ -49,13 +49,17 @@ Low risk, no protocol changes needed, just exercise more of the existing
   - `power_saving_mode`
   Confirm each takes effect on the device and survives a reboot.
 
-### 2.3 Beacon (APRS) settings
-- `BeaconSettings` / `BeaconSettingsArgs` exist in `command.py`. Read
-  current beacon config from the radio.
-- Attempt to write a new beacon config with a **placeholder** callsign
-  (e.g. `TEST-1`), verify the radio accepts it. Do **not** actually
-  transmit a beacon on a live APRS frequency during testing — put the
-  radio on a dummy load or a non-APRS frequency.
+### 2.3 Beacon (APRS) settings ✅ (read-side verified 2026-07-04)
+- `radio.beacon_settings` populates cleanly on connect. Full field dump
+  via `scripts/t2_3_beacon_read.py`. Verified on N76 fw=147 with all
+  16 documented fields returning coherent values (packet_format='APRS',
+  aprs_callsign, aprs_ssid, aprs_symbol, beacon_message,
+  ptt_release_id_info, bss_user_id, location_share_interval, and 7
+  boolean flags).
+- Write test with a **placeholder** callsign (e.g. `TEST-1`) still
+  pending. Do **not** actually transmit a beacon on a live APRS
+  frequency during testing — put the radio on a dummy load or a
+  non-APRS frequency.
 
 ### 2.4 Event handler / notifications
 - Subscribe with `radio.add_event_handler(...)`, then wiggle knobs on
@@ -134,21 +138,31 @@ real `Bitfield` types is straightforward once we have a few more samples.
   correlated capture: change one thing at a time on the radio and log
   which byte/bit flips.
 
-**3.5.b `BSS_SETTINGS_CHANGED` (event_type=11)**
-- Observed body: 52 bytes, contains the operator callsign twice.
-- Sample (callsign KC9MHE):
+**3.5.b `BSS_SETTINGS_CHANGED` (event_type=11) — partially decoded 2026-07-04**
+- Observed body: 52 bytes. Cross-referenced with Tier 2.3 beacon read.
+- Sample (callsign KC9MHE, aprs_ssid=4, aprs_symbol=`/[`, bss_user_id=101976):
   ```
   00 ee 48 b4 00 01 8e 58                           # 8-byte header
-  4b 43 39 4d 48 45 00 00 00 00 00 00 00 00 00 00   # "KC9MHE" + null pad (24)
-  00 00 00 00 00 00 00 00                           # …continued
-  2f 5b                                             # separator "/["
-  4b 43 39 4d 48 45 00 00 00 00                     # "KC9MHE" + null pad (10)
-  0f 00                                             # trailer
+                                                    # (contains bss_user_id
+                                                    #  = 101976 = 0x00018E58
+                                                    #  → little-endian? big-endian?
+                                                    #  0x00018E58 = 101976 ✓)
+  4b 43 39 4d 48 45 00 00 00 00 00 00 00 00 00 00   # aprs_callsign 'KC9MHE',
+  00 00 00 00 00 00 00 00                           # 24-byte null-padded field
+  2f 5b                                             # aprs_symbol '/['
+  4b 43 39 4d 48 45 00 00 00 00                     # ptt_release_id_info 'KC9MHE',
+                                                    # 10-byte null-padded field
+  0f 00                                             # trailer (aprs_ssid=4? flags?)
   ```
-- Hypothesis: BSS group-status broadcast. Header may be group id + counter;
-  two callsigns are likely `source` and `via`/`relay`.
-- To decode: multi-radio testing (two N76s in a BSS group), plus toggling
-  BSS settings in the HT app and diffing.
+- **Reliable interpretation:** this event is a `BeaconSettings` change
+  broadcast — same struct that `GetBeaconSettingsReply` returns, wire
+  format matches. Not a group-relay message.
+- Still open: header (first 6 bytes), trailer (`0f 00`), and where
+  bss_user_id lives exactly. Reads look consistent with an implicit
+  `BSSSettings` protocol type — parsing this as a `p.BSSSettings` or
+  `p.BSSSettingsV2` in `event.py` may Just Work.
+- Next step: try wiring `BSS_SETTINGS_CHANGED` body to
+  `BSSSettings`/`BSSSettingsV2` and see if benlink parses it cleanly.
 
 **3.5.c Missing event types on N76**
 During the 60s event watch, these types never fired:
