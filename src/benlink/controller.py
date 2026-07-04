@@ -165,6 +165,8 @@ from .command import (
     EventMessage,
     EventType,
     SettingsChangedEvent,
+    BeaconSettingsChangedEvent,
+    NotificationAckEvent,
     TncDataFragmentReceivedEvent,
     ChannelChangedEvent,
     StatusChangedEvent,
@@ -359,10 +361,15 @@ class RadioController:
                 self._state.channels[channel.channel_id] = channel
             case SettingsChangedEvent(settings):
                 self._state.settings = settings
+            case BeaconSettingsChangedEvent(beacon_settings):
+                self._state.beacon_settings = beacon_settings
             case TncDataFragmentReceivedEvent():
                 pass
             case StatusChangedEvent(status):
                 self._state.status = status
+            case NotificationAckEvent():
+                # Silent — this is just a subscribe ack, not a real event.
+                pass
             case UnknownProtocolMessage(message):
                 print(
                     f"[DEBUG] Unknown protocol message: {message}",

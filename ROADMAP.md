@@ -153,9 +153,14 @@ real `Bitfield` types is straightforward once we have a few more samples.
   + `BeaconSettingsChangedEvent` in `command.py`. Now surfaces cleanly
   through the event handler API instead of falling through to
   `UnknownEvent`.
-- Follow-up: `BeaconSettings` (high-level) doesn't expose
-  `smart_beacon_min_interval`, `smart_beacon_max_interval`, or the
-  other `_unk_bss_*` bits. Add them to `BeaconSettings` + `BeaconSettingsArgs`.
+- ✅ Follow-up landed 2026-07-04: `BeaconSettings` + `BeaconSettingsArgs`
+  now expose `smart_beacon_en`, `mic_e_en`, `send_id_by_aprs`,
+  `smart_beacon_min_interval`, `smart_beacon_max_interval`. Round-trip
+  is bit-exact.
+- ✅ `REGISTER_NOTIFICATION` and `EVENT_NOTIFICATION` replies with
+  `is_reply=True` now surface as `NotificationAckEvent(command, body)`
+  instead of `UnknownProtocolMessage`. Controller swallows them
+  silently.
 
 **3.5.c Missing event types on N76**
 During the 60s event watch, these types never fired:

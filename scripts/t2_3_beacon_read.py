@@ -57,6 +57,11 @@ def dump_beacon(bs) -> None:
         "ptt_release_send_bss_user_id",
         "max_fwd_times",
         "time_to_live",
+        "smart_beacon_en",
+        "smart_beacon_min_interval",
+        "smart_beacon_max_interval",
+        "mic_e_en",
+        "send_id_by_aprs",
     ]
     print("--- beacon_settings ---")
     for f in fields:
