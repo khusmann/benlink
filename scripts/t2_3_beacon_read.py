@@ -8,6 +8,9 @@ beacon_message + aprs_callsign).
 import asyncio
 from bleak import BleakScanner
 import benlink.controller as bc
+from _teelog import setup_teelog
+
+setup_teelog(__file__)
 
 KNOWN_UUID = "377F7AC2-2AA3-D0F4-8DDC-D89A4C3594C6"
 NAME_HINTS = ("VR-N76", "N76", "VERO", "BENSHI")

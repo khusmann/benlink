@@ -11,6 +11,9 @@ import asyncio
 import time
 from bleak import BleakScanner
 import benlink.controller as bc
+from _teelog import setup_teelog
+
+setup_teelog(__file__)
 from benlink.command import UnknownProtocolMessage
 
 ALL_EVENTS = [

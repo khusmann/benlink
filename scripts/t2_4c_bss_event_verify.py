@@ -17,6 +17,9 @@ from benlink.command import (
     BeaconSettingsChangedEvent,
     UnknownProtocolMessage,
 )
+from _teelog import setup_teelog
+
+setup_teelog(__file__)
 
 KNOWN_UUID = "377F7AC2-2AA3-D0F4-8DDC-D89A4C3594C6"
 WATCH_SECONDS = 90
