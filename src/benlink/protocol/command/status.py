@@ -41,7 +41,8 @@ class StatusExt(Status):
     rssi: float = bf_map(bf_int(4), Scale(100 / 15))
     curr_region: int = bf_int(6)
     curr_channel_id_upper: int = bf_int(4)
-    _pad: t.Literal[0] = bf_lit_int(2, default=0)
+    # Trailing pad; observed non-zero on Vero VR-N76 (firmware ~0.7.x).
+    _pad: int = bf_int(2, default=0)
 
 
 def status_disc(m: GetHtStatusReplyBody, n: int):
