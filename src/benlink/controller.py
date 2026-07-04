@@ -283,6 +283,15 @@ class RadioController:
         """
         return await self._conn.read_region_name(region_id)
 
+    async def set_region_name(self, region_id: int, name: str) -> None:
+        """Set a region's display name (0-based).
+
+        Names are stored in a 10-byte fixed-width field. Passing an
+        empty string clears the stored name. Verified on VR-N76 fw=147
+        (2026-07-04).
+        """
+        await self._conn.write_region_name(region_id, name)
+
     async def get_region_names(self, max_regions: int = 12) -> t.List[str]:
         """Read display names for all existing regions.
 

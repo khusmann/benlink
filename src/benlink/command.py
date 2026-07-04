@@ -257,6 +257,21 @@ class CommandConnection:
             raise reply.as_exception()
         return reply.name
 
+    async def write_region_name(self, region_id: int, name: str) -> None:
+        """Set the display name of a region (0-based).
+
+        Name is stored in a 10-byte null-padded field; names longer
+        than 10 characters raise ValueError. Blank names ('') are
+        allowed and clear the region's stored name.
+        """
+        if len(name) > 10:
+            raise ValueError(f"region name too long ({len(name)} > 10)")
+        reply = await self.send_message_expect_reply(
+            WriteRegionName(region_id, name), WriteRegionNameReply
+        )
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+
     async def __aenter__(self):
         await self.connect()
         return self
@@ -416,6 +431,13 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 is_reply=False,
                 command=p.BasicCommand.READ_REGION_NAME,
                 body=p.ReadRegionNameBody(region_id=region_id)
+            )
+        case WriteRegionName(region_id, name):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.WRITE_REGION_NAME,
+                body=p.WriteRegionNameBody(region_id=region_id, name=name)
             )
 
 
@@ -622,6 +644,14 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                 name=payload.name,
             )
 
+        case p.WriteRegionNameReplyBody(reply_status=reply_status):
+            if reply_status != p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    message_type=WriteRegionNameReply,
+                    reason=reply_status.name,
+                )
+            return WriteRegionNameReply()
+
         case _:
             return UnknownProtocolMessage(mf)
 
@@ -697,8 +727,14 @@ class ReadRegionName(t.NamedTuple):
     region_id: int
 
 
+class WriteRegionName(t.NamedTuple):
+    region_id: int
+    name: str
+
+
 CommandMessage = t.Union[
     ReadRegionName,
+    WriteRegionName,
     GetBeaconSettings,
     SetBeaconSettings,
     GetRCBatteryLevel,
@@ -787,6 +823,10 @@ class ReadRegionNameReply(t.NamedTuple):
     name: str
 
 
+class WriteRegionNameReply(t.NamedTuple):
+    pass
+
+
 ReplyStatus = t.Literal[
     "SUCCESS",
     "NOT_SUPPORTED",
@@ -824,6 +864,7 @@ ReplyMessage = t.Union[
     GetPositionReply,
     SetRegionReply,
     ReadRegionNameReply,
+    WriteRegionNameReply,
     MessageReplyError,
 ]
 

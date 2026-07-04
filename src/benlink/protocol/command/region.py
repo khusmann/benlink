@@ -13,7 +13,11 @@ READ_REGION_NAME (73):
   radio returns just `05` (INVALID_PARAMETER); parser handles the
   short-reply case in body_disc.
 
-Still unmapped: WRITE_REGION_CH (58), WRITE_REGION_NAME (59).
+WRITE_REGION_NAME (59):
+- Request body: 1 byte  region_id + 10 bytes name (null-padded, same field width as READ_REGION_NAME reply)
+- Reply body:   1 byte  reply_status (0 = SUCCESS)
+
+Still unmapped: WRITE_REGION_CH (58).
 """
 from __future__ import annotations
 from .bitfield import Bitfield, bf_int, bf_int_enum, bf_str, bf_dyn
@@ -46,3 +50,12 @@ def _read_region_name_reply_disc(m: ReadRegionNameReplyBody, n: int):
 class ReadRegionNameReplyBody(Bitfield):
     reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
     payload: _ReadRegionNameSuccessBody | None = bf_dyn(_read_region_name_reply_disc)
+
+
+class WriteRegionNameBody(Bitfield):
+    region_id: int = bf_int(8)
+    name: str = bf_str(10)
+
+
+class WriteRegionNameReplyBody(Bitfield):
+    reply_status: ReplyStatus = bf_int_enum(ReplyStatus, 8)
