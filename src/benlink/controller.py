@@ -183,6 +183,7 @@ class _RadioState:
     status: Status
     settings: Settings
     channels: t.List[Channel]
+    region_names: t.List[str]
 
 
 class RadioController:
@@ -292,6 +293,15 @@ class RadioController:
         """
         await self._conn.write_region_name(region_id, name)
 
+        # Update the cached names list so `radio.region_names` stays in sync
+        # without a re-probe.
+        if self._state is not None:
+            if 0 <= region_id < len(self._state.region_names):
+                self._state.region_names[region_id] = name
+            elif region_id == len(self._state.region_names):
+                # Naming a region we didn't previously know about -- append.
+                self._state.region_names.append(name)
+
     async def set_region_channel(
         self,
         region_id: int,
@@ -325,6 +335,19 @@ class RadioController:
         if region_id == self._state.status.curr_region:
             self._state.channels[channel_id] = new_channel
 
+    @property
+    def region_names(self) -> t.List[str]:
+        """Cached region display names, populated at connect time.
+
+        Read-only view of the region table. Refreshed automatically when
+        `set_region_name()` is called. Reflects only regions the radio
+        reported at hydrate time -- if that probe failed silently, this
+        list will be empty. Use `get_region_names()` to re-probe.
+        """
+        if self._state is None:
+            raise StateNotInitializedError()
+        return self._state.region_names
+
     async def get_region_names(self, max_regions: int = 12) -> t.List[str]:
         """Read display names for all existing regions.
 
@@ -332,6 +355,9 @@ class RadioController:
         and stops at the first INVALID_PARAMETER. Verified on VR-N76
         fw=147: 6 regions exist (0..5), regions 6..11 return
         INVALID_PARAMETER.
+
+        This method always re-reads from the radio; use `.region_names`
+        for the cached view populated at connect time.
         """
         names: t.List[str] = []
         for i in range(max_regions):
@@ -339,6 +365,8 @@ class RadioController:
             if name is None:
                 break
             names.append(name)
+        if self._state is not None:
+            self._state.region_names = names
         return names
 
     async def set_region(self, region_id: int) -> None:
@@ -420,6 +448,22 @@ class RadioController:
 
         status = await self._conn.get_status()
 
+        # Probe region name table. Some firmwares (or non-N76 radios)
+        # may not implement READ_REGION_NAME; treat any failure as
+        # "regions unavailable" and leave the cache empty rather than
+        # blocking the connect. Verified on VR-N76 fw=147: 6 regions
+        # exist (0..5), regions 6..11 return INVALID_PARAMETER and
+        # break the probe.
+        region_names: t.List[str] = []
+        try:
+            for i in range(12):
+                name = await self._conn.read_region_name(i)
+                if name is None:
+                    break
+                region_names.append(name)
+        except Exception:
+            region_names = []
+
         # For some reason, enabling the HT_STATUS_CHANGED event
         # also enables the DATA_RXD event, and maybe others...
         # need to investigate further.
@@ -435,6 +479,7 @@ class RadioController:
             status=status,
             settings=settings,
             channels=channels,
+            region_names=region_names,
         )
 
         # No need to save the remove event handler function, since we don't
