@@ -2,10 +2,137 @@ from __future__ import annotations
 import typing as t
 import socket
 import asyncio
+import re
+import shutil
+import subprocess
 from bleak import BleakClient
 from bleak.backends.characteristic import BleakGATTCharacteristic
 from . import protocol as p
 from .protocol.command.bitfield import BitStream
+
+
+# Benshi radios expose the command channel on a Bluetooth Classic
+# "Serial Port" (SPP, UUID 0x1101) RFCOMM record and the audio channel on a
+# vendor-specific record ("BS AOC", UUID 39144315-32fa-40db-85ed-fbfeba2d86e6).
+SPP_SERVICE_UUID_SHORT = "1101"
+SPP_SERVICE_UUID_LONG = "00001101-0000-1000-8000-00805f9b34fb"
+BENSHI_AUDIO_SERVICE_UUID = "39144315-32fa-40db-85ed-fbfeba2d86e6"
+
+
+_SHORT_UUID_RE = re.compile(
+    r"^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$", re.IGNORECASE
+)
+
+
+def _service_uuid_forms(service_uuid: str) -> list[str]:
+    """Return case-normalized forms of a Bluetooth service UUID.
+
+    For the short (16-bit) UUID range we also add the ``0xXXXX`` textual form
+    that ``sdptool`` emits inside Class ID lists.
+    """
+    low = service_uuid.lower()
+    forms = [low]
+    m = _SHORT_UUID_RE.match(low)
+    if m:
+        short = m.group(1)
+        forms.extend([f"0x{short}", short])
+    return forms
+
+
+def _sdptool_records(device_uuid: str, attempts: int = 4) -> str | None:
+    """Run ``sdptool records`` with retries for radios that sleep the BT stack.
+
+    Benshi radios can respond ``Failed to connect to SDP server ...: Host is
+    down`` on the first probe after idle, then start answering within a few
+    seconds. Retry a handful of times before giving up.
+    """
+    if shutil.which("sdptool") is None:
+        return None
+    text = ""
+    for i in range(attempts):
+        try:
+            out = subprocess.run(
+                ["sdptool", "records", device_uuid],
+                capture_output=True,
+                text=True,
+                timeout=25,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        text = (out.stdout or "") + "\n" + (out.stderr or "")
+        if "Service RecHandle" in text:
+            return text
+        # Give the radio a moment to wake if we saw a "Host is down" reply.
+        import time as _time
+        _time.sleep(1.5)
+    return text or None
+
+
+def _sdptool_channel(device_uuid: str, service_uuid: str) -> int | None:
+    """Look up the RFCOMM channel for ``service_uuid`` via ``sdptool``.
+
+    Returns ``None`` if ``sdptool`` is unavailable, the device cannot be
+    queried, or no matching record is present. Linux/BlueZ only.
+    """
+    text = _sdptool_records(device_uuid)
+    if not text:
+        return None
+    forms = _service_uuid_forms(service_uuid)
+    # sdptool emits one "Service RecHandle:" block per record; scan blocks
+    # for the service UUID we care about and grab the RFCOMM channel.
+    for block in re.split(r"(?=^Service RecHandle:)", text, flags=re.MULTILINE):
+        low = block.lower()
+        if not any(f in low for f in forms):
+            continue
+        m = re.search(r"\bChannel:\s*(\d+)\b", block)
+        if m:
+            return int(m.group(1))
+    return None
+
+
+def _bluetoothctl_channel(device_uuid: str, service_uuid: str) -> int | None:
+    """Best-effort channel probe via ``bluetoothctl info``.
+
+    ``bluetoothctl`` exposes advertised service UUIDs but does not include the
+    RFCOMM channel, so this helper only confirms the service is present on the
+    device. Returns ``None`` when we can't confirm.
+    """
+    if shutil.which("bluetoothctl") is None:
+        return None
+    try:
+        out = subprocess.run(
+            ["bluetoothctl", "--", "info", device_uuid],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if service_uuid.lower() in (out.stdout or "").lower():
+        # We know the record is there; the caller should have already tried
+        # ``sdptool``. Fall through to raise a helpful error.
+        return None
+    return None
+
+
+def _resolve_rfcomm_channel(device_uuid: str, service_uuid: str) -> int:
+    """Resolve the RFCOMM channel for ``service_uuid`` on ``device_uuid``.
+
+    Currently Linux-only; falls back to a clear ``NotImplementedError`` on
+    other platforms so callers can supply the channel explicitly.
+    """
+    ch = _sdptool_channel(device_uuid, service_uuid)
+    if ch is not None:
+        return ch
+    # Confirm the record is at least advertised, to give a better error.
+    _bluetoothctl_channel(device_uuid, service_uuid)
+    raise NotImplementedError(
+        "Auto RFCOMM channel selection requires the Linux ``sdptool`` utility"
+        " (from bluez); could not resolve service "
+        f"{service_uuid} on {device_uuid}. Pass channel=<int> explicitly."
+    )
 
 ##################################################
 # CommandLink
@@ -81,9 +208,7 @@ class RfcommCommandLink:
         read_size: int = 1024
     ):
         if channel == "auto":
-            raise NotImplementedError(
-                "Auto channel selection not implemented yet"
-            )
+            channel = _resolve_rfcomm_channel(device_uuid, SPP_SERVICE_UUID_LONG)
         self._client = RfcommClient(device_uuid, channel, read_size)
         self._buffer = BitStream()
 
@@ -150,9 +275,7 @@ class RfcommAudioLink:
         read_size: int = 1024
     ):
         if channel == "auto":
-            raise NotImplementedError(
-                "Auto channel selection not implemented yet"
-            )
+            channel = _resolve_rfcomm_channel(device_uuid, BENSHI_AUDIO_SERVICE_UUID)
         self._client = RfcommClient(device_uuid, channel, read_size)
         self._buffer = bytes()
 

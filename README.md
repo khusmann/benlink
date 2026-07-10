@@ -82,6 +82,28 @@ async def main():
 asyncio.run(main())
 ```
 
+### Linux notes
+
+On Linux/BlueZ some setup quirks are worth knowing about:
+
+- **Pair first.** BlueZ requires the radio to be paired and bonded before GATT
+  service discovery will complete. If you see
+  `bleak.exc.BleakError: failed to discover services, device disconnected`
+  during a BLE connect, pair the radio in `bluetoothctl` (or with
+  `BleakClient(addr, pair=True)`) while the radio is in pairing mode, then
+  reconnect.
+- **BLE vs. RFCOMM.** Once the radio is paired, BlueZ advertises the Benshi
+  RFCOMM records to the kernel and may refuse plain BLE with
+  `org.bluez.Error.Failed: br-connection-refused`. If that happens, use
+  `RadioController.new_rfcomm(...)` — the classic Bluetooth (RFCOMM) path is
+  fully supported on Linux via Python's built-in `socket` module.
+- **Auto channel discovery** uses the `sdptool` utility from `bluez`. Install
+  it with `sudo apt install bluez` (Debian/Ubuntu). Without `sdptool` you'll
+  need to pass `channel=<int>` explicitly to `new_rfcomm`. Benshi radios
+  sometimes sleep their BT stack when idle; the resolver retries a few times
+  to wake them.
+
+
 ## Next Steps
 
 To see what else you can do with this library, check out the examples in the
