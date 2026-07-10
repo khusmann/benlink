@@ -30,6 +30,16 @@ from .bss_settings import (
 from .phone_status import SetPhoneStatusBody, SetPhoneStatusReplyBody
 from .status import GetHtStatusBody, GetHtStatusReplyBody
 from .position import GetPositionBody, GetPositionReplyBody
+from .region import (
+    SetRegionBody,
+    SetRegionReplyBody,
+    ReadRegionNameBody,
+    ReadRegionNameReplyBody,
+    WriteRegionNameBody,
+    WriteRegionNameReplyBody,
+    WriteRegionChBody,
+    WriteRegionChReplyBody,
+)
 
 
 class CommandGroup(IntEnum):
@@ -168,13 +178,20 @@ def body_disc(m: Message, n: int):
                     out = WriteBSSSettingsReplyBody if m.is_reply else WriteBSSSettingsBody
                 case BasicCommand.EVENT_NOTIFICATION:
                     if m.is_reply:
-                        raise ValueError("EventNotification cannot be a reply")
+                        # VR-N76 (fw 147) sometimes tags EventNotification
+                        # frames with is_reply=True. Fall back to opaque
+                        # bytes instead of raising, so the frame surfaces
+                        # as UnknownProtocolMessage rather than crashing
+                        # the BLE callback.
+                        return bf_bytes(n // 8)
                     out = EventNotificationBody
                 case BasicCommand.REGISTER_NOTIFICATION:
                     if m.is_reply:
-                        raise ValueError(
-                            "RegisterNotification cannot be a reply"
-                        )
+                        # Same rationale as EVENT_NOTIFICATION above. The
+                        # N76 firmware echoes register-notification acks
+                        # with the reply bit set; benlink upstream raised
+                        # ValueError here, taking down the notify pipe.
+                        return bf_bytes(n // 8)
                     out = RegisterNotificationBody
                 case BasicCommand.HT_SEND_DATA:
                     out = HTSendDataReplyBody if m.is_reply else HTSendDataBody
@@ -184,6 +201,14 @@ def body_disc(m: Message, n: int):
                     out = GetHtStatusReplyBody if m.is_reply else GetHtStatusBody
                 case BasicCommand.GET_POSITION:
                     out = GetPositionReplyBody if m.is_reply else GetPositionBody
+                case BasicCommand.SET_REGION:
+                    out = SetRegionReplyBody if m.is_reply else SetRegionBody
+                case BasicCommand.READ_REGION_NAME:
+                    out = ReadRegionNameReplyBody if m.is_reply else ReadRegionNameBody
+                case BasicCommand.WRITE_REGION_NAME:
+                    out = WriteRegionNameReplyBody if m.is_reply else WriteRegionNameBody
+                case BasicCommand.WRITE_REGION_CH:
+                    out = WriteRegionChReplyBody if m.is_reply else WriteRegionChBody
                 case _:
                     return bf_bytes(n // 8)
         case CommandGroup.EXTENDED:
@@ -223,6 +248,14 @@ MessageBody = t.Union[
     GetHtStatusReplyBody,
     GetPositionReplyBody,
     GetPositionBody,
+    SetRegionBody,
+    SetRegionReplyBody,
+    ReadRegionNameBody,
+    ReadRegionNameReplyBody,
+    WriteRegionNameBody,
+    WriteRegionNameReplyBody,
+    WriteRegionChBody,
+    WriteRegionChReplyBody,
 ]
 
 

@@ -228,6 +228,66 @@ class CommandConnection:
             raise reply.as_exception()
         return reply.position
 
+    async def set_region(self, region_id: int) -> None:
+        """Switch to a different channel-bank / group / region (0-based).
+
+        On the VR-N76 UI, groups are shown 1-based; pass region_id-1 here.
+        The radio's `channels[]` table maps to the *current* region only,
+        so callers should re-read channels after switching if they need
+        the new table.
+        """
+        reply = await self.send_message_expect_reply(SetRegion(region_id), SetRegionReply)
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+
+    async def read_region_name(self, region_id: int) -> str | None:
+        """Read the display name of a region (0-based).
+
+        Returns the name string (max 10 chars, null-trimmed), or None if
+        the region_id is out of range (radio returns INVALID_PARAMETER).
+        A named region may still return an empty string if the user
+        never set a name; that's not the same as "region doesn't exist".
+        """
+        reply = await self.send_message_expect_reply(
+            ReadRegionName(region_id), ReadRegionNameReply
+        )
+        if isinstance(reply, MessageReplyError):
+            if reply.reason == "INVALID_PARAMETER":
+                return None
+            raise reply.as_exception()
+        return reply.name
+
+    async def write_region_name(self, region_id: int, name: str) -> None:
+        """Set the display name of a region (0-based).
+
+        Name is stored in a 10-byte null-padded field; names longer
+        than 10 characters raise ValueError. Blank names ('') are
+        allowed and clear the region's stored name.
+        """
+        if len(name) > 10:
+            raise ValueError(f"region name too long ({len(name)} > 10)")
+        reply = await self.send_message_expect_reply(
+            WriteRegionName(region_id, name), WriteRegionNameReply
+        )
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+
+    async def write_region_channel(self, region_id: int, channel: Channel) -> None:
+        """Write a channel into a specific region's channel table.
+
+        The channel's `channel_id` field determines the slot within the
+        target region. Unlike `set_channel()`, this does not require the
+        radio to be currently on `region_id` and does not touch the
+        currently-active region's table.
+
+        Verified on VR-N76 fw=147 (2026-07-04).
+        """
+        reply = await self.send_message_expect_reply(
+            WriteRegionChannel(region_id, channel), WriteRegionChannelReply
+        )
+        if isinstance(reply, MessageReplyError):
+            raise reply.as_exception()
+
     async def __aenter__(self):
         await self.connect()
         return self
@@ -374,10 +434,60 @@ def command_message_to_protocol(m: CommandMessage) -> p.Message:
                 command=p.BasicCommand.GET_POSITION,
                 body=p.GetPositionBody()
             )
+        case SetRegion(region_id):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.SET_REGION,
+                body=p.SetRegionBody(region_id=region_id)
+            )
+        case ReadRegionName(region_id):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.READ_REGION_NAME,
+                body=p.ReadRegionNameBody(region_id=region_id)
+            )
+        case WriteRegionName(region_id, name):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.WRITE_REGION_NAME,
+                body=p.WriteRegionNameBody(region_id=region_id, name=name)
+            )
+        case WriteRegionChannel(region_id, channel):
+            return p.Message(
+                command_group=p.CommandGroup.BASIC,
+                is_reply=False,
+                command=p.BasicCommand.WRITE_REGION_CH,
+                body=p.WriteRegionChBody(
+                    region_id=region_id,
+                    rf_ch=channel.to_protocol(),
+                )
+            )
 
 
 def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
     """@private (Protocol helper)"""
+    # VR-N76 (fw 147) sends REGISTER_NOTIFICATION and EVENT_NOTIFICATION
+    # replies with is_reply=True. The parser tolerates these by leaving
+    # the body as raw bytes (see protocol/command/message.py). Recognize
+    # them here so they surface as a distinct event rather than falling
+    # through to UnknownProtocolMessage.
+    if (
+        mf.is_reply
+        and mf.command_group == p.CommandGroup.BASIC
+        and mf.command in (
+            p.BasicCommand.REGISTER_NOTIFICATION,
+            p.BasicCommand.EVENT_NOTIFICATION,
+        )
+    ):
+        body_bytes = mf.body if isinstance(mf.body, (bytes, bytearray)) else b""
+        return NotificationAckEvent(
+            command=mf.command.name,
+            body=bytes(body_bytes),
+        )
+
     match mf.body:
         case p.GetPositionReplyBody(reply_status=reply_status, position=position):
             if position is None:
@@ -481,6 +591,12 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     status=status
                 ):
                     return StatusChangedEvent(Status.from_protocol(status))
+                case p.BSSSettingsChangedEvent(
+                    bss_settings=bss_settings
+                ):
+                    return BeaconSettingsChangedEvent(
+                        BeaconSettings.from_protocol(bss_settings)
+                    )
                 case _:
                     return UnknownProtocolMessage(mf)
         case p.ReadSettingsReplyBody(
@@ -531,6 +647,51 @@ def radio_message_from_protocol(mf: p.Message) -> RadioMessage:
                     reason=reply_status.name,
                 )
             return SetChannelReply()
+
+        case p.SetRegionReplyBody(reply_status=reply_status):
+            if reply_status != p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    message_type=SetRegionReply,
+                    reason=reply_status.name,
+                )
+            return SetRegionReply()
+
+        case p.ReadRegionNameReplyBody(
+            reply_status=reply_status,
+            payload=payload,
+        ):
+            if reply_status != p.ReplyStatus.SUCCESS or payload is None:
+                return MessageReplyError(
+                    message_type=ReadRegionNameReply,
+                    reason=reply_status.name,
+                )
+            return ReadRegionNameReply(
+                region_id=payload.region_id,
+                name=payload.name,
+            )
+
+        case p.WriteRegionNameReplyBody(reply_status=reply_status):
+            if reply_status != p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    message_type=WriteRegionNameReply,
+                    reason=reply_status.name,
+                )
+            return WriteRegionNameReply()
+
+        case p.WriteRegionChReplyBody(
+            reply_status=reply_status,
+            region_id=region_id,
+            channel_id=channel_id,
+        ):
+            if reply_status != p.ReplyStatus.SUCCESS:
+                return MessageReplyError(
+                    message_type=WriteRegionChannelReply,
+                    reason=reply_status.name,
+                )
+            return WriteRegionChannelReply(
+                region_id=region_id,
+                channel_id=channel_id,
+            )
 
         case _:
             return UnknownProtocolMessage(mf)
@@ -599,7 +760,28 @@ class SendTncDataFragment(t.NamedTuple):
     tnc_data_fragment: TncDataFragment
 
 
+class SetRegion(t.NamedTuple):
+    region_id: int
+
+
+class ReadRegionName(t.NamedTuple):
+    region_id: int
+
+
+class WriteRegionName(t.NamedTuple):
+    region_id: int
+    name: str
+
+
+class WriteRegionChannel(t.NamedTuple):
+    region_id: int
+    channel: Channel
+
+
 CommandMessage = t.Union[
+    ReadRegionName,
+    WriteRegionName,
+    WriteRegionChannel,
     GetBeaconSettings,
     SetBeaconSettings,
     GetRCBatteryLevel,
@@ -615,7 +797,9 @@ CommandMessage = t.Union[
     EnableEvent,
     GetStatus,
     GetPosition,
+    SetRegion,
 ]
+
 
 #####################
 # ReplyMessage
@@ -677,6 +861,24 @@ class GetPositionReply(t.NamedTuple):
     position: Position
 
 
+class SetRegionReply(t.NamedTuple):
+    pass
+
+
+class ReadRegionNameReply(t.NamedTuple):
+    region_id: int
+    name: str
+
+
+class WriteRegionNameReply(t.NamedTuple):
+    pass
+
+
+class WriteRegionChannelReply(t.NamedTuple):
+    region_id: int
+    channel_id: int
+
+
 ReplyStatus = t.Literal[
     "SUCCESS",
     "NOT_SUPPORTED",
@@ -712,6 +914,10 @@ ReplyMessage = t.Union[
     SendTncDataFragmentReply,
     GetStatusReply,
     GetPositionReply,
+    SetRegionReply,
+    ReadRegionNameReply,
+    WriteRegionNameReply,
+    WriteRegionChannelReply,
     MessageReplyError,
 ]
 
@@ -735,6 +941,23 @@ class SettingsChangedEvent(t.NamedTuple):
     settings: Settings
 
 
+class BeaconSettingsChangedEvent(t.NamedTuple):
+    beacon_settings: BeaconSettings
+
+
+class NotificationAckEvent(t.NamedTuple):
+    """Ack for REGISTER_NOTIFICATION / EVENT_NOTIFICATION with is_reply=True.
+
+    Observed on VR-N76 (fw 147): after subscribing to a notification
+    type via `radio.enable_event(...)`, the radio echoes a reply frame
+    with a short opaque body (e.g. `b'\x05'`). It's a status/ack and
+    can generally be ignored, but is surfaced here so it doesn't fall
+    through to UnknownProtocolMessage.
+    """
+    command: str
+    body: bytes
+
+
 class UnknownProtocolMessage(t.NamedTuple):
     message: p.Message
 
@@ -742,8 +965,10 @@ class UnknownProtocolMessage(t.NamedTuple):
 EventMessage = t.Union[
     TncDataFragmentReceivedEvent,
     SettingsChangedEvent,
+    BeaconSettingsChangedEvent,
     ChannelChangedEvent,
     StatusChangedEvent,
+    NotificationAckEvent,
     UnknownProtocolMessage,
 ]
 
@@ -1284,12 +1509,17 @@ class BeaconSettingsArgs(t.TypedDict, total=False):
     packet_format: t.Literal["BSS", "APRS"]
     allow_position_check: bool
     aprs_ssid: int
+    smart_beacon_en: bool
+    mic_e_en: bool
+    send_id_by_aprs: bool
     location_share_interval: int
     bss_user_id: int
     ptt_release_id_info: str
     beacon_message: str
     aprs_symbol: str
     aprs_callsign: str
+    smart_beacon_min_interval: int
+    smart_beacon_max_interval: int
 
 
 class BeaconSettings(ImmutableBaseModel):
@@ -1305,12 +1535,19 @@ class BeaconSettings(ImmutableBaseModel):
     packet_format: t.Literal["BSS", "APRS"]
     allow_position_check: bool
     aprs_ssid: int
+    smart_beacon_en: bool
+    mic_e_en: bool
+    send_id_by_aprs: bool
     location_share_interval: int
     bss_user_id: int
     ptt_release_id_info: str
     beacon_message: str
     aprs_symbol: str
     aprs_callsign: str
+    # Only present on BSSSettingsV2 (soft_ver >= 136 on the N76).
+    # Default to 0 for the older struct.
+    smart_beacon_min_interval: int = 0
+    smart_beacon_max_interval: int = 0
 
     @classmethod
     def from_protocol(cls, bs: p.BSSSettingsV2 | p.BSSSettings) -> BeaconSettings:
@@ -1326,6 +1563,9 @@ class BeaconSettings(ImmutableBaseModel):
             packet_format=bs.packet_format.name,
             allow_position_check=bs.allow_position_check,
             aprs_ssid=bs.aprs_ssid,
+            smart_beacon_en=bs.smart_beacon_en,
+            mic_e_en=bs.mic_e_en,
+            send_id_by_aprs=bs.send_id_by_aprs,
             location_share_interval=bs.location_share_interval,
             bss_user_id=cls._bss_user_id_split.from_parts(
                 bs.bss_user_id_upper, bs.bss_user_id_lower
@@ -1333,7 +1573,9 @@ class BeaconSettings(ImmutableBaseModel):
             ptt_release_id_info=bs.ptt_release_id_info,
             beacon_message=bs.beacon_message,
             aprs_symbol=bs.aprs_symbol,
-            aprs_callsign=bs.aprs_callsign
+            aprs_callsign=bs.aprs_callsign,
+            smart_beacon_min_interval=getattr(bs, "smart_beacon_min_interval", 0),
+            smart_beacon_max_interval=getattr(bs, "smart_beacon_max_interval", 0),
         )
 
     def to_protocol(self) -> p.BSSSettingsV2:
@@ -1349,6 +1591,9 @@ class BeaconSettings(ImmutableBaseModel):
             packet_format=p.PacketFormat[self.packet_format],
             allow_position_check=self.allow_position_check,
             aprs_ssid=self.aprs_ssid,
+            smart_beacon_en=self.smart_beacon_en,
+            mic_e_en=self.mic_e_en,
+            send_id_by_aprs=self.send_id_by_aprs,
             location_share_interval=self.location_share_interval,
             bss_user_id_lower=self._bss_user_id_split.get_lower(
                 self.bss_user_id
@@ -1360,6 +1605,8 @@ class BeaconSettings(ImmutableBaseModel):
             bss_user_id_upper=self._bss_user_id_split.get_upper(
                 self.bss_user_id
             ),
+            smart_beacon_min_interval=self.smart_beacon_min_interval,
+            smart_beacon_max_interval=self.smart_beacon_max_interval,
         )
 
 

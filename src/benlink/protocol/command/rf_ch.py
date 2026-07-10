@@ -61,7 +61,9 @@ class RfCh(Bitfield):
     fixed_bandwidth: bool
     fixed_tx_power: bool
     mute: bool
-    _pad: t.Literal[0] = bf_lit_int(4, default=0)
+    # Trailing pad; observed non-zero on Vero VR-N76 (firmware ~0.7.x).
+    # Left as opaque int so extra flag bits from newer firmwares parse cleanly.
+    _pad: int = bf_int(4, default=0)
     name_str: str = bf_str(10)
 
 
@@ -69,7 +71,8 @@ class RfChDMR(RfCh):
     tx_color: int = bf_int(4)
     rx_color: int = bf_int(4)
     slot: int = bf_int(1)
-    _pad2: t.Literal[0] = bf_lit_int(7, default=0)
+    # Trailing DMR pad; tolerant int for forward-compat.
+    _pad2: int = bf_int(7, default=0)
 
 
 def channel_settings_reply_disc(body: ReadRFChReplyBody, n: int):

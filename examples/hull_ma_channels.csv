@@ -1,0 +1,32 @@
+slot,name,rx_freq,tx_freq,tone_out,tone_in,mode,bandwidth,tx_disable,notes
+1,NOAA Boston,162.475,162.475,,,FM,WIDE,True,NOAA WX Boston/Hingham NWS - RX only
+2,2m Call,146.520,146.520,,,FM,WIDE,False,2m simplex national calling
+3,70cm Call,446.000,446.000,,,FM,WIDE,False,70cm simplex national calling
+4,Quincy WBR,146.670,146.070,146.2,,FM,WIDE,False,W1BRI Quincy MMRA net
+5,Boston KBOS,146.820,146.220,146.2,,FM,WIDE,False,K1BOS Boston MMRA Blue Hill
+6,Milton NEAR,146.985,146.385,88.5,,FM,WIDE,False,NE1AR Milton
+7,Boston WBOS,145.230,144.630,88.5,,FM,WIDE,False,W1BOS Boston
+8,Weym K1GHG,147.300,147.900,110.9,,FM,WIDE,False,K1GHG Weymouth (closest to Hull)
+9,Weym WSSH,147.345,147.945,110.9,,FM,WIDE,False,W1SSH Weymouth
+10,Hing K1GAS,146.430,146.430,,,FM,WIDE,False,K1GAS Hingham (may be DMR)
+11,Brai AE1TH,442.500,447.500,118.8,,FM,WIDE,False,AE1TH Braintree 70cm
+12,Bos NN1C,441.350,446.350,91.5,,FM,WIDE,False,NN1C Boston 70cm
+13,Bos WKRU,444.700,449.700,88.5,,FM,WIDE,False,W1KRU Boston 70cm
+14,Milt NEAR U,449.125,444.125,146.2,146.2,FM,WIDE,False,NE1AR Milton 70cm
+15,2m Alt1,146.580,146.580,,,FM,WIDE,False,2m simplex alt
+16,2m Alt2,147.420,147.420,,,FM,WIDE,False,2m simplex alt
+17,70cm Alt1,446.500,446.500,,,FM,WIDE,False,70cm simplex alt
+18,VHF06 Safe,156.300,156.300,,,FM,NARROW,False,Marine Ch06 intership safety
+19,VHF09 Hail,156.450,156.450,,,FM,NARROW,False,Marine Ch09 hailing
+20,VHF13 Brdg,156.650,156.650,,,FM,NARROW,False,Marine Ch13 bridge-to-bridge (1W)
+21,VHF16 Dist,156.800,156.800,,,FM,NARROW,False,Marine Ch16 distress/hail
+22,VHF22A CG,157.100,157.100,,,FM,NARROW,False,USCG Ch22A working
+23,VHF68 Rec,156.425,156.425,,,FM,NARROW,False,Marine Ch68 rec working
+24,VHF69 Rec,156.475,156.475,,,FM,NARROW,False,Marine Ch69 rec working
+25,VHF71 Rec,156.575,156.575,,,FM,NARROW,False,Marine Ch71 rec working
+26,VHF72 SS,156.625,156.625,,,FM,NARROW,False,Marine Ch72 ship-ship rec
+27,VHF78A Rec,156.925,156.925,,,FM,NARROW,False,Marine Ch78A rec working
+28,MURS1,151.820,151.820,,,FM,NARROW,False,MURS ch1 (no license)
+29,MURS2,151.880,151.880,,,FM,NARROW,False,MURS ch2 (no license)
+30,MURS3,151.940,151.940,,,FM,NARROW,False,MURS ch3 (no license)
+31,GMRS20,462.675,462.675,141.3,141.3,FM,NARROW,False,GMRS-20 emergency (needs $35 GMRS license)

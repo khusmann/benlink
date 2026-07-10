@@ -24,7 +24,10 @@ class DevInfo(Bitfield):
     freq_range_count: int = bf_int(4)
     support_noise_reduction: bool = bf_bool(default=False)
     support_smart_beacon: bool = bf_bool(default=False)
-    _pad: t.Literal[0] = bf_lit_int(2, default=0)
+    # Trailing pad; observed non-zero on Vero VR-N76 (firmware ~0.7.x).
+    # Treated as opaque int rather than strict-zero literal so radios with
+    # additional capability flags in these bits still parse cleanly.
+    _pad: int = bf_int(2, default=0)
 
 
 class GetDevInfoBody(Bitfield):

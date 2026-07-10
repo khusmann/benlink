@@ -165,6 +165,8 @@ from .command import (
     EventMessage,
     EventType,
     SettingsChangedEvent,
+    BeaconSettingsChangedEvent,
+    NotificationAckEvent,
     TncDataFragmentReceivedEvent,
     ChannelChangedEvent,
     StatusChangedEvent,
@@ -181,6 +183,7 @@ class _RadioState:
     status: Status
     settings: Settings
     channels: t.List[Channel]
+    region_names: t.List[str]
 
 
 class RadioController:
@@ -272,6 +275,126 @@ class RadioController:
 
         self._state.channels[channel_id] = new_channel
 
+    async def get_region_name(self, region_id: int) -> str | None:
+        """Read a region's display name (0-based).
+
+        Returns None if the region_id is out of range (i.e. the radio
+        reports INVALID_PARAMETER). Returns an empty string if the
+        region exists but has never been named.
+        """
+        return await self._conn.read_region_name(region_id)
+
+    async def set_region_name(self, region_id: int, name: str) -> None:
+        """Set a region's display name (0-based).
+
+        Names are stored in a 10-byte fixed-width field. Passing an
+        empty string clears the stored name. Verified on VR-N76 fw=147
+        (2026-07-04).
+        """
+        await self._conn.write_region_name(region_id, name)
+
+        # Update the cached names list so `radio.region_names` stays in sync
+        # without a re-probe.
+        if self._state is not None:
+            if 0 <= region_id < len(self._state.region_names):
+                self._state.region_names[region_id] = name
+            elif region_id == len(self._state.region_names):
+                # Naming a region we didn't previously know about -- append.
+                self._state.region_names.append(name)
+
+    async def set_region_channel(
+        self,
+        region_id: int,
+        channel_id: int,
+        **channel_args: Unpack[ChannelArgs],
+    ) -> None:
+        """Write a channel into a specific region's channel table.
+
+        Works whether or not the target region is the currently-active
+        one. When writing into the active region, the local
+        `channels[]` cache is updated in-place.
+
+        Uses the current-region channel at `channel_id` as the base
+        template for anything not overridden in kwargs — same behavior
+        as `set_channel()`.
+
+        Verified on VR-N76 fw=147 (2026-07-04).
+        """
+        if self._state is None:
+            raise StateNotInitializedError()
+
+        template = self._state.channels[channel_id]
+        new_channel = template.model_copy(
+            update={**dict(channel_args), "channel_id": channel_id}
+        )
+
+        await self._conn.write_region_channel(region_id, new_channel)
+
+        # If we wrote into the currently-active region, our cache is now
+        # authoritative for that slot too.
+        if region_id == self._state.status.curr_region:
+            self._state.channels[channel_id] = new_channel
+
+    @property
+    def region_names(self) -> t.List[str]:
+        """Cached region display names, populated at connect time.
+
+        Read-only view of the region table. Refreshed automatically when
+        `set_region_name()` is called. Reflects only regions the radio
+        reported at hydrate time -- if that probe failed silently, this
+        list will be empty. Use `get_region_names()` to re-probe.
+        """
+        if self._state is None:
+            raise StateNotInitializedError()
+        return self._state.region_names
+
+    async def get_region_names(self, max_regions: int = 12) -> t.List[str]:
+        """Read display names for all existing regions.
+
+        Probes region_id 0..max_regions-1 (default 12, the N76 UI's cap)
+        and stops at the first INVALID_PARAMETER. Verified on VR-N76
+        fw=147: 6 regions exist (0..5), regions 6..11 return
+        INVALID_PARAMETER.
+
+        This method always re-reads from the radio; use `.region_names`
+        for the cached view populated at connect time.
+        """
+        names: t.List[str] = []
+        for i in range(max_regions):
+            name = await self._conn.read_region_name(i)
+            if name is None:
+                break
+            names.append(name)
+        if self._state is not None:
+            self._state.region_names = names
+        return names
+
+    async def set_region(self, region_id: int) -> None:
+        """Switch to a different channel-bank / group / region.
+
+        Wire format is 0-based (the N76 UI shows groups 1-based, so a user
+        who wants "Group 3" passes region_id=2). This also refreshes the
+        cached `channels[]` and `status` from the new region.
+
+        Verified on VR-N76 fw=147 (2026-07-04).
+        """
+        if self._state is None:
+            raise StateNotInitializedError()
+
+        await self._conn.set_region(region_id)
+
+        # The N76 emits HT_SETTINGS_CHANGED + HT_STATUS_CHANGED after a
+        # region switch, but does NOT emit HT_CH_CHANGED for the new
+        # channel table, so our cache is stale. Re-read everything the
+        # region owns.
+        new_status = await self._conn.get_status()
+        new_channels = []
+        for i in range(self._state.device_info.channel_count):
+            new_channels.append(await self._conn.get_channel(i))
+
+        self._state.status = new_status
+        self._state.channels = new_channels
+
     def is_connected(self) -> bool:
         return self._state is not None and self._conn.is_connected()
 
@@ -325,6 +448,22 @@ class RadioController:
 
         status = await self._conn.get_status()
 
+        # Probe region name table. Some firmwares (or non-N76 radios)
+        # may not implement READ_REGION_NAME; treat any failure as
+        # "regions unavailable" and leave the cache empty rather than
+        # blocking the connect. Verified on VR-N76 fw=147: 6 regions
+        # exist (0..5), regions 6..11 return INVALID_PARAMETER and
+        # break the probe.
+        region_names: t.List[str] = []
+        try:
+            for i in range(12):
+                name = await self._conn.read_region_name(i)
+                if name is None:
+                    break
+                region_names.append(name)
+        except Exception:
+            region_names = []
+
         # For some reason, enabling the HT_STATUS_CHANGED event
         # also enables the DATA_RXD event, and maybe others...
         # need to investigate further.
@@ -340,6 +479,7 @@ class RadioController:
             status=status,
             settings=settings,
             channels=channels,
+            region_names=region_names,
         )
 
         # No need to save the remove event handler function, since we don't
@@ -359,10 +499,15 @@ class RadioController:
                 self._state.channels[channel.channel_id] = channel
             case SettingsChangedEvent(settings):
                 self._state.settings = settings
+            case BeaconSettingsChangedEvent(beacon_settings):
+                self._state.beacon_settings = beacon_settings
             case TncDataFragmentReceivedEvent():
                 pass
             case StatusChangedEvent(status):
                 self._state.status = status
+            case NotificationAckEvent():
+                # Silent — this is just a subscribe ack, not a real event.
+                pass
             case UnknownProtocolMessage(message):
                 print(
                     f"[DEBUG] Unknown protocol message: {message}",
