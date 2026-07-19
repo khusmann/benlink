@@ -2,7 +2,7 @@
 # THIS CAN BREAK YOUR RADIO
 
 **Flashing firmware can leave your radio unusable, and nothing in this library can
-undo it.** Downloading and assembling images is safe; `flash` and `update` are not.
+undo it.**
 
 # Disclaimer
 
