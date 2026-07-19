@@ -86,6 +86,9 @@ import zipfile
 
 from ..common import ImmutableBaseModel
 
+if t.TYPE_CHECKING:
+    from . import _benshikj_pb2
+
 OSS_BASE_URL = "https://pubdatas.oss-cn-shenzhen.aliyuncs.com"
 """@private"""
 
@@ -146,7 +149,7 @@ class FirmwareInfo(ImmutableBaseModel):
     but the current one."""
 
     @classmethod
-    def from_protocol(cls, info: t.Any) -> FirmwareInfo:
+    def from_protocol(cls, info: _benshikj_pb2.FirmwareInfo) -> FirmwareInfo:
         """@private (Protocol helper)"""
         return cls(version=info.version, url=info.url, md5=info.md5 or None)
 
@@ -157,7 +160,9 @@ class UpdateInfo(ImmutableBaseModel):
     base: FirmwareInfo
 
     @classmethod
-    def from_protocol(cls, result: t.Any) -> UpdateInfo | None:
+    def from_protocol(
+        cls, result: _benshikj_pb2.CheckFirmwareUpdateResult
+    ) -> UpdateInfo | None:
         """@private (Protocol helper)"""
         if not result.firmware.url or not result.base.url:
             return None

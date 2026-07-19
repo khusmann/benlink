@@ -12,6 +12,9 @@ import os
 import sys
 import tempfile
 
+if t.TYPE_CHECKING:
+    from ..command import CommandConnection, DeviceInfo
+
 from . import (
     BASE_IMAGES,
     PRODUCTS,
@@ -100,7 +103,7 @@ def _confirm(question: str, default_yes: bool, assume_yes: bool) -> bool:
 #####################
 # Radio
 
-def _connection(args: argparse.Namespace):
+def _connection(args: argparse.Namespace) -> CommandConnection:
     # Imported lazily: everything except the radio commands works without a
     # Bluetooth stack.
     from ..command import CommandConnection
@@ -114,7 +117,7 @@ def _connection(args: argparse.Namespace):
     return CommandConnection.new_ble(args.uuid)
 
 
-def _print_device_info(info: t.Any) -> None:
+def _print_device_info(info: DeviceInfo) -> None:
     _out(f"  vendor {info.vendor_id}, product {info.product_id}")
     _out(f"  firmware v{info.firmware_version}"
          f", hardware version {info.hardware_version}")
