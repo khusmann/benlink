@@ -64,8 +64,22 @@ RPC_METHOD = "/benshikj.DeviceManagement/CheckFirmwareUpdate"
 RPC_TIMEOUT = 10.0
 """@private"""
 
-DEFAULT_PATCH_NAME = "patch_base_to_vr_n76"
-"""Patch filename for the VR-N76 / GA-5WB. The UV-Pro uses `patch_base_to_vr_n76_m`."""
+PRODUCTS: t.Dict[str, t.Tuple[int, str]] = {
+    "VR_N76": (259, "patch_base_to_vr_n76"),
+    "GA_5WB": (259, "patch_base_to_vr_n76"),
+    "UV_PRO": (260, "patch_base_to_vr_n76_m"),
+    "VR_N75": (261, "patch_base_to_vr_n75_h2"),
+}
+"""Known radios, as `name: (product_id, patch_name)`.
+
+Every patch name here was returned by the update server for the corresponding product
+id. Note that 259 covers both the VR-N76 and the GA-5WB — they share a patch series,
+confirmed by a GA-5WB flash capture whose `md5sum_tail` matches
+`patch_base_to_vr_n76.v120` assembled against the shared base.
+"""
+
+DEFAULT_PATCH_NAME = PRODUCTS["VR_N76"][1]
+"""@private"""
 
 DEFAULT_BASE_VERSION = 1
 """Base image version. Independent of the firmware version; shared across releases."""
@@ -378,17 +392,48 @@ def _print_progress(label: str, done: int, total: int) -> None:
     print(f"\r{label}: {pct}", end="", file=sys.stderr, flush=True)
 
 
+def _print_firmware_info(label: str, info: FirmwareInfo) -> None:
+    # The server populates version for the patch but not for the base image.
+    print(f"{label} v{info.version}" if info.version else label)
+    print(f"  url {info.url}")
+    if info.md5:
+        print(f"  md5 {info.md5}")
+
+
 def _print_update_info(info: UpdateInfo) -> None:
-    print(f"firmware v{info.firmware.version}")
-    print(f"  url {info.firmware.url}")
-    print(f"  md5 {info.firmware.md5}")
-    print(f"base v{info.base.version}")
-    print(f"  url {info.base.url}")
-    print(f"  md5 {info.base.md5}")
+    _print_firmware_info("firmware", info.firmware)
+    _print_firmware_info("base", info.base)
+
+
+def _resolve_product(args: argparse.Namespace) -> t.Tuple[int | None, str]:
+    """Resolve `--product` into a product id and patch name, letting the explicit
+    `--product-id` / `--patch-name` flags override either half."""
+    product_id, patch_name = None, DEFAULT_PATCH_NAME
+
+    if getattr(args, "product", None):
+        product_id, patch_name = PRODUCTS[args.product]
+
+    if getattr(args, "product_id", None) is not None:
+        product_id = args.product_id
+    if getattr(args, "patch_name", None) is not None:
+        patch_name = args.patch_name
+
+    return product_id, patch_name
+
+
+def _require_product_id(product_id: int | None) -> int:
+    if product_id is None:
+        raise RuntimeError(
+            "a product is required: pass --product "
+            f"({', '.join(PRODUCTS)}) or --product-id"
+        )
+    return product_id
 
 
 async def _cmd_check(args: argparse.Namespace) -> int:
-    info = await check_update(args.product_id, args.firmware_version)
+    product_id, _ = _resolve_product(args)
+    info = await check_update(_require_product_id(product_id),
+                              args.firmware_version)
     if info is None:
         print("no update available")
         return 1
@@ -397,13 +442,16 @@ async def _cmd_check(args: argparse.Namespace) -> int:
 
 
 async def _cmd_fetch(args: argparse.Namespace) -> int:
-    if args.product_id is not None:
-        info = await check_update(args.product_id, args.firmware_version)
+    product_id, patch_name = _resolve_product(args)
+
+    if args.version is None:
+        info = await check_update(_require_product_id(product_id),
+                                  args.firmware_version)
         if info is None:
             print("no update available")
             return 1
     else:
-        info = oss_update_info(args.version, args.patch_name, args.base_version)
+        info = oss_update_info(args.version, patch_name, args.base_version)
 
     _print_update_info(info)
     bundle = await download_firmware(info, _print_progress)
@@ -438,8 +486,10 @@ def _parser() -> argparse.ArgumentParser:
 
     check = subparsers.add_parser(
         "check", help="ask the update server for the latest release")
-    check.add_argument("--product-id", type=int, required=True,
-                       help="from GET_DEV_INFO, e.g. 259 for VR-N76 / GA-5WB")
+    check_product = check.add_mutually_exclusive_group(required=True)
+    check_product.add_argument("--product", choices=sorted(PRODUCTS))
+    check_product.add_argument("--product-id", type=int,
+                               help="from GET_DEV_INFO, for radios not listed above")
     check.add_argument("--firmware-version", type=int, default=0,
                        help="currently installed internal version (default: 0)")
     check.set_defaults(run=_cmd_check)
@@ -447,13 +497,16 @@ def _parser() -> argparse.ArgumentParser:
     fetch = subparsers.add_parser(
         "fetch", help="download and assemble a firmware image")
     source = fetch.add_mutually_exclusive_group(required=True)
+    source.add_argument("--product", choices=sorted(PRODUCTS),
+                        help="ask the update server for this radio's latest release")
     source.add_argument("--product-id", type=int,
-                        help="ask the update server for the latest release")
+                        help="as --product, for radios not listed above")
     source.add_argument("--version", type=int,
                         help="fetch a known version directly, without the server")
     fetch.add_argument("--firmware-version", type=int, default=0)
-    fetch.add_argument("--patch-name", default=DEFAULT_PATCH_NAME,
-                       help=f"default: {DEFAULT_PATCH_NAME}")
+    fetch.add_argument("--patch-name",
+                       help=f"only used with --version (default: "
+                            f"{DEFAULT_PATCH_NAME})")
     fetch.add_argument("--base-version", type=int, default=DEFAULT_BASE_VERSION,
                        help=f"default: {DEFAULT_BASE_VERSION}")
     fetch.add_argument("-o", "--output", required=True)

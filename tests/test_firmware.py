@@ -4,6 +4,8 @@ import zipfile
 import pytest
 
 from benlink.firmware import (
+    DEFAULT_PATCH_NAME,
+    PRODUCTS,
     FirmwareBundle,
     FirmwareInfo,
     UpdateInfo,
@@ -106,6 +108,34 @@ def test_assemble_zipped_base():
 def test_assemble_rejects_bad_patch_magic():
     with pytest.raises(RuntimeError, match="unexpected patch magic"):
         assemble(b"base", b"NOTAPATCH" + b"\x00" * 32)
+
+
+def test_resolve_product():
+    from argparse import Namespace
+
+    from benlink.firmware import PRODUCTS, _resolve_product
+
+    assert _resolve_product(
+        Namespace(product="UV_PRO", product_id=None, patch_name=None)
+    ) == PRODUCTS["UV_PRO"]
+
+    # explicit flags override either half of --product
+    assert _resolve_product(
+        Namespace(product="UV_PRO", product_id=999, patch_name=None)
+    ) == (999, PRODUCTS["UV_PRO"][1])
+
+    assert _resolve_product(
+        Namespace(product="UV_PRO", product_id=None, patch_name="custom")
+    ) == (PRODUCTS["UV_PRO"][0], "custom")
+
+    assert _resolve_product(
+        Namespace(product=None, product_id=None, patch_name=None)
+    ) == (None, DEFAULT_PATCH_NAME)
+
+
+def test_ga5wb_shares_vr_n76_patch_series():
+    # Confirmed against a GA-5WB flash capture; see PRODUCTS docstring.
+    assert PRODUCTS["GA_5WB"] == PRODUCTS["VR_N76"]
 
 
 def test_bundle_md5_tail():
