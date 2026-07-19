@@ -106,8 +106,8 @@ Things to do:
 - [ ] Make a higher-level interface for sending / receiving TNC data (auto
       retry, queue message fragments)
       ([issue](https://github.com/khusmann/benlink/issues/1))
-- [ ] Confirm the firmware reboot handshake on a VR-N76, which is reported not
-      to reboot itself even though the GA-5WB takes the same image and does
+- [ ] Confirm the firmware commit handshake on a VR-N76, where staging works but
+      the radio has been reported to come back on the old image
       ([issue](https://github.com/khusmann/benlink/issues/10))
 - [ ] Implement more commands and settings
 - [ ] Find more radios that use this protocol and test them with this library

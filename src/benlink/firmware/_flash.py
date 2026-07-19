@@ -221,9 +221,11 @@ async def _request_reboot(conn: CommandConnection) -> None:
     """Release the staged image, which the radio reboots into on its own.
 
     Both radios in the captures reboot here: the UV-Pro (260) and the GA-5WB
-    (259), which takes the same image as the VR-N76. Issue #10 reports the
-    VR-N76 not rebooting, which that leaves unexplained. A radio that does stay
-    put reports `TRANSFER_COMPLETE` and lands back here.
+    (259), which takes the same image as the VR-N76. Issue #10 reports a VR-N76
+    that does not, but describes a radio rebooting on this very byte and coming
+    back on the old bank — a commit that never completed rather than a reboot
+    that never happened. A radio that does stay put reports `TRANSFER_COMPLETE`
+    and lands back here.
     """
     await _send_control(
         conn,
