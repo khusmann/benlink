@@ -9,7 +9,6 @@ from benlink.firmware import (
     FirmwareBundle,
     FirmwareInfo,
     UpdateInfo,
-    _update_info,
     assemble,
     oss_update_info,
 )
@@ -26,7 +25,7 @@ def test_request_field_numbers():
     assert request.SerializeToString() == b"\x08\x83\x02"
 
 
-def test_update_info():
+def test_update_info_from_protocol():
     result = _benshikj_pb2.CheckFirmwareUpdateResult(
         firmware=_benshikj_pb2.FirmwareInfo(
             version=147,
@@ -39,7 +38,7 @@ def test_update_info():
         ),
     )
 
-    assert _update_info(result) == UpdateInfo(
+    assert UpdateInfo.from_protocol(result) == UpdateInfo(
         firmware=FirmwareInfo(
             version=147,
             url="https://example.invalid/patch.bin",
@@ -53,8 +52,8 @@ def test_update_info():
     )
 
 
-def test_update_info_empty_means_no_update():
-    assert _update_info(_benshikj_pb2.CheckFirmwareUpdateResult()) is None
+def test_update_info_from_protocol_empty_means_no_update():
+    assert UpdateInfo.from_protocol(_benshikj_pb2.CheckFirmwareUpdateResult()) is None
 
 
 def test_oss_update_info():

@@ -101,11 +101,26 @@ class FirmwareInfo(t.NamedTuple):
     url: str
     md5: str
 
+    @classmethod
+    def from_protocol(cls, info: t.Any) -> FirmwareInfo:
+        """@private (Protocol helper)"""
+        return cls(version=info.version, url=info.url, md5=info.md5)
+
 
 class UpdateInfo(t.NamedTuple):
     """The patch and base image that together make up a firmware release."""
     firmware: FirmwareInfo
     base: FirmwareInfo
+
+    @classmethod
+    def from_protocol(cls, result: t.Any) -> UpdateInfo | None:
+        """@private (Protocol helper)"""
+        if not result.firmware.url or not result.base.url:
+            return None
+        return cls(
+            firmware=FirmwareInfo.from_protocol(result.firmware),
+            base=FirmwareInfo.from_protocol(result.base),
+        )
 
 
 class FirmwareBundle(t.NamedTuple):
@@ -138,23 +153,6 @@ ProgressCallback = t.Callable[[str, int, int], None]
 #####################
 # Finding an update
 
-def _firmware_info(message: t.Any) -> FirmwareInfo:
-    return FirmwareInfo(
-        version=message.version,
-        url=message.url,
-        md5=message.md5,
-    )
-
-
-def _update_info(result: t.Any) -> UpdateInfo | None:
-    if not result.firmware.url or not result.base.url:
-        return None
-    return UpdateInfo(
-        firmware=_firmware_info(result.firmware),
-        base=_firmware_info(result.base),
-    )
-
-
 async def check_update(
     product_id: int,
     firmware_version: int = 0,
@@ -183,7 +181,7 @@ async def check_update(
         except grpc.aio.AioRpcError as e:
             raise RuntimeError(f"update check failed: {e.code()} {e.details()}")
 
-    return _update_info(result)
+    return UpdateInfo.from_protocol(result)
 
 
 def oss_update_info(
