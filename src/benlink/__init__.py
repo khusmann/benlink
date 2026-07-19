@@ -106,9 +106,8 @@ Things to do:
 - [ ] Make a higher-level interface for sending / receiving TNC data (auto
       retry, queue message fragments)
       ([issue](https://github.com/khusmann/benlink/issues/1))
-- [ ] Test firmware flashing against a radio. The protocol is worked out and
-      implemented in `benlink.firmware`, but has never been run on hardware
-      ([issue](https://github.com/khusmann/benlink/issues/10))
+- [ ] Confirm the firmware commit / reboot handshake on models other than the
+      UV-Pro ([issue](https://github.com/khusmann/benlink/issues/10))
 - [ ] Implement more commands and settings
 - [ ] Find more radios that use this protocol and test them with this library
 
