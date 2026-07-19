@@ -119,6 +119,13 @@ receive
 
 [@na7q](https://github.com/na7q) for early testing and feedback
 
+[@Ylianst](https://github.com/Ylianst) for a steady stream of protocol findings
+and sharp questions along the way
+
+[@repins267](https://github.com/repins267) for turning my scattered notes on the
+firmware protocol into a complete proof of concept, working out the gRPC update
+check, and having the guts to do the first flash.
+
 # Disclaimer
 
 This project is an independent grassroots effort, and is **not** affiliated with
