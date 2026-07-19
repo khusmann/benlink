@@ -1,0 +1,310 @@
+"""Finding, downloading and assembling firmware images.
+
+See `benlink.firmware` for an overview and for the command line interface.
+"""
+
+from __future__ import annotations
+import typing as t
+import asyncio
+import hashlib
+import io
+import urllib.request
+import zipfile
+
+from ..common import ImmutableBaseModel
+from . import _benshikj
+
+OSS_BASE_URL = "https://pubdatas.oss-cn-shenzhen.aliyuncs.com"
+"""@private"""
+
+RPC_HOST = "rpc.benshikj.com:800"
+"""@private"""
+
+RPC_TIMEOUT = 10.0
+"""@private"""
+
+PRODUCTS: t.Dict[str, t.Tuple[int, str]] = {
+    "VR_N76": (259, "patch_base_to_vr_n76"),
+    "GA_5WB": (259, "patch_base_to_vr_n76"),
+    "UV_PRO": (260, "patch_base_to_vr_n76_m"),
+    "VR_N75": (261, "patch_base_to_vr_n75_h2"),
+}
+"""Known radios, as `name: (product_id, patch_name)`.
+
+Every patch name here was returned by the update server for the corresponding product
+id. Note that 259 covers both the VR-N76 and the GA-5WB, which share a patch series,
+confirmed by a GA-5WB flash capture whose `md5sum_tail` matches
+`patch_base_to_vr_n76.v120` assembled against the shared base.
+"""
+
+BASE_IMAGES: t.Dict[str, str] = {
+    "original": "upgrade_base.bin.zip",
+    "1": "upgrade_base_v1.bin.zip",
+}
+"""The base images a patch can be built against, as `name: filename`.
+
+A patch carries no checksum of its source, so pairing it with the wrong base produces
+a corrupt image with no error (see `assemble`). Known pairings, from flash captures and
+from the update server: patch v120, v121 and v128 use `original`; v147 uses `1`. Where
+the changeover happened is not known, because the server only publishes metadata for
+the current release.
+"""
+
+def _identity(data: bytes) -> bytes:
+    """@private (the RPC messages are encoded by hand; see `_benshikj`)"""
+    return data
+
+
+def _require(module: str, package: str):
+    try:
+        return __import__(module)
+    except ImportError:
+        raise ImportError(
+            f"{package} is required for this operation. "
+            f"Install with: pip install benlink[firmware]"
+        )
+
+
+#####################
+# Data
+
+class FirmwareInfo(ImmutableBaseModel):
+    """One downloadable artifact (either the patch or the base image)."""
+    version: int
+    url: str
+    md5: str | None
+    """md5 of the *assembled* image for a patch, or of the *extracted* base image.
+
+    `None` when no reference md5 is available, which is the case for every release
+    but the current one."""
+
+    @classmethod
+    def from_protocol(cls, info: _benshikj.FirmwareInfo) -> FirmwareInfo:
+        """@private (Protocol helper)"""
+        return cls(version=info.version, url=info.url, md5=info.md5 or None)
+
+
+class UpdateInfo(ImmutableBaseModel):
+    """The patch and base image that together make up a firmware release."""
+    firmware: FirmwareInfo
+    base: FirmwareInfo
+
+    @classmethod
+    def from_protocol(
+        cls, result: _benshikj.CheckFirmwareUpdateResult
+    ) -> UpdateInfo | None:
+        """@private (Protocol helper)"""
+        if not result.firmware.url or not result.base.url:
+            return None
+        return cls(
+            firmware=FirmwareInfo.from_protocol(result.firmware),
+            base=FirmwareInfo.from_protocol(result.base),
+        )
+
+
+class FirmwareBundle(ImmutableBaseModel):
+    """An assembled, ready-to-flash firmware image."""
+    data: bytes
+    update_info: UpdateInfo
+
+    @property
+    def md5(self) -> str:
+        return hashlib.md5(self.data).hexdigest()
+
+    @property
+    def md5_tail(self) -> bytes:
+        """Last 4 bytes of the md5 digest, as sent in `UPDATE_SYNC_REQ`."""
+        return bytes.fromhex(self.md5)[-4:]
+
+    @property
+    def size(self) -> int:
+        return len(self.data)
+
+    def save(self, path: str) -> None:
+        with open(path, "wb") as f:
+            f.write(self.data)
+
+
+ProgressCallback = t.Callable[[str, int, int], None]
+"""`progress(label, bytes_done, bytes_total)`. `bytes_total` is 0 if unknown."""
+
+
+#####################
+# Finding an update
+
+async def check_update(
+    product_id: int,
+    firmware_version: int = 0,
+) -> UpdateInfo | None:
+    """Ask the update server for the latest release for `product_id`.
+
+    `firmware_version` is the currently installed internal version. The server
+    returns the latest release regardless of its value, so it has no effect in
+    practice. Returns `None` if the server reports no update.
+
+    Requires `grpcio`.
+    """
+    grpc = _require("grpc", "grpcio")
+
+    request = _benshikj.encode_check_request(product_id, firmware_version)
+
+    credentials = grpc.ssl_channel_credentials()
+    async with grpc.aio.secure_channel(RPC_HOST, credentials) as channel:
+        call = channel.unary_unary(
+            _benshikj.METHOD,
+            request_serializer=_identity,
+            response_deserializer=_identity,
+        )
+        try:
+            response: bytes = await call(request, timeout=RPC_TIMEOUT)
+        except grpc.aio.AioRpcError as e:
+            raise RuntimeError(
+                f"update check failed: {e.code()} {e.details()}")
+
+    return UpdateInfo.from_protocol(_benshikj.decode_check_result(response))
+
+
+def oss_patch_url(version: int, patch_name: str) -> str:
+    """URL of a patch in the object store."""
+    return f"{OSS_BASE_URL}/firmware/v{version}/{patch_name}.bin"
+
+
+def oss_base_url(base_image: str) -> str:
+    """URL of a base image in the object store. `base_image` is a key of
+    `BASE_IMAGES`."""
+    if base_image not in BASE_IMAGES:
+        raise RuntimeError(
+            f"unknown base image {base_image!r}, expected one of "
+            f"{', '.join(BASE_IMAGES)}"
+        )
+    return f"{OSS_BASE_URL}/{BASE_IMAGES[base_image]}"
+
+
+def oss_update_info(
+    version: int,
+    patch_name: str,
+    base_image: str,
+) -> UpdateInfo:
+    """Construct object-store URLs for a known version, without contacting the
+    update server.
+
+    No md5s are available this way, so the result cannot be verified. Since a patch
+    only applies to the base it shipped with, picking the wrong `base_image` yields a
+    corrupt image silently. See `BASE_IMAGES`.
+    """
+    return UpdateInfo(
+        firmware=FirmwareInfo(
+            version=version,
+            url=oss_patch_url(version, patch_name),
+            md5=None,
+        ),
+        base=FirmwareInfo(version=0, url=oss_base_url(base_image), md5=None),
+    )
+
+
+#####################
+# Downloading and assembling
+
+async def download(
+    url: str,
+    label: str = "download",
+    progress: ProgressCallback | None = None,
+) -> bytes:
+    """Download a single artifact."""
+    return await asyncio.to_thread(_download, url, label, progress)
+
+
+def _download(url: str, label: str, progress: ProgressCallback | None) -> bytes:
+    with urllib.request.urlopen(url) as response:
+        total = int(response.headers.get("Content-Length", 0))
+        chunks: t.List[bytes] = []
+        received = 0
+        while chunk := response.read(65536):
+            chunks.append(chunk)
+            received += len(chunk)
+            if progress:
+                progress(label, received, total)
+    return b"".join(chunks)
+
+
+def _verify(data: bytes, expected_md5: str | None, label: str) -> None:
+    if not expected_md5:
+        return
+    actual = hashlib.md5(data).hexdigest()
+    if actual != expected_md5:
+        raise RuntimeError(
+            f"{label} md5 mismatch: expected {expected_md5}, got {actual}"
+        )
+
+
+def extract_base(base: bytes) -> bytes:
+    """Return the base image, unwrapping the zip it ships in if needed."""
+    if base[:2] != b"PK":
+        return base
+
+    with zipfile.ZipFile(io.BytesIO(base)) as zf:
+        names = [n for n in zf.namelist() if n.endswith(".bin")]
+        if not names:
+            raise RuntimeError("no .bin found in base zip")
+        return zf.read(names[0])
+
+
+def assemble(base: bytes, patch: bytes) -> bytes:
+    """Apply a BSDIFF40 patch to a base image.
+
+    `base` may be either the raw base image or the zip it ships in.
+
+    A patch carries no checksum of the base it was built against, so applying it to
+    the wrong base succeeds and silently yields a corrupt image. Patches are only
+    valid against the base image released alongside them. Compare the result against
+    `UpdateInfo.firmware.md5` whenever it is known.
+    """
+    bsdiff4 = _require("bsdiff4", "bsdiff4")
+
+    if patch[:8] != b"BSDIFF40":
+        raise RuntimeError(
+            f"unexpected patch magic {patch[:8]!r}, expected b'BSDIFF40'"
+        )
+
+    return bsdiff4.patch(extract_base(base), patch)
+
+
+async def download_firmware(
+    update_info: UpdateInfo,
+    progress: ProgressCallback | None = None,
+) -> FirmwareBundle:
+    """Download the patch and base image named by `update_info` and assemble them.
+
+    Both are always fetched fresh. Base images are revised over time and a patch
+    only applies to the one released with it, so reusing a local copy risks pairing
+    a patch with a base it was never built against.
+
+    Requires `bsdiff4`.
+    """
+    patch, base = await asyncio.gather(
+        asyncio.to_thread(_download, update_info.firmware.url,
+                          "patch", progress),
+        asyncio.to_thread(_download, update_info.base.url, "base", progress),
+    )
+
+    # The server's md5s describe the extracted base and the assembled firmware,
+    # neither the base zip nor the patch file as downloaded.
+    base = extract_base(base)
+    _verify(base, update_info.base.md5, "base image")
+
+    data = await asyncio.to_thread(assemble, base, patch)
+    _verify(data, update_info.firmware.md5, "assembled firmware")
+
+    return FirmwareBundle(data=data, update_info=update_info)
+
+
+async def fetch_firmware(
+    product_id: int,
+    firmware_version: int = 0,
+    progress: ProgressCallback | None = None,
+) -> FirmwareBundle | None:
+    """Check for an update and download it if one is available."""
+    update_info = await check_update(product_id, firmware_version)
+    if update_info is None:
+        return None
+    return await download_firmware(update_info, progress)
