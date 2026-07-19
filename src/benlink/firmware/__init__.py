@@ -85,17 +85,12 @@ import urllib.request
 import zipfile
 
 from ..common import ImmutableBaseModel
-
-if t.TYPE_CHECKING:
-    from . import _benshikj_pb2
+from . import _benshikj
 
 OSS_BASE_URL = "https://pubdatas.oss-cn-shenzhen.aliyuncs.com"
 """@private"""
 
 RPC_HOST = "rpc.benshikj.com:800"
-"""@private"""
-
-RPC_METHOD = "/benshikj.DeviceManagement/CheckFirmwareUpdate"
 """@private"""
 
 RPC_TIMEOUT = 10.0
@@ -128,6 +123,11 @@ the changeover happened is not known, because the server only publishes metadata
 the current release.
 """
 
+def _identity(data: bytes) -> bytes:
+    """@private (the RPC messages are encoded by hand; see `_benshikj`)"""
+    return data
+
+
 def _require(module: str, package: str):
     try:
         return __import__(module)
@@ -152,7 +152,7 @@ class FirmwareInfo(ImmutableBaseModel):
     but the current one."""
 
     @classmethod
-    def from_protocol(cls, info: _benshikj_pb2.FirmwareInfo) -> FirmwareInfo:
+    def from_protocol(cls, info: _benshikj.FirmwareInfo) -> FirmwareInfo:
         """@private (Protocol helper)"""
         return cls(version=info.version, url=info.url, md5=info.md5 or None)
 
@@ -164,7 +164,7 @@ class UpdateInfo(ImmutableBaseModel):
 
     @classmethod
     def from_protocol(
-        cls, result: _benshikj_pb2.CheckFirmwareUpdateResult
+        cls, result: _benshikj.CheckFirmwareUpdateResult
     ) -> UpdateInfo | None:
         """@private (Protocol helper)"""
         if not result.firmware.url or not result.base.url:
@@ -215,32 +215,26 @@ async def check_update(
     returns the latest release regardless of its value, so it has no effect in
     practice. Returns `None` if the server reports no update.
 
-    Requires `grpcio` and `protobuf`.
+    Requires `grpcio`.
     """
     grpc = _require("grpc", "grpcio")
-    from . import _benshikj_pb2
 
-    request = _benshikj_pb2.CheckFirmwareUpdateRequest(
-        product_id=product_id,
-        firmware_version=firmware_version,
-    )
+    request = _benshikj.encode_check_request(product_id, firmware_version)
 
     credentials = grpc.ssl_channel_credentials()
     async with grpc.aio.secure_channel(RPC_HOST, credentials) as channel:
         call = channel.unary_unary(
-            RPC_METHOD,
-            request_serializer=(
-                _benshikj_pb2.CheckFirmwareUpdateRequest.SerializeToString),
-            response_deserializer=(
-                _benshikj_pb2.CheckFirmwareUpdateResult.FromString),
+            _benshikj.METHOD,
+            request_serializer=_identity,
+            response_deserializer=_identity,
         )
         try:
-            result = await call(request, timeout=RPC_TIMEOUT)
+            response: bytes = await call(request, timeout=RPC_TIMEOUT)
         except grpc.aio.AioRpcError as e:
             raise RuntimeError(
                 f"update check failed: {e.code()} {e.details()}")
 
-    return UpdateInfo.from_protocol(result)
+    return UpdateInfo.from_protocol(_benshikj.decode_check_result(response))
 
 
 def oss_patch_url(version: int, patch_name: str) -> str:

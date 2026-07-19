@@ -3,6 +3,7 @@ import zipfile
 
 import pytest
 
+from benlink.firmware import _benshikj
 from benlink.firmware import (
     PRODUCTS,
     FirmwareBundle,
@@ -16,25 +17,60 @@ from benlink.firmware import (
 )
 
 bsdiff4 = pytest.importorskip("bsdiff4")
-pytest.importorskip("google.protobuf")
-
-from benlink.firmware import _benshikj_pb2  # noqa: E402
 
 
-def test_request_field_numbers():
-    # The field numbers are the wire contract; the names are ours.
-    request = _benshikj_pb2.CheckFirmwareUpdateRequest(product_id=259)
-    assert request.SerializeToString() == b"\x08\x83\x02"
+def _varint(value: int) -> bytes:
+    out = bytearray()
+    while value > 0x7F:
+        out.append((value & 0x7F) | 0x80)
+        value >>= 7
+    out.append(value)
+    return bytes(out)
+
+
+def _delimited(field: int, payload: bytes) -> bytes:
+    return _varint(field << 3 | 2) + _varint(len(payload)) + payload
+
+
+def _firmware_info_bytes(info: _benshikj.FirmwareInfo) -> bytes:
+    return (
+        _varint(1 << 3) + _varint(info.version)
+        + _delimited(2, info.url.encode())
+        + _delimited(3, info.md5.encode())
+    )
+
+
+def test_encode_check_request():
+    # Field numbers are the wire contract: product_id is field 1, varint.
+    assert _benshikj.encode_check_request(259) == b"\x08\x83\x02"
+    assert _benshikj.encode_check_request(259, 147) == b"\x08\x83\x02\x10\x93\x01"
+    # proto3 omits zero-valued fields
+    assert _benshikj.encode_check_request(0) == b""
+
+
+def test_encode_decode_roundtrip():
+    info = _benshikj.FirmwareInfo(147, "https://example.invalid/p.bin", "abc")
+    encoded = _delimited(1, _firmware_info_bytes(info))
+    decoded = _benshikj.decode_check_result(encoded)
+    assert decoded.firmware == info
+    assert decoded.base == _benshikj.FirmwareInfo()
+
+
+def test_decode_stops_on_unknown_wire_type():
+    # tag with wire type 7 (invalid); the walk must not loop or raise
+    assert _benshikj.decode_check_result(b"\x0f\x01\x02") == (
+        _benshikj.CheckFirmwareUpdateResult()
+    )
 
 
 def test_update_info_from_protocol():
-    result = _benshikj_pb2.CheckFirmwareUpdateResult(
-        firmware=_benshikj_pb2.FirmwareInfo(
+    result = _benshikj.CheckFirmwareUpdateResult(
+        firmware=_benshikj.FirmwareInfo(
             version=147,
             url="https://example.invalid/patch.bin",
             md5="0c0d095da50bebe664822adcb244834a",
         ),
-        base=_benshikj_pb2.FirmwareInfo(
+        base=_benshikj.FirmwareInfo(
             url="https://example.invalid/base.zip",
             md5="74b6d097d8d2d9d2d9fac88133198a08",
         ),
@@ -55,7 +91,8 @@ def test_update_info_from_protocol():
 
 
 def test_update_info_from_protocol_empty_means_no_update():
-    assert UpdateInfo.from_protocol(_benshikj_pb2.CheckFirmwareUpdateResult()) is None
+    empty = _benshikj.CheckFirmwareUpdateResult()
+    assert UpdateInfo.from_protocol(empty) is None
 
 
 def test_oss_urls():

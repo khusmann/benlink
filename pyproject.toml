@@ -29,11 +29,6 @@ requires-python = ">=3.10"
 firmware = [
     "bsdiff4 >=1.2.0",
     "grpcio >=1.60.0",
-    "protobuf >=4.21.0",
-]
-# Only needed to regenerate the protobuf stubs; see `make proto`.
-proto = [
-    "grpcio-tools >=1.60.0",
 ]
 
 [project.urls]
