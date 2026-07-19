@@ -14,6 +14,12 @@ dependencies = [
     "bleak >=0.22.0",
     "pydantic >=2.6.0"
 ]
+[project.optional-dependencies]
+firmware = [
+    "bsdiff4 >=1.2.0",
+    "grpcio >=1.60.0",
+]
+
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
@@ -31,3 +37,6 @@ requires-python = ">=3.10"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
