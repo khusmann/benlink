@@ -15,9 +15,10 @@ from enum import IntEnum
 #    d. (UPDATE_DATA_BYTES_REQ) UPDATE_DATA (145 bytes at a time. repeat until all data is sent, except for the last fragment)
 #    e. UPDATE_DATA (final fragment with is_final_fragment=True)
 #    f. UPDATE_IS_VALIDATION_DONE_REQ (UPDATE_TRANSFER_COMPLETE_IND)
-#    g. UPDATE_TRANSFER_COMPLETE_RES (triggers REStart?)
+#    g. UPDATE_TRANSFER_COMPLETE_RES (with is_complete=False; triggers reboot)
 #
-# Reboot happens?
+# Reboot happens here, and the connection drops. UPDATE_SYNC_CFM reports
+# IN_PROGRESS afterwards, which is what tells the app to resume at step 3.
 #
 # 3. VM_CONNECT
 #    h. UPDATE_SYNC_REQ (UPDATE_SYNC_CFM) (with last 4 bytes of firmware md5sum)
@@ -112,6 +113,11 @@ class VmControlUpdateIsValidationDoneReq(Bitfield):
 
 
 class VmControlUpdateTransferCompleteRes(Bitfield):
+    # Misleading name: this is the app's answer to "reboot into the new image
+    # now?", not a report on the transfer. False proceeds with the reboot (every
+    # successful update in the logs), True postpones it and leaves the radio in
+    # UpdateState.TRANSFER_COMPLETE, which is what the app's "cancel restart"
+    # button does.
     is_complete: bool = bf_bool_byte
 
 
@@ -133,6 +139,9 @@ class UpdateState(IntEnum):
 
 class UpdateStartCfmCode(IntEnum):
     OK = 0
+    # Not seen in logs. Every UPDATE_START_CFM reports OK, including the
+    # post-reboot one, so the phase of an update has to be read off
+    # UPDATE_SYNC_CFM.update_state rather than from this code.
     GOTO_NEXT_STATE = 9
 
 

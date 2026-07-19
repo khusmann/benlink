@@ -7,6 +7,7 @@ from __future__ import annotations
 import typing as t
 import argparse
 import asyncio
+import contextlib
 import hashlib
 import os
 import sys
@@ -18,7 +19,9 @@ if t.TYPE_CHECKING:
 from . import (
     BASE_IMAGES,
     PRODUCTS,
+    FirmwareBundle,
     FirmwareInfo,
+    FlashResult,
     UpdateInfo,
     assemble,
     check_update,
@@ -29,6 +32,11 @@ from . import (
     oss_base_url,
     oss_patch_url,
 )
+
+_REBOOT_WAIT = 20.0
+"""Seconds to let the radio reboot before trying to reach it again."""
+
+_COMMIT_ATTEMPTS = 5
 
 
 #####################
@@ -103,6 +111,25 @@ def _confirm(question: str, default_yes: bool, assume_yes: bool) -> bool:
 
 #####################
 # Radio
+
+@contextlib.asynccontextmanager
+async def _radio(
+    args: argparse.Namespace,
+) -> t.AsyncGenerator[CommandConnection, None]:
+    """Connect, and tolerate the radio vanishing on the way out.
+
+    A firmware update ends with the radio rebooting, which drops the link before
+    anything gets to close it. Raising from the teardown would turn a completed
+    transfer into a crash.
+    """
+    conn = _connection(args)
+    await conn.connect()
+    try:
+        yield conn
+    finally:
+        with contextlib.suppress(Exception):
+            await conn.disconnect()
+
 
 def _connection(args: argparse.Namespace) -> CommandConnection:
     # Imported lazily: everything except the radio commands works without a
@@ -236,7 +263,7 @@ async def _cmd_assemble(args: argparse.Namespace) -> int:
 async def _cmd_update(args: argparse.Namespace) -> int:
     # The connection is held for the whole flow: the radio is needed at the start
     # to identify it, and again at the end to flash.
-    async with _connection(args) as conn:
+    async with _radio(args) as conn:
         device_info = await conn.get_device_info()
         _print_device_info(device_info)
 
@@ -276,16 +303,49 @@ async def _cmd_update(args: argparse.Namespace) -> int:
             _out(f"The assembled image has been kept at {path}")
             return 0
 
+        _out("Do not power off the radio until this finishes.")
         try:
-            await flash(conn, bundle, _make_progress())
-        except NotImplementedError as e:
+            result = await flash(conn, bundle, _make_progress())
+        except Exception as e:
+            _out()
             _out(f"error: {e}")
             _out(f"The assembled image has been kept at {path}")
             return 1
+        _out()
+
+        if result is FlashResult.COMPLETE:
+            _out("Firmware update complete.")
+            return 0
+
+    _out("  image staged, radio is rebooting")
+    return await _commit_after_reboot(args, bundle, path)
+
+
+async def _commit_after_reboot(
+    args: argparse.Namespace, bundle: FirmwareBundle, path: str
+) -> int:
+    """Reconnect to the rebooted radio and finish the update.
+
+    The radio drops the connection when it reboots and comes back needing only
+    the commit handshake. It stays in that state until it gets one, so a failed
+    attempt can simply be retried.
+    """
+    for attempt in range(1, _COMMIT_ATTEMPTS + 1):
+        await asyncio.sleep(_REBOOT_WAIT)
+        try:
+            async with _radio(args) as conn:
+                if await flash(conn, bundle) is FlashResult.COMPLETE:
+                    _out()
+                    _out("Firmware update complete.")
+                    return 0
+        except Exception as e:
+            _out(f"  attempt {attempt}/{_COMMIT_ATTEMPTS} failed: {e}")
 
     _out()
-    _out("Firmware update complete.")
-    return 0
+    _out("error: the radio did not come back to finish the update.")
+    _out("The image is already staged, so re-running `update` will resume "
+         f"from here. The assembled image has been kept at {path}")
+    return 1
 
 
 #####################

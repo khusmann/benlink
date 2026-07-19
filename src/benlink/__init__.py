@@ -106,8 +106,8 @@ Things to do:
 - [ ] Make a higher-level interface for sending / receiving TNC data (auto
       retry, queue message fragments)
       ([issue](https://github.com/khusmann/benlink/issues/1))
-- [ ] Figure out firmware flashing process / protocol (this is key for long-term
-      independence from the HT app)
+- [ ] Test firmware flashing against a radio. The protocol is worked out and
+      implemented in `benlink.firmware`, but has never been run on hardware
       ([issue](https://github.com/khusmann/benlink/issues/10))
 - [ ] Implement more commands and settings
 - [ ] Find more radios that use this protocol and test them with this library

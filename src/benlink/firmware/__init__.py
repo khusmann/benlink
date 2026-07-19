@@ -5,8 +5,13 @@
 any other damage to your equipment.** This module is not endorsed by or affiliated
 with Benshi, Vero, RadioOddity, BTech, or any other company.
 
-Downloading and assembling an image is safe. Flashing one is not, and is not
-implemented yet ([issue #10](https://github.com/khusmann/benlink/issues/10)).
+Downloading and assembling an image is safe. Flashing one is not.
+
+`flash` reproduces the official app's message sequence byte for byte against
+packet captures, but **it has not yet been run against a radio**
+([issue #10](https://github.com/khusmann/benlink/issues/10)). The commit step is
+also known to differ by model: the UV-Pro reboots itself once the image is
+staged, while the VR-N76 reportedly does not.
 
 # The intended flow
 
@@ -93,13 +98,15 @@ from ._fetch import (
     oss_patch_url,
     oss_update_info,
 )
-from ._flash import flash
+from ._flash import FlashError, FlashResult, flash
 
 __all__ = [
     "BASE_IMAGES",
     "PRODUCTS",
     "FirmwareBundle",
     "FirmwareInfo",
+    "FlashError",
+    "FlashResult",
     "ProgressCallback",
     "UpdateInfo",
     "assemble",
