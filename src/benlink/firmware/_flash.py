@@ -218,7 +218,14 @@ async def _validate(
 
 
 async def _request_reboot(conn: CommandConnection) -> None:
-    """Release the staged image. The radio reboots into it on its own."""
+    """Release the staged image, which the radio reboots into on its own.
+
+    Model-dependent, and the least settled step here: the UV-Pro reboots by
+    itself, while the VR-N76 reportedly does not
+    ([issue #10](https://github.com/khusmann/benlink/issues/10)). A radio that
+    stays put reports `TRANSFER_COMPLETE` on the next `flash`, which lands back
+    here rather than making progress.
+    """
     await _send_control(
         conn,
         VmControlType.UPDATE_TRANSFER_COMPLETE_RES,

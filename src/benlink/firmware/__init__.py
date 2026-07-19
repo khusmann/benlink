@@ -5,13 +5,6 @@
 any other damage to your equipment.** This module is not endorsed by or affiliated
 with Benshi, Vero, RadioOddity, BTech, or any other company.
 
-Downloading and assembling an image is safe. Flashing one is not.
-
-`flash` reproduces the official app's message sequence byte for byte against
-packet captures. The commit step is known to differ by model: the UV-Pro reboots
-itself once the image is staged, while the VR-N76 reportedly does not
-([issue #10](https://github.com/khusmann/benlink/issues/10)).
-
 # The intended flow
 
 Firmware ships as a shared **base image** plus a per-release **patch** in BSDIFF40
