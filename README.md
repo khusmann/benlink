@@ -40,7 +40,7 @@ The following radios should work with this library:
 
 - BTech UV-Pro
 - RadioOddity GA-5WB
-- Vero VR-N76 (untested)
+- Vero VR-N76
 - Vero VR-N7500 (untested)
 - BTech GMRS-Pro (untested)
 
@@ -113,9 +113,6 @@ Things to do:
 - [ ] Make a higher-level interface for sending / receiving TNC data (auto
       retry, queue message fragments)
       ([issue](https://github.com/khusmann/benlink/issues/1))
-- [ ] Figure out firmware flashing process / protocol (this is key for long-term
-      independence from the HT app)
-      ([issue](https://github.com/khusmann/benlink/issues/10))
 - [ ] Implement more commands and settings
 - [ ] Find more radios that use this protocol and test them with this library
 
@@ -125,6 +122,13 @@ Things to do:
 receive
 
 [@na7q](https://github.com/na7q) for early testing and feedback
+
+[@Ylianst](https://github.com/Ylianst) for a steady stream of protocol findings
+and sharp questions along the way
+
+[@repins267](https://github.com/repins267) for turning my scattered notes on the
+firmware protocol into a complete proof of concept, working out the gRPC update
+check, and having the guts to do the first flash.
 
 ## Disclaimer
 

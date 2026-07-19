@@ -33,7 +33,7 @@ The following radios should work with this library:
 
 - BTech UV-Pro
 - RadioOddity GA-5WB
-- Vero VR-N76 (untested)
+- Vero VR-N76
 - Vero VR-N7500 (untested)
 - BTech GMRS-Pro (untested)
 
