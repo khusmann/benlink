@@ -40,11 +40,6 @@ server; `fetch --version` contacts only the object store.
 
 The product id is read from the radio via `GET_DEV_INFO` (`DeviceInfo.product_id`).
 It is not unique across vendors — the VR-N76 and GA-5WB both report 259.
-
-An earlier RPC (`/benshikj.APP/CheckUpdate`, keyed on a model string rather than a
-product id) was reported in issue #10 to return empty responses, while the method
-used here was reported working. Whether the old one was retired or was simply being
-called wrongly is unconfirmed — neither has been tested from this codebase.
 """
 
 from __future__ import annotations
