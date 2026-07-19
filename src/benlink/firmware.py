@@ -351,20 +351,29 @@ def assemble(base: bytes, patch: bytes) -> bytes:
 async def download_firmware(
     update_info: UpdateInfo,
     progress: ProgressCallback | None = None,
+    base: bytes | None = None,
 ) -> FirmwareBundle:
     """Download the patch and base image and assemble them.
+
+    The base image is shared across radios and releases, so pass `base` to reuse a
+    local copy instead of downloading it again.
 
     Downloaded artifacts are checked against the server's md5s when available.
 
     Requires `bsdiff4`.
     """
-    patch, base = await asyncio.gather(
-        asyncio.to_thread(_download, update_info.firmware.url, "patch", progress),
-        asyncio.to_thread(_download, update_info.base.url, "base", progress),
-    )
+    if base is None:
+        patch, base = await asyncio.gather(
+            asyncio.to_thread(
+                _download, update_info.firmware.url, "patch", progress),
+            asyncio.to_thread(_download, update_info.base.url, "base", progress),
+        )
+        _verify(base, update_info.base.md5, "base")
+    else:
+        patch = await asyncio.to_thread(
+            _download, update_info.firmware.url, "patch", progress)
 
     _verify(patch, update_info.firmware.md5, "patch")
-    _verify(base, update_info.base.md5, "base")
 
     return FirmwareBundle(
         data=await asyncio.to_thread(assemble, base, patch),
@@ -453,8 +462,15 @@ async def _cmd_fetch(args: argparse.Namespace) -> int:
     else:
         info = oss_update_info(args.version, patch_name, args.base_version)
 
+    base = None
+    if args.base:
+        with open(args.base, "rb") as f:
+            base = f.read()
+
     _print_update_info(info)
-    bundle = await download_firmware(info, _print_progress)
+    sys.stdout.flush()
+
+    bundle = await download_firmware(info, _print_progress, base)
     print(file=sys.stderr)
 
     bundle.save(args.output)
@@ -509,6 +525,8 @@ def _parser() -> argparse.ArgumentParser:
                             f"{DEFAULT_PATCH_NAME})")
     fetch.add_argument("--base-version", type=int, default=DEFAULT_BASE_VERSION,
                        help=f"default: {DEFAULT_BASE_VERSION}")
+    fetch.add_argument("--base",
+                       help="local base image to reuse instead of downloading it")
     fetch.add_argument("-o", "--output", required=True)
     fetch.set_defaults(run=_cmd_fetch)
 
