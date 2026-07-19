@@ -10,6 +10,7 @@ from benlink.firmware import (
     FirmwareInfo,
     UpdateInfo,
     assemble,
+    extract_base,
     oss_update_info,
 )
 
@@ -78,6 +79,34 @@ def test_assemble_zipped_base():
         zf.writestr("upgrade_base.bin", base)
 
     assert assemble(buf.getvalue(), bsdiff4.diff(base, expected)) == expected
+
+
+def test_extract_base():
+    raw = b"not a zip"
+    assert extract_base(raw) == raw
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("upgrade_base.bin", b"inner")
+    assert extract_base(buf.getvalue()) == b"inner"
+
+
+def test_extract_base_rejects_zip_without_bin():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("readme.txt", b"nope")
+    with pytest.raises(RuntimeError, match="no .bin found"):
+        extract_base(buf.getvalue())
+
+
+def test_assemble_against_wrong_base_is_not_detected():
+    # BSDIFF40 carries no checksum of its source, so the wrong base yields a
+    # plausible but corrupt image. Callers must verify the assembled result.
+    base = b"the quick brown fox" * 100
+    other = b"a completely different base" * 100
+    patch = bsdiff4.diff(base, b"target" * 100)
+
+    assert assemble(other, patch) != b"target" * 100
 
 
 def test_assemble_rejects_bad_patch_magic():

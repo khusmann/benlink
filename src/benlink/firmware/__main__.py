@@ -23,9 +23,19 @@ from . import (
 )
 
 
-def _print_progress(label: str, done: int, total: int) -> None:
-    pct = f"{100 * done // total}%" if total else f"{done} bytes"
-    print(f"\r{label}: {pct}", end="", file=sys.stderr, flush=True)
+def _make_progress() -> t.Callable[[str, int, int], None]:
+    """Render concurrent downloads as one updating line."""
+    state: t.Dict[str, t.Tuple[int, int]] = {}
+
+    def progress(label: str, done: int, total: int) -> None:
+        state[label] = (done, total)
+        line = "  ".join(
+            f"{k} {100 * d // n}%" if n else f"{k} {d}B"
+            for k, (d, n) in state.items()
+        )
+        print(f"\r{line}", end="", file=sys.stderr, flush=True)
+
+    return progress
 
 
 def _print_firmware_info(label: str, info: FirmwareInfo) -> None:
@@ -97,7 +107,7 @@ async def _cmd_fetch(args: argparse.Namespace) -> int:
     _print_update_info(info)
     sys.stdout.flush()
 
-    bundle = await download_firmware(info, _print_progress, base)
+    bundle = await download_firmware(info, _make_progress(), base)
     print(file=sys.stderr)
 
     bundle.save(args.output)

@@ -20,6 +20,8 @@ message CheckFirmwareUpdateRequest {
 message FirmwareInfo {
   int32 version = 1;
   string url = 2;
+  // Not the md5 of the file at `url`: for the patch this is the md5 of the
+  // assembled firmware, and for the base it is the md5 of the .bin inside the zip.
   string md5 = 3;
   string release_notes = 4;
   string release_date = 5;

@@ -235,26 +235,36 @@ def _verify(data: bytes, expected_md5: str, label: str) -> None:
         )
 
 
+def extract_base(base: bytes) -> bytes:
+    """Return the base image, unwrapping the zip it ships in if needed."""
+    if base[:2] != b"PK":
+        return base
+
+    with zipfile.ZipFile(io.BytesIO(base)) as zf:
+        names = [n for n in zf.namelist() if n.endswith(".bin")]
+        if not names:
+            raise RuntimeError("no .bin found in base zip")
+        return zf.read(names[0])
+
+
 def assemble(base: bytes, patch: bytes) -> bytes:
     """Apply a BSDIFF40 patch to a base image.
 
     `base` may be either the raw base image or the zip it ships in.
+
+    A patch carries no checksum of the base it was built against, so applying it to
+    the wrong base succeeds and silently yields a corrupt image. Patches are only
+    valid against the base image released alongside them — compare the result
+    against `UpdateInfo.firmware.md5` whenever it is known.
     """
     bsdiff4 = _require("bsdiff4", "bsdiff4")
-
-    if base[:2] == b"PK":
-        with zipfile.ZipFile(io.BytesIO(base)) as zf:
-            names = [n for n in zf.namelist() if n.endswith(".bin")]
-            if not names:
-                raise RuntimeError("no .bin found in base zip")
-            base = zf.read(names[0])
 
     if patch[:8] != b"BSDIFF40":
         raise RuntimeError(
             f"unexpected patch magic {patch[:8]!r}, expected b'BSDIFF40'"
         )
 
-    return bsdiff4.patch(base, patch)
+    return bsdiff4.patch(extract_base(base), patch)
 
 
 async def download_firmware(
@@ -264,10 +274,10 @@ async def download_firmware(
 ) -> FirmwareBundle:
     """Download the patch and base image and assemble them.
 
-    The base image is shared across radios and releases, so pass `base` to reuse a
-    local copy instead of downloading it again.
-
-    Downloaded artifacts are checked against the server's md5s when available.
+    Pass `base` to reuse a local copy instead of downloading it again. Note that
+    base images are revised over time and a patch only applies to the one released
+    with it, so a stale local copy will produce a corrupt image — which is caught
+    here only because the assembled result is checked against the server's md5.
 
     Requires `bsdiff4`.
     """
@@ -277,17 +287,19 @@ async def download_firmware(
                 _download, update_info.firmware.url, "patch", progress),
             asyncio.to_thread(_download, update_info.base.url, "base", progress),
         )
-        _verify(base, update_info.base.md5, "base")
     else:
         patch = await asyncio.to_thread(
             _download, update_info.firmware.url, "patch", progress)
 
-    _verify(patch, update_info.firmware.md5, "patch")
+    # The server's md5s describe the extracted base and the assembled firmware —
+    # neither the base zip nor the patch file as downloaded.
+    base = extract_base(base)
+    _verify(base, update_info.base.md5, "base image")
 
-    return FirmwareBundle(
-        data=await asyncio.to_thread(assemble, base, patch),
-        update_info=update_info,
-    )
+    data = await asyncio.to_thread(assemble, base, patch)
+    _verify(data, update_info.firmware.md5, "assembled firmware")
+
+    return FirmwareBundle(data=data, update_info=update_info)
 
 
 async def fetch_firmware(
