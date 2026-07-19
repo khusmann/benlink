@@ -16,10 +16,13 @@ from benlink.protocol.command.vm import (
     VmConnectReplyBody,
     VmControlReplyBody,
     VmControlType,
+    VmControlUpdateData,
     VmControlUpdateDataBytesReq,
     VmControlUpdateError,
     VmControlUpdateStartCfm,
     VmControlUpdateSyncCfm,
+    VmControlUpdateSyncReq,
+    VmControlUpdateTransferCompleteRes,
     VmuPacket,
     VmuPacketType,
     UpdateStartCfmCode,
@@ -159,6 +162,7 @@ class FakeRadio:
 
         match body.vm_control_type:
             case VmControlType.UPDATE_SYNC_REQ:
+                assert isinstance(body.msg, VmControlUpdateSyncReq)
                 if not self.preempt_sync:
                     self._emit_sync_cfm(body.msg.md5sum_tail)
             case VmControlType.UPDATE_START_REQ:
@@ -171,6 +175,7 @@ class FakeRadio:
             case VmControlType.UPDATE_START_DATA_REQ:
                 self._request_bytes()
             case VmControlType.UPDATE_DATA:
+                assert isinstance(body.msg, VmControlUpdateData)
                 self.received += body.msg.data
                 self.final_flags.append(body.msg.is_final_fragment)
                 if self.error_after is not None and \
@@ -295,6 +300,7 @@ def test_reboot_request_asks_the_radio_to_restart_now():
 
     final = sent[-1]
     assert isinstance(final.body, VmControlBody)
+    assert isinstance(final.body.msg, VmControlUpdateTransferCompleteRes)
     assert final.body.msg.is_complete is False
 
 
