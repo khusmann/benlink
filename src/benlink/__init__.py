@@ -120,8 +120,8 @@ receive
 and sharp questions along the way
 
 [@repins267](https://github.com/repins267) for turning my scattered notes on the
-firmware protocol into a complete proof of concept, working out the gRPC update
-check, and having the guts to do the first flash.
+firmware protocol into a complete flashing proof of concept, working out the gRPC
+update check, and having the guts to do the first flash.
 
 # Disclaimer
 
