@@ -4,7 +4,6 @@ import zipfile
 import pytest
 
 from benlink.firmware import (
-    DEFAULT_PATCH_NAME,
     PRODUCTS,
     FirmwareBundle,
     FirmwareInfo,
@@ -60,7 +59,8 @@ def test_update_info_from_protocol_empty_means_no_update():
 
 
 def test_oss_urls():
-    assert oss_patch_url(147).endswith("/firmware/v147/patch_base_to_vr_n76.bin")
+    assert oss_patch_url(147, "patch_base_to_vr_n76").endswith(
+        "/firmware/v147/patch_base_to_vr_n76.bin")
     assert oss_patch_url(147, "custom").endswith("/firmware/v147/custom.bin")
     assert oss_base_url("original").endswith("/upgrade_base.bin.zip")
     assert oss_base_url("1").endswith("/upgrade_base_v1.bin.zip")
@@ -72,10 +72,10 @@ def test_oss_base_url_rejects_unknown_base():
 
 
 def test_oss_update_info():
-    info = oss_update_info(147)
+    info = oss_update_info(147, "patch_base_to_vr_n76", "1")
     assert info.firmware.url.endswith("/firmware/v147/patch_base_to_vr_n76.bin")
     assert info.base.url.endswith("/upgrade_base_v1.bin.zip")
-    assert info.firmware.md5 == ""
+    assert info.firmware.md5 is None
 
 
 def test_assemble_raw_base():
@@ -148,7 +148,7 @@ def test_resolve_product():
 
     assert _resolve_product(
         Namespace(product=None, product_id=None, patch_name=None)
-    ) == (None, DEFAULT_PATCH_NAME)
+    ) == (None, None)
 
 
 def test_ga5wb_shares_vr_n76_patch_series():
@@ -157,7 +157,10 @@ def test_ga5wb_shares_vr_n76_patch_series():
 
 
 def test_bundle_md5_tail():
-    bundle = FirmwareBundle(data=b"hello", update_info=oss_update_info(1))
+    bundle = FirmwareBundle(
+        data=b"hello",
+        update_info=oss_update_info(1, "patch_base_to_vr_n76", "1"),
+    )
     assert bundle.md5 == "5d41402abc4b2a76b9719d911017c592"
     assert bundle.md5_tail == bytes.fromhex("1017c592")
     assert bundle.size == 5

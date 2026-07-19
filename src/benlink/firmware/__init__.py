@@ -109,9 +109,6 @@ confirmed by a GA-5WB flash capture whose `md5sum_tail` matches
 `patch_base_to_vr_n76.v120` assembled against the shared base.
 """
 
-DEFAULT_PATCH_NAME = PRODUCTS["VR_N76"][1]
-"""@private"""
-
 BASE_IMAGES: t.Dict[str, str] = {
     "original": "upgrade_base.bin.zip",
     "1": "upgrade_base_v1.bin.zip",
@@ -124,10 +121,6 @@ from the update server: patch v120, v121 and v128 use `original`; v147 uses `1`.
 the changeover happened is not known, because the server only publishes metadata for
 the current release.
 """
-
-DEFAULT_BASE_IMAGE = "1"
-"""@private"""
-
 
 def _require(module: str, package: str):
     try:
@@ -146,12 +139,16 @@ class FirmwareInfo(ImmutableBaseModel):
     """One downloadable artifact (either the patch or the base image)."""
     version: int
     url: str
-    md5: str
+    md5: str | None
+    """md5 of the *assembled* image for a patch, or of the *extracted* base image.
+
+    `None` when no reference md5 is available, which is the case for every release
+    but the current one."""
 
     @classmethod
     def from_protocol(cls, info: t.Any) -> FirmwareInfo:
         """@private (Protocol helper)"""
-        return cls(version=info.version, url=info.url, md5=info.md5)
+        return cls(version=info.version, url=info.url, md5=info.md5 or None)
 
 
 class UpdateInfo(ImmutableBaseModel):
@@ -232,12 +229,12 @@ async def check_update(
     return UpdateInfo.from_protocol(result)
 
 
-def oss_patch_url(version: int, patch_name: str = DEFAULT_PATCH_NAME) -> str:
+def oss_patch_url(version: int, patch_name: str) -> str:
     """URL of a patch in the object store."""
     return f"{OSS_BASE_URL}/firmware/v{version}/{patch_name}.bin"
 
 
-def oss_base_url(base_image: str = DEFAULT_BASE_IMAGE) -> str:
+def oss_base_url(base_image: str) -> str:
     """URL of a base image in the object store. `base_image` is a key of
     `BASE_IMAGES`."""
     if base_image not in BASE_IMAGES:
@@ -250,8 +247,8 @@ def oss_base_url(base_image: str = DEFAULT_BASE_IMAGE) -> str:
 
 def oss_update_info(
     version: int,
-    patch_name: str = DEFAULT_PATCH_NAME,
-    base_image: str = DEFAULT_BASE_IMAGE,
+    patch_name: str,
+    base_image: str,
 ) -> UpdateInfo:
     """Construct object-store URLs for a known version, without contacting the
     update server.
@@ -264,9 +261,9 @@ def oss_update_info(
         firmware=FirmwareInfo(
             version=version,
             url=oss_patch_url(version, patch_name),
-            md5="",
+            md5=None,
         ),
-        base=FirmwareInfo(version=0, url=oss_base_url(base_image), md5=""),
+        base=FirmwareInfo(version=0, url=oss_base_url(base_image), md5=None),
     )
 
 
@@ -295,7 +292,7 @@ def _download(url: str, label: str, progress: ProgressCallback | None) -> bytes:
     return b"".join(chunks)
 
 
-def _verify(data: bytes, expected_md5: str, label: str) -> None:
+def _verify(data: bytes, expected_md5: str | None, label: str) -> None:
     if not expected_md5:
         return
     actual = hashlib.md5(data).hexdigest()

@@ -14,7 +14,6 @@ import tempfile
 
 from . import (
     BASE_IMAGES,
-    DEFAULT_PATCH_NAME,
     PRODUCTS,
     FirmwareInfo,
     UpdateInfo,
@@ -50,7 +49,7 @@ def _make_progress() -> t.Callable[[str, int, int], None]:
     return progress
 
 
-def _print_verdict(data: bytes, expected: str, source: str) -> None:
+def _print_verdict(data: bytes, expected: str | None, source: str) -> None:
     """Every image this tool produces reports whether it could be checked.
 
     An unverified image is the failure mode that bricks a radio quietly, so the
@@ -124,10 +123,12 @@ def _print_device_info(info: t.Any) -> None:
 #####################
 # Products
 
-def _resolve_product(args: argparse.Namespace) -> t.Tuple[int | None, str]:
+def _resolve_product(
+    args: argparse.Namespace,
+) -> t.Tuple[int | None, str | None]:
     """Resolve `--product` into a product id and patch name, letting the explicit
     `--product-id` / `--patch-name` flags override either half."""
-    product_id, patch_name = None, DEFAULT_PATCH_NAME
+    product_id, patch_name = None, None
 
     if getattr(args, "product", None):
         product_id, patch_name = PRODUCTS[args.product]
@@ -189,12 +190,13 @@ async def _cmd_fetch(args: argparse.Namespace) -> int:
 
 async def _cmd_download_patch(args: argparse.Namespace) -> int:
     _, patch_name = _resolve_product(args)
+    assert patch_name is not None  # the parser requires --product or --patch-name
     url = oss_patch_url(args.version, patch_name)
     _out(f"  url {url}")
 
     data = await download(url, "patch", _make_progress())
     _out()
-    _print_verdict(data, "", "")
+    _print_verdict(data, None, "")
 
     _write(args.output, data, args.force)
     return 0
@@ -221,7 +223,7 @@ async def _cmd_assemble(args: argparse.Namespace) -> int:
         patch = f.read()
 
     data = assemble(base, patch)
-    _print_verdict(data, args.expect_md5 or "", "--expect-md5")
+    _print_verdict(data, args.expect_md5, "--expect-md5")
 
     _write(args.output, data, args.force)
     return 0
@@ -336,7 +338,7 @@ def _parser() -> argparse.ArgumentParser:
     patch_product = patch.add_mutually_exclusive_group(required=True)
     patch_product.add_argument("--product", choices=sorted(PRODUCTS))
     patch_product.add_argument("--patch-name",
-                               help=f"e.g. {DEFAULT_PATCH_NAME}")
+                               help="e.g. patch_base_to_vr_n76")
     _add_output_args(patch)
     patch.set_defaults(run=_cmd_download_patch)
 
