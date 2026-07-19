@@ -11,6 +11,8 @@ from benlink.firmware import (
     UpdateInfo,
     assemble,
     extract_base,
+    oss_base_url,
+    oss_patch_url,
     oss_update_info,
 )
 
@@ -55,6 +57,18 @@ def test_update_info_from_protocol():
 
 def test_update_info_from_protocol_empty_means_no_update():
     assert UpdateInfo.from_protocol(_benshikj_pb2.CheckFirmwareUpdateResult()) is None
+
+
+def test_oss_urls():
+    assert oss_patch_url(147).endswith("/firmware/v147/patch_base_to_vr_n76.bin")
+    assert oss_patch_url(147, "custom").endswith("/firmware/v147/custom.bin")
+    assert oss_base_url("original").endswith("/upgrade_base.bin.zip")
+    assert oss_base_url("1").endswith("/upgrade_base_v1.bin.zip")
+
+
+def test_oss_base_url_rejects_unknown_base():
+    with pytest.raises(RuntimeError, match="unknown base image"):
+        oss_base_url("2")
 
 
 def test_oss_update_info():

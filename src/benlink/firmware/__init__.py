@@ -78,8 +78,21 @@ confirmed by a GA-5WB flash capture whose `md5sum_tail` matches
 DEFAULT_PATCH_NAME = PRODUCTS["VR_N76"][1]
 """@private"""
 
-DEFAULT_BASE_VERSION = 1
-"""Base image version. Independent of the firmware version; shared across releases."""
+BASE_IMAGES: t.Dict[str, str] = {
+    "original": "upgrade_base.bin.zip",
+    "1": "upgrade_base_v1.bin.zip",
+}
+"""The base images a patch can be built against, as `name: filename`.
+
+A patch carries no checksum of its source, so pairing it with the wrong base produces
+a corrupt image with no error (see `assemble`). Known pairings, from flash captures and
+from the update server: patch v120, v121 and v128 use `original`; v147 uses `1`. Where
+the changeover happened is not known — the server only publishes metadata for the
+current release.
+"""
+
+DEFAULT_BASE_IMAGE = "1"
+"""@private"""
 
 
 def _require(module: str, package: str):
@@ -184,33 +197,55 @@ async def check_update(
     return UpdateInfo.from_protocol(result)
 
 
+def oss_patch_url(version: int, patch_name: str = DEFAULT_PATCH_NAME) -> str:
+    """URL of a patch in the object store."""
+    return f"{OSS_BASE_URL}/firmware/v{version}/{patch_name}.bin"
+
+
+def oss_base_url(base_image: str = DEFAULT_BASE_IMAGE) -> str:
+    """URL of a base image in the object store. `base_image` is a key of
+    `BASE_IMAGES`."""
+    if base_image not in BASE_IMAGES:
+        raise RuntimeError(
+            f"unknown base image {base_image!r}, expected one of "
+            f"{', '.join(BASE_IMAGES)}"
+        )
+    return f"{OSS_BASE_URL}/{BASE_IMAGES[base_image]}"
+
+
 def oss_update_info(
     version: int,
     patch_name: str = DEFAULT_PATCH_NAME,
-    base_version: int = DEFAULT_BASE_VERSION,
+    base_image: str = DEFAULT_BASE_IMAGE,
 ) -> UpdateInfo:
     """Construct object-store URLs for a known version, without contacting the
     update server.
 
-    No md5s are available this way, so an image assembled from these URLs cannot be
-    verified against the vendor's own checksums.
+    No md5s are available this way, so the result cannot be verified — and since a
+    patch only applies to the base it shipped with, picking the wrong `base_image`
+    yields a corrupt image silently. See `BASE_IMAGES`.
     """
     return UpdateInfo(
         firmware=FirmwareInfo(
             version=version,
-            url=f"{OSS_BASE_URL}/firmware/v{version}/{patch_name}.bin",
+            url=oss_patch_url(version, patch_name),
             md5="",
         ),
-        base=FirmwareInfo(
-            version=base_version,
-            url=f"{OSS_BASE_URL}/upgrade_base_v{base_version}.bin.zip",
-            md5="",
-        ),
+        base=FirmwareInfo(version=0, url=oss_base_url(base_image), md5=""),
     )
 
 
 #####################
 # Downloading and assembling
+
+async def download(
+    url: str,
+    label: str = "download",
+    progress: ProgressCallback | None = None,
+) -> bytes:
+    """Download a single artifact."""
+    return await asyncio.to_thread(_download, url, label, progress)
+
 
 def _download(url: str, label: str, progress: ProgressCallback | None) -> bytes:
     with urllib.request.urlopen(url) as response:
@@ -270,26 +305,19 @@ def assemble(base: bytes, patch: bytes) -> bytes:
 async def download_firmware(
     update_info: UpdateInfo,
     progress: ProgressCallback | None = None,
-    base: bytes | None = None,
 ) -> FirmwareBundle:
-    """Download the patch and base image and assemble them.
+    """Download the patch and base image named by `update_info` and assemble them.
 
-    Pass `base` to reuse a local copy instead of downloading it again. Note that
-    base images are revised over time and a patch only applies to the one released
-    with it, so a stale local copy will produce a corrupt image — which is caught
-    here only because the assembled result is checked against the server's md5.
+    Both are always fetched fresh. Base images are revised over time and a patch
+    only applies to the one released with it, so reusing a local copy risks pairing
+    a patch with a base it was never built against.
 
     Requires `bsdiff4`.
     """
-    if base is None:
-        patch, base = await asyncio.gather(
-            asyncio.to_thread(
-                _download, update_info.firmware.url, "patch", progress),
-            asyncio.to_thread(_download, update_info.base.url, "base", progress),
-        )
-    else:
-        patch = await asyncio.to_thread(
-            _download, update_info.firmware.url, "patch", progress)
+    patch, base = await asyncio.gather(
+        asyncio.to_thread(_download, update_info.firmware.url, "patch", progress),
+        asyncio.to_thread(_download, update_info.base.url, "base", progress),
+    )
 
     # The server's md5s describe the extracted base and the assembled firmware —
     # neither the base zip nor the patch file as downloaded.
