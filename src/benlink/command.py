@@ -35,8 +35,8 @@ for functions that take keyword arguments to set these parameters.
 from __future__ import annotations
 import typing as t
 import asyncio
-from pydantic import BaseModel, ConfigDict
 from . import protocol as p
+from .common import ImmutableBaseModel
 from .link import CommandLink, BleCommandLink, RfcommCommandLink
 from datetime import datetime
 
@@ -239,13 +239,6 @@ class CommandConnection:
         traceback: t.Any,
     ) -> None:
         await self.disconnect()
-
-
-class ImmutableBaseModel(BaseModel):
-    """@private (A base class for immutable data objects)"""
-
-    model_config = ConfigDict(frozen=True)
-    """@private"""
 
 
 def command_message_to_protocol(m: CommandMessage) -> p.Message:

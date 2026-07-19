@@ -16,7 +16,7 @@ from benlink.firmware import (
 bsdiff4 = pytest.importorskip("bsdiff4")
 pytest.importorskip("google.protobuf")
 
-from benlink import _benshikj_pb2  # noqa: E402
+from benlink.firmware import _benshikj_pb2  # noqa: E402
 
 
 def test_request_field_numbers():
@@ -88,7 +88,7 @@ def test_assemble_rejects_bad_patch_magic():
 def test_resolve_product():
     from argparse import Namespace
 
-    from benlink.firmware import PRODUCTS, _resolve_product
+    from benlink.firmware.__main__ import _resolve_product
 
     assert _resolve_product(
         Namespace(product="UV_PRO", product_id=None, patch_name=None)

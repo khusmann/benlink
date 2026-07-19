@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from benlink import _benshikj_pb2 as benlink_dot___benshikj__pb2
+from benlink.firmware import _benshikj_pb2 as benlink_dot_firmware_dot___benshikj__pb2
 
 GRPC_GENERATED_VERSION = '1.82.1'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in benlink/_benshikj_pb2_grpc.py depends on'
+        + ' but the generated code in benlink/firmware/_benshikj_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -36,8 +36,8 @@ class DeviceManagementStub:
         """
         self.CheckFirmwareUpdate = channel.unary_unary(
                 '/benshikj.DeviceManagement/CheckFirmwareUpdate',
-                request_serializer=benlink_dot___benshikj__pb2.CheckFirmwareUpdateRequest.SerializeToString,
-                response_deserializer=benlink_dot___benshikj__pb2.CheckFirmwareUpdateResult.FromString,
+                request_serializer=benlink_dot_firmware_dot___benshikj__pb2.CheckFirmwareUpdateRequest.SerializeToString,
+                response_deserializer=benlink_dot_firmware_dot___benshikj__pb2.CheckFirmwareUpdateResult.FromString,
                 _registered_method=True)
 
 
@@ -55,8 +55,8 @@ def add_DeviceManagementServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'CheckFirmwareUpdate': grpc.unary_unary_rpc_method_handler(
                     servicer.CheckFirmwareUpdate,
-                    request_deserializer=benlink_dot___benshikj__pb2.CheckFirmwareUpdateRequest.FromString,
-                    response_serializer=benlink_dot___benshikj__pb2.CheckFirmwareUpdateResult.SerializeToString,
+                    request_deserializer=benlink_dot_firmware_dot___benshikj__pb2.CheckFirmwareUpdateRequest.FromString,
+                    response_serializer=benlink_dot_firmware_dot___benshikj__pb2.CheckFirmwareUpdateResult.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -84,8 +84,8 @@ class DeviceManagement:
             request,
             target,
             '/benshikj.DeviceManagement/CheckFirmwareUpdate',
-            benlink_dot___benshikj__pb2.CheckFirmwareUpdateRequest.SerializeToString,
-            benlink_dot___benshikj__pb2.CheckFirmwareUpdateResult.FromString,
+            benlink_dot_firmware_dot___benshikj__pb2.CheckFirmwareUpdateRequest.SerializeToString,
+            benlink_dot_firmware_dot___benshikj__pb2.CheckFirmwareUpdateResult.FromString,
             options,
             channel_credentials,
             insecure,
