@@ -79,15 +79,17 @@ def _print_verdict(data: bytes, expected: str | None, source: str) -> None:
 
 
 def _print_update_info(info: UpdateInfo) -> None:
-    def show(label: str, entry: FirmwareInfo) -> None:
+    def show(label: str, entry: FirmwareInfo, md5_covers: str) -> None:
         # The server populates version for the patch but not for the base image.
         _out(f"  {label} v{entry.version}" if entry.version else f"  {label}")
         _out(f"    url {entry.url}")
         if entry.md5:
-            _out(f"    md5 {entry.md5}")
+            # Neither md5 describes the file at the url above, which is easy to
+            # assume and wrong.
+            _out(f"    md5 {entry.md5}  ({md5_covers})")
 
-    show("patch", info.firmware)
-    show("base", info.base)
+    show("patch", info.firmware, "of the assembled image")
+    show("base", info.base, "of the extracted .bin")
 
 
 def _write(path: str, data: bytes, force: bool) -> None:
