@@ -50,6 +50,7 @@ the changeover happened is not known, because the server only publishes metadata
 the current release.
 """
 
+
 def _identity(data: bytes) -> bytes:
     """@private (the RPC messages are encoded by hand; see `_benshikj`)"""
     return data

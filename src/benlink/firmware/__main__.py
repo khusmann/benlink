@@ -25,6 +25,7 @@ from . import (
     download,
     download_firmware,
     extract_base,
+    flash,
     oss_base_url,
     oss_patch_url,
 )
@@ -233,45 +234,57 @@ async def _cmd_assemble(args: argparse.Namespace) -> int:
 
 
 async def _cmd_update(args: argparse.Namespace) -> int:
+    # The connection is held for the whole flow: the radio is needed at the start
+    # to identify it, and again at the end to flash.
     async with _connection(args) as conn:
         device_info = await conn.get_device_info()
-    _print_device_info(device_info)
+        _print_device_info(device_info)
 
-    _out()
-    _out("Checking for updates...")
-    info = await check_update(device_info.product_id)
-    if info is None:
-        _out("  no update available")
-        return 2
+        _out()
+        _out("Checking for updates...")
+        info = await check_update(device_info.product_id)
+        if info is None:
+            _out("  no update available")
+            return 2
 
-    installed = device_info.firmware_version
-    latest = info.firmware.version
-    _out(f"  latest v{latest}   (you have v{installed})")
-    _print_update_info(info)
+        installed = device_info.firmware_version
+        latest = info.firmware.version
+        _out(f"  latest v{latest}   (you have v{installed})")
+        _print_update_info(info)
 
-    _out()
-    if latest == installed:
-        question = f"Already on v{latest}. Download and assemble anyway?"
-        if not _confirm(question, False, args.yes):
+        _out()
+        if latest == installed:
+            question = f"Already on v{latest}. Download and assemble anyway?"
+            if not _confirm(question, False, args.yes):
+                return 0
+        elif not _confirm("Download and assemble?", True, args.yes):
             return 0
-    elif not _confirm("Download and assemble?", True, args.yes):
-        return 0
 
-    bundle = await download_firmware(info, _make_progress())
-    _out()
-    _out(f"  assembled {bundle.size} bytes")
-    _print_verdict(bundle.data, info.firmware.md5, "the update server")
+        bundle = await download_firmware(info, _make_progress())
+        _out()
+        _out(f"  assembled {bundle.size} bytes")
+        _print_verdict(bundle.data, info.firmware.md5, "the update server")
 
-    directory = args.keep or tempfile.mkdtemp(prefix="benlink-fw-")
-    os.makedirs(directory, exist_ok=True)
-    path = os.path.join(directory, f"firmware-v{info.firmware.version}.bin")
-    _out()
-    _write(path, bundle.data, args.force)
+        directory = args.keep or tempfile.mkdtemp(prefix="benlink-fw-")
+        os.makedirs(directory, exist_ok=True)
+        path = os.path.join(directory, f"firmware-v{latest}.bin")
+        _out()
+        _write(path, bundle.data, args.force)
+
+        _out()
+        if not _confirm("Flash to radio?", False, args.yes):
+            _out(f"The assembled image has been kept at {path}")
+            return 0
+
+        try:
+            await flash(conn, bundle, _make_progress())
+        except NotImplementedError as e:
+            _out(f"error: {e}")
+            _out(f"The assembled image has been kept at {path}")
+            return 1
 
     _out()
-    _out("Flashing is not implemented yet, see "
-         "https://github.com/khusmann/benlink/issues/10")
-    _out(f"The assembled image has been kept at {path}")
+    _out("Firmware update complete.")
     return 0
 
 
