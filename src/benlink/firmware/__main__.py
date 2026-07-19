@@ -117,9 +117,7 @@ def _connection(args: argparse.Namespace):
 
 def _print_device_info(info: t.Any) -> None:
     _out(f"  vendor {info.vendor_id}, product {info.product_id}")
-    # Whether this shares the update server's numbering (v87..v147) is unconfirmed,
-    # so it is reported as-is rather than compared against the server's version.
-    _out(f"  firmware version {info.firmware_version}"
+    _out(f"  firmware v{info.firmware_version}"
          f", hardware version {info.hardware_version}")
 
 
@@ -240,10 +238,18 @@ async def _cmd_update(args: argparse.Namespace) -> int:
     if info is None:
         _out("  no update available")
         return 2
+
+    installed = device_info.firmware_version
+    latest = info.firmware.version
+    _out(f"  latest v{latest}   (you have v{installed})")
     _print_update_info(info)
 
     _out()
-    if not _confirm("Download and assemble?", True, args.yes):
+    if latest == installed:
+        question = f"Already on v{latest}. Download and assemble anyway?"
+        if not _confirm(question, False, args.yes):
+            return 0
+    elif not _confirm("Download and assemble?", True, args.yes):
         return 0
 
     bundle = await download_firmware(info, _make_progress())
