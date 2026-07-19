@@ -106,8 +106,9 @@ Things to do:
 - [ ] Make a higher-level interface for sending / receiving TNC data (auto
       retry, queue message fragments)
       ([issue](https://github.com/khusmann/benlink/issues/1))
-- [ ] Confirm the firmware commit / reboot handshake on models other than the
-      UV-Pro ([issue](https://github.com/khusmann/benlink/issues/10))
+- [ ] Confirm the firmware reboot handshake on a VR-N76, which is reported not
+      to reboot itself even though the GA-5WB takes the same image and does
+      ([issue](https://github.com/khusmann/benlink/issues/10))
 - [ ] Implement more commands and settings
 - [ ] Find more radios that use this protocol and test them with this library
 
