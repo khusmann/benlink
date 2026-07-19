@@ -54,6 +54,7 @@ class FakeRadio:
         chunk: int = CHUNK,
         skip_first: int = 0,
         error_after: int | None = None,
+        preempt_sync: bool = False,
     ):
         self.state = state
         self.chunk = chunk
@@ -63,6 +64,7 @@ class FakeRadio:
         self.sent: t.List[VmControlType] = []
         self.final_flags: t.List[bool] = []
         self.error_on_finalize = False
+        self.preempt_sync = preempt_sync
         self.disconnected = False
         self.aborted = False
         self._callback: t.Any = None
@@ -120,6 +122,14 @@ class FakeRadio:
             ),
         )
 
+    def _emit_sync_cfm(self, md5_tail: bytes) -> None:
+        self._emit_vmu(
+            VmuPacketType.UPDATE_SYNC_CFM,
+            VmControlUpdateSyncCfm(
+                update_state=self.state, md5sum_tail=md5_tail, unknown=b"\x00"
+            ),
+        )
+
     def _handle(self, msg: p.Message) -> None:
         if msg.command == p.ExtendedCommand.VM_CONNECT:
             self._emit(
@@ -127,6 +137,9 @@ class FakeRadio:
                 VmConnectReplyBody(status=p.ReplyStatus.SUCCESS),
                 is_reply=True,
             )
+            if self.preempt_sync:
+                # Answers a question that has not been asked yet.
+                self._emit_sync_cfm(b"\x00\x00\x00\x00")
             return
 
         if msg.command == p.ExtendedCommand.VM_DISCONNECT:
@@ -146,14 +159,8 @@ class FakeRadio:
 
         match body.vm_control_type:
             case VmControlType.UPDATE_SYNC_REQ:
-                self._emit_vmu(
-                    VmuPacketType.UPDATE_SYNC_CFM,
-                    VmControlUpdateSyncCfm(
-                        update_state=self.state,
-                        md5sum_tail=body.msg.md5sum_tail,
-                        unknown=b"\x00",
-                    ),
-                )
+                if not self.preempt_sync:
+                    self._emit_sync_cfm(body.msg.md5sum_tail)
             case VmControlType.UPDATE_START_REQ:
                 self._emit_vmu(
                     VmuPacketType.UPDATE_START_CFM,
@@ -309,3 +316,12 @@ def test_failure_after_staging_does_not_abort():
         _run(radio, _bundle(b"unused"))
 
     assert not radio.aborted
+
+
+def test_reply_arriving_before_it_is_awaited_is_not_lost():
+    """The subscription is opened before the first send and held for the whole
+    flash, so a radio that answers early is buffered rather than dropped."""
+    radio = FakeRadio(state=UpdateState.TRANSFER_COMPLETE, preempt_sync=True)
+
+    assert _run(radio, _bundle(b"unused")) is FlashResult.REBOOT_PENDING
+    assert radio.sent[-1] == VmControlType.UPDATE_TRANSFER_COMPLETE_RES
