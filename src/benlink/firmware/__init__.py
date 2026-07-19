@@ -1,45 +1,79 @@
 """
-# Overview
+# Disclaimer
 
-Firmware update support for Benshi radios.
+**Use this at your own risk. I am not responsible for bricking your radio, or for
+any other damage to your equipment.** This module is not endorsed by or affiliated
+with Benshi, Vero, RadioOddity, BTech, or any other company.
 
-This module is deliberately excluded from `benlink`'s default namespace. Flashing
-firmware can brick a radio, so it must be imported explicitly:
+Downloading and assembling an image is safe. Flashing one is not, and is not
+implemented yet ([issue #10](https://github.com/khusmann/benlink/issues/10)).
 
-```python
-import benlink.firmware
-```
+# The intended flow
 
-Firmware is distributed as a shared **base image** plus a per-release **patch** in
-BSDIFF40 format. Assembling the two yields the image the radio expects. Neither is
-redistributed by benlink — both are fetched from the vendor's servers at the user's
-request.
+Firmware ships as a shared **base image** plus a per-release **patch** in BSDIFF40
+format; assembling the two yields the image the radio expects. benlink
+redistributes neither, and fetches both on request.
 
-Two ways to find an image:
-
-1. Ask the vendor's update server what the latest release is for a given product id
-   (`check_update`). Requires `grpcio`, and returns md5s that let the assembled image
-   be verified.
-2. Address the object store directly by version number (`oss_update_info`). Needs no
-   RPC and no product id, which keeps this module working if the update server
-   changes.
-
-# CLI
+One command walks the whole upgrade, prompting as it goes:
 
 ```bash
-python -m benlink.firmware check    --product-id 259
-python -m benlink.firmware fetch    --product-id 259 -o fw.bin
-python -m benlink.firmware fetch    --version 147 -o fw.bin
-python -m benlink.firmware assemble --base upgrade_base.bin --patch patch.bin -o fw.bin
+python -m benlink.firmware update XX:XX:XX:XX:XX:XX
 ```
 
-`assemble` is fully offline. `check` and `fetch --product-id` contact the update
-server; `fetch --version` contacts only the object store.
+It reads the product id and installed version from the radio, asks the update
+server for the latest release, downloads the patch and base, assembles them, and
+checks the result against the server's md5. Because the server names both
+artifacts, this path cannot pair a patch with the wrong base.
+
+Add `--rfcomm CHANNEL` for RFCOMM instead of BLE, `--keep DIR` to write somewhere
+durable, `-y` to accept prompts.
+
+# The pieces
+
+Each step is also available alone, for archiving old releases or working away from
+the radio. Everything but `info` avoids the Bluetooth stack.
+
+```bash
+# which radio is this?
+python -m benlink.firmware info XX:XX:XX:XX:XX:XX
+
+# what is the latest release?
+python -m benlink.firmware check --product UV_PRO
+
+# that release, downloaded and assembled, without a radio
+python -m benlink.firmware fetch --product UV_PRO -o fw.bin
+
+# one artifact at a time, for any version
+python -m benlink.firmware download-patch --version 128 --product UV_PRO -o patch.bin
+python -m benlink.firmware download-base --version original -o base.zip
+
+# combine them offline
+python -m benlink.firmware assemble --base base.zip --patch patch.bin -o fw.bin
+```
+
+`--product` is a shorthand for the radios in `PRODUCTS`; `--product-id` works for
+any radio, and `info` tells you yours. If yours isn't listed, please
+[open an issue](https://github.com/khusmann/benlink/issues) with what `info`
+reports so it can be added.
+
+# Verification
+
+A BSDIFF40 patch carries no checksum of the base it was built against, so pairing
+a patch with the wrong base **succeeds silently** and produces a corrupt image of
+plausible length. See `BASE_IMAGES` for the known pairings.
+
+The server publishes an md5 of the *assembled* image for the current release, so
+`update` and `fetch` are checked end to end. Older releases have none; for those,
+`assemble --expect-md5` accepts one from elsewhere, such as the `md5sum_tail` in a
+packet capture of an official flash. Every command that writes an image says
+whether it could be verified.
 
 # Notes
 
-The product id is read from the radio via `GET_DEV_INFO` (`DeviceInfo.product_id`).
-It is not unique across vendors — the VR-N76 and GA-5WB both report 259.
+The product id comes from `GET_DEV_INFO` (`DeviceInfo.product_id`) and is not
+unique across vendors: the VR-N76 and GA-5WB both report 259.
+`DeviceInfo.firmware_version` shares the update server's numbering, so installed
+and available versions compare directly.
 """
 
 from __future__ import annotations
@@ -70,7 +104,7 @@ PRODUCTS: t.Dict[str, t.Tuple[int, str]] = {
 """Known radios, as `name: (product_id, patch_name)`.
 
 Every patch name here was returned by the update server for the corresponding product
-id. Note that 259 covers both the VR-N76 and the GA-5WB — they share a patch series,
+id. Note that 259 covers both the VR-N76 and the GA-5WB, which share a patch series,
 confirmed by a GA-5WB flash capture whose `md5sum_tail` matches
 `patch_base_to_vr_n76.v120` assembled against the shared base.
 """
@@ -87,8 +121,8 @@ BASE_IMAGES: t.Dict[str, str] = {
 A patch carries no checksum of its source, so pairing it with the wrong base produces
 a corrupt image with no error (see `assemble`). Known pairings, from flash captures and
 from the update server: patch v120, v121 and v128 use `original`; v147 uses `1`. Where
-the changeover happened is not known — the server only publishes metadata for the
-current release.
+the changeover happened is not known, because the server only publishes metadata for
+the current release.
 """
 
 DEFAULT_BASE_IMAGE = "1"
@@ -192,7 +226,8 @@ async def check_update(
         try:
             result = await stub.CheckFirmwareUpdate(request, timeout=RPC_TIMEOUT)
         except grpc.aio.AioRpcError as e:
-            raise RuntimeError(f"update check failed: {e.code()} {e.details()}")
+            raise RuntimeError(
+                f"update check failed: {e.code()} {e.details()}")
 
     return UpdateInfo.from_protocol(result)
 
@@ -221,9 +256,9 @@ def oss_update_info(
     """Construct object-store URLs for a known version, without contacting the
     update server.
 
-    No md5s are available this way, so the result cannot be verified — and since a
-    patch only applies to the base it shipped with, picking the wrong `base_image`
-    yields a corrupt image silently. See `BASE_IMAGES`.
+    No md5s are available this way, so the result cannot be verified. Since a patch
+    only applies to the base it shipped with, picking the wrong `base_image` yields a
+    corrupt image silently. See `BASE_IMAGES`.
     """
     return UpdateInfo(
         firmware=FirmwareInfo(
@@ -289,8 +324,8 @@ def assemble(base: bytes, patch: bytes) -> bytes:
 
     A patch carries no checksum of the base it was built against, so applying it to
     the wrong base succeeds and silently yields a corrupt image. Patches are only
-    valid against the base image released alongside them — compare the result
-    against `UpdateInfo.firmware.md5` whenever it is known.
+    valid against the base image released alongside them. Compare the result against
+    `UpdateInfo.firmware.md5` whenever it is known.
     """
     bsdiff4 = _require("bsdiff4", "bsdiff4")
 
@@ -315,11 +350,12 @@ async def download_firmware(
     Requires `bsdiff4`.
     """
     patch, base = await asyncio.gather(
-        asyncio.to_thread(_download, update_info.firmware.url, "patch", progress),
+        asyncio.to_thread(_download, update_info.firmware.url,
+                          "patch", progress),
         asyncio.to_thread(_download, update_info.base.url, "base", progress),
     )
 
-    # The server's md5s describe the extracted base and the assembled firmware —
+    # The server's md5s describe the extracted base and the assembled firmware,
     # neither the base zip nor the patch file as downloaded.
     base = extract_base(base)
     _verify(base, update_info.base.md5, "base image")

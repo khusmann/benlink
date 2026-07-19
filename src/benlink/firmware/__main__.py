@@ -264,7 +264,7 @@ async def _cmd_update(args: argparse.Namespace) -> int:
     _write(path, bundle.data, args.force)
 
     _out()
-    _out("Flashing is not implemented yet — see "
+    _out("Flashing is not implemented yet, see "
          "https://github.com/khusmann/benlink/issues/10")
     _out(f"The assembled image has been kept at {path}")
     return 0

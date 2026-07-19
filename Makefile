@@ -8,7 +8,10 @@ proto:
 		benlink/firmware/_benshikj.proto
 
 docs:
-	pdoc ./src/benlink -o docs --logo /logo.svg
+	pdoc ./src/benlink \
+		'!benlink.firmware._benshikj_pb2' \
+		'!benlink.firmware._benshikj_pb2_grpc' \
+		-o docs --logo /logo.svg
 	cp ./assets/logo-transparent.svg docs/logo.svg
 
 preview-docs:

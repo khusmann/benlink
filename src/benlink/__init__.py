@@ -131,5 +131,6 @@ caused to your radio or any other equipment while using this library.
 from . import controller
 from . import command
 from . import audio
+from . import firmware
 
-__all__ = ['controller', 'command', 'audio']
+__all__ = ['controller', 'command', 'audio', 'firmware']
