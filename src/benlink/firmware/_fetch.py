@@ -34,7 +34,9 @@ PRODUCTS: t.Dict[str, t.Tuple[int, str]] = {
 Every patch name here was returned by the update server for the corresponding product
 id. Note that 259 covers both the VR-N76 and the GA-5WB, which share a patch series,
 confirmed by a GA-5WB flash capture whose `md5sum_tail` matches
-`patch_base_to_vr_n76.v120` assembled against the shared base.
+`patch_base_to_vr_n76.v120` assembled against the shared base. They cannot differ:
+`CheckFirmwareUpdateRequest` carries no vendor id, so the server cannot tell the
+two apart.
 """
 
 BASE_IMAGES: t.Dict[str, str] = {
