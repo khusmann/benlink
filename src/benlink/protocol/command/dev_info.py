@@ -1,6 +1,6 @@
 from __future__ import annotations
 import typing as t
-from .bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_lit_int
+from .bitfield import Bitfield, bf_int, bf_int_enum, bf_dyn, bf_lit_int, bf_bool
 from .common import ReplyStatus
 
 
@@ -22,7 +22,9 @@ class DevInfo(Bitfield):
     support_dmr: bool
     channel_count: int = bf_int(8)
     freq_range_count: int = bf_int(4)
-    _pad: t.Literal[0] = bf_lit_int(4, default=0)
+    support_noise_reduction: bool = bf_bool(default=False)
+    support_smart_beacon: bool = bf_bool(default=False)
+    _pad: t.Literal[0] = bf_lit_int(2, default=0)
 
 
 class GetDevInfoBody(Bitfield):

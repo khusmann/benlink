@@ -1,5 +1,5 @@
 from __future__ import annotations
-from .bitfield import Bitfield, bf_int_enum, bf_int, bf_map, bf_lit_int, bf_dyn
+from .bitfield import Bitfield, bf_int_enum, bf_int, bf_dyn
 from .common import ReplyStatus
 import typing as t
 
@@ -32,9 +32,7 @@ class Settings(Bitfield):
     dis_tone: bool
     power_saving_mode: bool
     auto_power_off: int = bf_int(3)
-    auto_share_loc_ch: int | t.Literal["current"] = bf_map(
-        bf_int(5), LocChMap()
-    )
+    auto_share_loc_ch: int = bf_int(5)
     hm_speaker: int = bf_int(2)
     positioning_system: int = bf_int(4)
     time_offset: int = bf_int(6)
@@ -43,7 +41,8 @@ class Settings(Bitfield):
     leading_sync_bit_en: bool
     pairing_at_power_on: bool
     screen_timeout: int = bf_int(5)
-    vfo_x: int = bf_int(2)
+    kiss_upload_tx_msg: bool
+    kiss_en: bool
     imperial_unit: bool
     channel_a_upper: int = bf_int(4)
     channel_b_upper: int = bf_int(4)
@@ -54,9 +53,20 @@ class Settings(Bitfield):
     dis_digital_mute: bool
     signaling_ecc_en: bool
     ch_data_lock: bool
-    _pad: t.Literal[0] = bf_lit_int(3, default=0)
-    vfo1_mod_freq_x: int = bf_int(32)
-    vfo2_mod_freq_x: int = bf_int(32)
+    auto_share_loc_ch_upper: int = bf_int(3)
+    kiss_tx_delay: int = bf_int(8)
+    kiss_tx_tail: int = bf_int(8)
+    vox_en: bool
+    vox_level: int = bf_int(3)
+    dis_bt_mic: bool
+    vox_delay: int = bf_int(3)
+    ns_en: bool
+    alarm_volume: int = bf_int(4)
+    use_custom_location: bool
+    gpwpl_upload_en: bool
+    vfo1_mod_freq_x: int = bf_int(1)
+    custom_location_lat: int = bf_int(24)
+    custom_location_lon: int = bf_int(24)
 
 
 class ReadSettingsBody(Bitfield):

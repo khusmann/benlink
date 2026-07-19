@@ -28,6 +28,8 @@ class EventType(IntEnum):
     USER_ACTION = 9
     SYSTEM_EVENT = 10
     BSS_SETTINGS_CHANGED = 11
+    DATA_TXD = 12
+    POSITION_CHANGE = 13
 
 
 class HTSettingsChangedEvent(Bitfield):

@@ -84,7 +84,7 @@ asyncio.run(main())
 ## Next Steps
 
 To see what else you can do with this library, check out the examples in the
-[benlink.controller](https://kylehusmann.com/benlink/benlink/controller.html)
+[benlink.controller](https://benlink.kylehusmann.com/benlink/controller.html)
 module documentation.
 
 ## Other Projects
@@ -93,19 +93,12 @@ Benlink has already begun to inspire other projects! Here are some that I know
 of so far:
 
 - [HTCommander](https://github.com/Ylianst/HTCommander)
+- [flutter\_benlink](https://github.com/SarahRoseLives/flutter_benlink)
 
 If you've found benlink's documentation of the Benshi protocol helpful, or use
 benlink in your own project, please let me know so I can add it to this list.
 
 ## Known issues
-
-If you don't have the audio RFCOMM socket open, and try to send any data with
-`benlink.controller.RadioController.send_tnc_data`, it will immediately reply
-with a `INCORRECT_STATE` error. If you immediately retry the command within two
-seconds, it will work. I plan to add a higher-level interface for sending /
-receiving TNC data that will automatically retry failed commands and queue /
-combine message fragments. See
-[this open issue](https://github.com/khusmann/benlink/issues/1) for more info.
 
 Audio sending / receiving is a awkward because it relies on pyav for decoding /
 encoding. In the long run, I hope to make
