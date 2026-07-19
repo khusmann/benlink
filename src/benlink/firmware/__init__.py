@@ -28,7 +28,7 @@ durable, `-y` to accept prompts.
 # The pieces
 
 Each step is also available alone, for archiving old releases or working away from
-the radio. Everything but `info` avoids the Bluetooth stack.
+the radio. Everything but `info` and `flash` avoids the Bluetooth stack.
 
 ```bash
 # which radio is this?
