@@ -226,7 +226,12 @@ async def check_update(
     async with grpc.aio.secure_channel(RPC_HOST, credentials) as channel:
         stub = _benshikj_pb2_grpc.DeviceManagementStub(channel)
         try:
-            result = await stub.CheckFirmwareUpdate(request, timeout=RPC_TIMEOUT)
+            # The generated grpc stub carries no type information.
+            result = t.cast(
+                "_benshikj_pb2.CheckFirmwareUpdateResult",
+                await stub.CheckFirmwareUpdate(  # pyright: ignore
+                    request, timeout=RPC_TIMEOUT),
+            )
         except grpc.aio.AioRpcError as e:
             raise RuntimeError(
                 f"update check failed: {e.code()} {e.details()}")
