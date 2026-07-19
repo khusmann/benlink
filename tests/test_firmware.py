@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 
-from benlink.firmware import _benshikj
+from benlink.firmware import _rpc
 from benlink.firmware import (
     PRODUCTS,
     FirmwareBundle,
@@ -32,7 +32,7 @@ def _delimited(field: int, payload: bytes) -> bytes:
     return _varint(field << 3 | 2) + _varint(len(payload)) + payload
 
 
-def _firmware_info_bytes(info: _benshikj.FirmwareInfo) -> bytes:
+def _firmware_info_bytes(info: _rpc.FirmwareInfo) -> bytes:
     return (
         _varint(1 << 3) + _varint(info.version)
         + _delimited(2, info.url.encode())
@@ -42,35 +42,35 @@ def _firmware_info_bytes(info: _benshikj.FirmwareInfo) -> bytes:
 
 def test_encode_check_request():
     # Field numbers are the wire contract: product_id is field 1, varint.
-    assert _benshikj.encode_check_request(259) == b"\x08\x83\x02"
-    assert _benshikj.encode_check_request(259, 147) == b"\x08\x83\x02\x10\x93\x01"
+    assert _rpc.encode_check_request(259) == b"\x08\x83\x02"
+    assert _rpc.encode_check_request(259, 147) == b"\x08\x83\x02\x10\x93\x01"
     # proto3 omits zero-valued fields
-    assert _benshikj.encode_check_request(0) == b""
+    assert _rpc.encode_check_request(0) == b""
 
 
 def test_encode_decode_roundtrip():
-    info = _benshikj.FirmwareInfo(147, "https://example.invalid/p.bin", "abc")
+    info = _rpc.FirmwareInfo(147, "https://example.invalid/p.bin", "abc")
     encoded = _delimited(1, _firmware_info_bytes(info))
-    decoded = _benshikj.decode_check_result(encoded)
+    decoded = _rpc.decode_check_result(encoded)
     assert decoded.firmware == info
-    assert decoded.base == _benshikj.FirmwareInfo()
+    assert decoded.base == _rpc.FirmwareInfo()
 
 
 def test_decode_stops_on_unknown_wire_type():
     # tag with wire type 7 (invalid); the walk must not loop or raise
-    assert _benshikj.decode_check_result(b"\x0f\x01\x02") == (
-        _benshikj.CheckFirmwareUpdateResult()
+    assert _rpc.decode_check_result(b"\x0f\x01\x02") == (
+        _rpc.CheckFirmwareUpdateResult()
     )
 
 
 def test_update_info_from_protocol():
-    result = _benshikj.CheckFirmwareUpdateResult(
-        firmware=_benshikj.FirmwareInfo(
+    result = _rpc.CheckFirmwareUpdateResult(
+        firmware=_rpc.FirmwareInfo(
             version=147,
             url="https://example.invalid/patch.bin",
             md5="0c0d095da50bebe664822adcb244834a",
         ),
-        base=_benshikj.FirmwareInfo(
+        base=_rpc.FirmwareInfo(
             url="https://example.invalid/base.zip",
             md5="74b6d097d8d2d9d2d9fac88133198a08",
         ),
@@ -91,7 +91,7 @@ def test_update_info_from_protocol():
 
 
 def test_update_info_from_protocol_empty_means_no_update():
-    empty = _benshikj.CheckFirmwareUpdateResult()
+    empty = _rpc.CheckFirmwareUpdateResult()
     assert UpdateInfo.from_protocol(empty) is None
 
 

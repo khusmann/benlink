@@ -12,7 +12,7 @@ import urllib.request
 import zipfile
 
 from ..common import ImmutableBaseModel
-from . import _benshikj
+from . import _rpc
 
 OSS_BASE_URL = "https://pubdatas.oss-cn-shenzhen.aliyuncs.com"
 """@private"""
@@ -54,7 +54,7 @@ the current release.
 
 
 def _identity(data: bytes) -> bytes:
-    """@private (the RPC messages are encoded by hand; see `_benshikj`)"""
+    """@private (the RPC messages are encoded by hand; see `_rpc`)"""
     return data
 
 
@@ -82,7 +82,7 @@ class FirmwareInfo(ImmutableBaseModel):
     but the current one."""
 
     @classmethod
-    def from_protocol(cls, info: _benshikj.FirmwareInfo) -> FirmwareInfo:
+    def from_protocol(cls, info: _rpc.FirmwareInfo) -> FirmwareInfo:
         """@private (Protocol helper)"""
         return cls(version=info.version, url=info.url, md5=info.md5 or None)
 
@@ -94,7 +94,7 @@ class UpdateInfo(ImmutableBaseModel):
 
     @classmethod
     def from_protocol(
-        cls, result: _benshikj.CheckFirmwareUpdateResult
+        cls, result: _rpc.CheckFirmwareUpdateResult
     ) -> UpdateInfo | None:
         """@private (Protocol helper)"""
         if not result.firmware.url or not result.base.url:
@@ -149,12 +149,12 @@ async def check_update(
     """
     grpc = _require("grpc", "grpcio")
 
-    request = _benshikj.encode_check_request(product_id, firmware_version)
+    request = _rpc.encode_check_request(product_id, firmware_version)
 
     credentials = grpc.ssl_channel_credentials()
     async with grpc.aio.secure_channel(RPC_HOST, credentials) as channel:
         call = channel.unary_unary(
-            _benshikj.METHOD,
+            _rpc.METHOD,
             request_serializer=_identity,
             response_deserializer=_identity,
         )
@@ -164,7 +164,7 @@ async def check_update(
             raise RuntimeError(
                 f"update check failed: {e.code()} {e.details()}")
 
-    return UpdateInfo.from_protocol(_benshikj.decode_check_result(response))
+    return UpdateInfo.from_protocol(_rpc.decode_check_result(response))
 
 
 def oss_patch_url(version: int, patch_name: str) -> str:
