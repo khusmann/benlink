@@ -58,9 +58,6 @@ OSS_BASE_URL = "https://pubdatas.oss-cn-shenzhen.aliyuncs.com"
 RPC_HOST = "rpc.benshikj.com:800"
 """@private"""
 
-RPC_METHOD = "/benshikj.DeviceManagement/CheckFirmwareUpdate"
-"""@private"""
-
 RPC_TIMEOUT = 10.0
 """@private"""
 
@@ -93,79 +90,6 @@ def _require(module: str, package: str):
             f"{package} is required for this operation. "
             f"Install with: pip install benlink[firmware]"
         )
-
-
-#####################
-# proto3 wire format
-#
-# The update server speaks gRPC, but only two message shapes are needed, so they are
-# encoded by hand rather than taking a protoc dependency:
-#
-#   CheckFirmwareUpdateRequest { productId=1, firmwareVersion=2, beta=3,
-#                                userId=4, inviteCode=5 }
-#   CheckFirmwareUpdateResult  { firmware:FirmwareInfo=1, base:FirmwareInfo=2 }
-#   FirmwareInfo               { version=1, url=2, md5=3,
-#                                releaseNotes=4, releaseDate=5 }
-#
-# proto3 omits zero-valued fields, so sending productId alone requests the latest
-# release.
-
-def _encode_varint(value: int) -> bytes:
-    out = bytearray()
-    while value > 0x7F:
-        out.append((value & 0x7F) | 0x80)
-        value >>= 7
-    out.append(value)
-    return bytes(out)
-
-
-def _encode_varint_field(field: int, value: int) -> bytes:
-    return _encode_varint(field << 3) + _encode_varint(value)
-
-
-def _decode_fields(data: bytes) -> t.Iterator[t.Tuple[int, int, bytes]]:
-    pos = 0
-
-    def read_varint() -> int:
-        nonlocal pos
-        value = shift = 0
-        while pos < len(data):
-            byte = data[pos]
-            pos += 1
-            value |= (byte & 0x7F) << shift
-            if not byte & 0x80:
-                break
-            shift += 7
-        return value
-
-    while pos < len(data):
-        tag = read_varint()
-        field, wire_type = tag >> 3, tag & 0x7
-        match wire_type:
-            case 0:
-                yield field, wire_type, _encode_varint(read_varint())
-            case 1:
-                yield field, wire_type, data[pos:pos + 8]
-                pos += 8
-            case 2:
-                length = read_varint()
-                yield field, wire_type, data[pos:pos + length]
-                pos += length
-            case 5:
-                yield field, wire_type, data[pos:pos + 4]
-                pos += 4
-            case _:
-                return
-
-
-def _decode_varint(data: bytes) -> int:
-    value = shift = 0
-    for byte in data:
-        value |= (byte & 0x7F) << shift
-        if not byte & 0x80:
-            break
-        shift += 7
-    return value
 
 
 #####################
@@ -214,30 +138,21 @@ ProgressCallback = t.Callable[[str, int, int], None]
 #####################
 # Finding an update
 
-def _parse_firmware_info(data: bytes) -> FirmwareInfo:
-    version, url, md5 = 0, "", ""
-    for field, _, value in _decode_fields(data):
-        match field:
-            case 1:
-                version = _decode_varint(value)
-            case 2:
-                url = value.decode("utf-8")
-            case 3:
-                md5 = value.decode("utf-8")
-    return FirmwareInfo(version=version, url=url, md5=md5)
+def _firmware_info(message: t.Any) -> FirmwareInfo:
+    return FirmwareInfo(
+        version=message.version,
+        url=message.url,
+        md5=message.md5,
+    )
 
 
-def _parse_check_result(data: bytes) -> UpdateInfo | None:
-    firmware = base = None
-    for field, _, value in _decode_fields(data):
-        match field:
-            case 1:
-                firmware = _parse_firmware_info(value)
-            case 2:
-                base = _parse_firmware_info(value)
-    if firmware is None or base is None or not firmware.url or not base.url:
+def _update_info(result: t.Any) -> UpdateInfo | None:
+    if not result.firmware.url or not result.base.url:
         return None
-    return UpdateInfo(firmware=firmware, base=base)
+    return UpdateInfo(
+        firmware=_firmware_info(result.firmware),
+        base=_firmware_info(result.base),
+    )
 
 
 async def check_update(
@@ -246,33 +161,29 @@ async def check_update(
 ) -> UpdateInfo | None:
     """Ask the update server for the latest release for `product_id`.
 
-    `firmware_version` is the currently installed internal version; leaving it at 0
-    always returns the latest. Returns `None` if the server reports no update.
+    `firmware_version` is the currently installed internal version. The server
+    returns the latest release regardless of its value, so it has no effect in
+    practice. Returns `None` if the server reports no update.
 
-    Requires `grpcio`.
+    Requires `grpcio` and `protobuf`.
     """
     grpc = _require("grpc", "grpcio")
+    from . import _benshikj_pb2, _benshikj_pb2_grpc
 
-    request = _encode_varint_field(1, product_id)
-    if firmware_version:
-        request += _encode_varint_field(2, firmware_version)
+    request = _benshikj_pb2.CheckFirmwareUpdateRequest(
+        product_id=product_id,
+        firmware_version=firmware_version,
+    )
 
     credentials = grpc.ssl_channel_credentials()
     async with grpc.aio.secure_channel(RPC_HOST, credentials) as channel:
-        call = channel.unary_unary(
-            RPC_METHOD,
-            request_serializer=lambda x: x,
-            response_deserializer=lambda x: x,
-        )
+        stub = _benshikj_pb2_grpc.DeviceManagementStub(channel)
         try:
-            response: bytes = await call(request, timeout=RPC_TIMEOUT)
+            result = await stub.CheckFirmwareUpdate(request, timeout=RPC_TIMEOUT)
         except grpc.aio.AioRpcError as e:
             raise RuntimeError(f"update check failed: {e.code()} {e.details()}")
 
-    if not response:
-        return None
-
-    return _parse_check_result(response)
+    return _update_info(result)
 
 
 def oss_update_info(

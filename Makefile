@@ -1,6 +1,11 @@
-.PHONY: docs
+.PHONY: docs proto
 
 all: docs
+
+proto:
+	cd src && python -m grpc_tools.protoc -I. \
+		--python_out=. --pyi_out=. --grpc_python_out=. \
+		benlink/_benshikj.proto
 
 docs:
 	pdoc ./src/benlink -o docs --logo /logo.svg

@@ -14,12 +14,6 @@ dependencies = [
     "bleak >=0.22.0",
     "pydantic >=2.6.0"
 ]
-[project.optional-dependencies]
-firmware = [
-    "bsdiff4 >=1.2.0",
-    "grpcio >=1.60.0",
-]
-
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
@@ -30,6 +24,17 @@ classifiers = [
     "Topic :: Communications",
 ]
 requires-python = ">=3.10"
+
+[project.optional-dependencies]
+firmware = [
+    "bsdiff4 >=1.2.0",
+    "grpcio >=1.60.0",
+    "protobuf >=4.21.0",
+]
+# Only needed to regenerate the protobuf stubs; see `make proto`.
+proto = [
+    "grpcio-tools >=1.60.0",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/khusmann/benlink"

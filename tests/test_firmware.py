@@ -9,76 +9,52 @@ from benlink.firmware import (
     FirmwareBundle,
     FirmwareInfo,
     UpdateInfo,
-    _decode_fields,
-    _encode_varint,
-    _encode_varint_field,
-    _parse_check_result,
+    _update_info,
     assemble,
     oss_update_info,
 )
 
 bsdiff4 = pytest.importorskip("bsdiff4")
+pytest.importorskip("google.protobuf")
+
+from benlink import _benshikj_pb2  # noqa: E402
 
 
-def test_encode_varint():
-    assert _encode_varint(0) == b"\x00"
-    assert _encode_varint(1) == b"\x01"
-    assert _encode_varint(127) == b"\x7f"
-    assert _encode_varint(128) == b"\x80\x01"
-    assert _encode_varint(259) == b"\x83\x02"
+def test_request_field_numbers():
+    # The field numbers are the wire contract; the names are ours.
+    request = _benshikj_pb2.CheckFirmwareUpdateRequest(product_id=259)
+    assert request.SerializeToString() == b"\x08\x83\x02"
 
 
-def test_encode_varint_field():
-    # field 1, wire type 0, value 259
-    assert _encode_varint_field(1, 259) == b"\x08\x83\x02"
-
-
-def test_decode_fields_roundtrip():
-    data = _encode_varint_field(1, 259) + _encode_varint_field(2, 147)
-    assert [(f, w) for f, w, _ in _decode_fields(data)] == [(1, 0), (2, 0)]
-
-
-def _string_field(field: int, value: str) -> bytes:
-    raw = value.encode()
-    return _encode_varint(field << 3 | 2) + _encode_varint(len(raw)) + raw
-
-
-def _message_field(field: int, value: bytes) -> bytes:
-    return _encode_varint(field << 3 | 2) + _encode_varint(len(value)) + value
-
-
-def test_parse_check_result():
-    firmware = (
-        _encode_varint_field(1, 147)
-        + _string_field(2, "https://example.invalid/patch.bin")
-        + _string_field(3, "0c0d095da50bebe664822adcb244834a")
-    )
-    base = (
-        _encode_varint_field(1, 1)
-        + _string_field(2, "https://example.invalid/base.zip")
-        + _string_field(3, "74b6d097d8d2d9d2d9fac88133198a08")
+def test_update_info():
+    result = _benshikj_pb2.CheckFirmwareUpdateResult(
+        firmware=_benshikj_pb2.FirmwareInfo(
+            version=147,
+            url="https://example.invalid/patch.bin",
+            md5="0c0d095da50bebe664822adcb244834a",
+        ),
+        base=_benshikj_pb2.FirmwareInfo(
+            url="https://example.invalid/base.zip",
+            md5="74b6d097d8d2d9d2d9fac88133198a08",
+        ),
     )
 
-    result = _parse_check_result(
-        _message_field(1, firmware) + _message_field(2, base)
-    )
-
-    assert result == UpdateInfo(
+    assert _update_info(result) == UpdateInfo(
         firmware=FirmwareInfo(
             version=147,
             url="https://example.invalid/patch.bin",
             md5="0c0d095da50bebe664822adcb244834a",
         ),
         base=FirmwareInfo(
-            version=1,
+            version=0,
             url="https://example.invalid/base.zip",
             md5="74b6d097d8d2d9d2d9fac88133198a08",
         ),
     )
 
 
-def test_parse_check_result_empty_means_no_update():
-    assert _parse_check_result(b"") is None
+def test_update_info_empty_means_no_update():
+    assert _update_info(_benshikj_pb2.CheckFirmwareUpdateResult()) is None
 
 
 def test_oss_update_info():
