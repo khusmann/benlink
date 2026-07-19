@@ -205,6 +205,13 @@ class FakeRadio:
                     )
             case VmControlType.UPDATE_ABORT_REQ:
                 self.aborted = True
+            case VmControlType.UPDATE_TRANSFER_COMPLETE_RES:
+                # Acked like every control message; the reboot is the answer.
+                pass
+            case _:
+                raise AssertionError(
+                    f"flash sent an unexpected {body.vm_control_type.name}"
+                )
 
 
 def _run(radio: FakeRadio, bundle: FirmwareBundle, **kwargs: t.Any) -> FlashResult:
@@ -248,7 +255,11 @@ def test_image_shorter_than_one_chunk():
 def test_progress_reports_reach_the_total():
     data = b"y" * (CHUNK * 2 + 7)
     seen: t.List[t.Tuple[str, int, int]] = []
-    _run(FakeRadio(), _bundle(data), progress=lambda *a: seen.append(a))
+
+    def record(label: str, done: int, total: int) -> None:
+        seen.append((label, done, total))
+
+    _run(FakeRadio(), _bundle(data), progress=record)
 
     assert [n for _, n, _ in seen] == [CHUNK, CHUNK * 2, len(data)]
     assert all(total == len(data) for _, _, total in seen)

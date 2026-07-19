@@ -95,7 +95,7 @@ class CommandConnection:
     async def subscribe(
         self,
         match: t.Callable[[RadioMessage], bool] | None = None,
-    ) -> t.AsyncIterator[asyncio.Queue[RadioMessage]]:
+    ) -> t.AsyncGenerator[asyncio.Queue[RadioMessage], None]:
         """Collect matching messages into a queue while the context is held.
 
         Enter this before sending whatever provokes the replies, so that a reply
