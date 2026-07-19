@@ -95,6 +95,9 @@ OSS_BASE_URL = "https://pubdatas.oss-cn-shenzhen.aliyuncs.com"
 RPC_HOST = "rpc.benshikj.com:800"
 """@private"""
 
+RPC_METHOD = "/benshikj.DeviceManagement/CheckFirmwareUpdate"
+"""@private"""
+
 RPC_TIMEOUT = 10.0
 """@private"""
 
@@ -215,7 +218,7 @@ async def check_update(
     Requires `grpcio` and `protobuf`.
     """
     grpc = _require("grpc", "grpcio")
-    from . import _benshikj_pb2, _benshikj_pb2_grpc
+    from . import _benshikj_pb2
 
     request = _benshikj_pb2.CheckFirmwareUpdateRequest(
         product_id=product_id,
@@ -224,14 +227,15 @@ async def check_update(
 
     credentials = grpc.ssl_channel_credentials()
     async with grpc.aio.secure_channel(RPC_HOST, credentials) as channel:
-        stub = _benshikj_pb2_grpc.DeviceManagementStub(channel)
+        call = channel.unary_unary(
+            RPC_METHOD,
+            request_serializer=(
+                _benshikj_pb2.CheckFirmwareUpdateRequest.SerializeToString),
+            response_deserializer=(
+                _benshikj_pb2.CheckFirmwareUpdateResult.FromString),
+        )
         try:
-            # The generated grpc stub carries no type information.
-            result = t.cast(
-                "_benshikj_pb2.CheckFirmwareUpdateResult",
-                await stub.CheckFirmwareUpdate(  # pyright: ignore
-                    request, timeout=RPC_TIMEOUT),
-            )
+            result = await call(request, timeout=RPC_TIMEOUT)
         except grpc.aio.AioRpcError as e:
             raise RuntimeError(
                 f"update check failed: {e.code()} {e.details()}")
