@@ -189,8 +189,10 @@ class VmControlUpdateError(Bitfield):
 class VmControlUpdateDataBytesReq(Bitfield):
     # The max bytes requested that the HT app allows is 250
     n_bytes_requested: int = bf_int(32)
-    # Skip allows for resuming a firmware update maybe?
-    # I don't see it used in any of my logs
+    # Skip would allow resuming a firmware update, but it is 0 in every request
+    # in my logs, including the ones after an aborted transfer — those restart
+    # from the beginning instead. So whether it counts from the current position
+    # or from the start of the image is unknown.
     n_bytes_skip: int = bf_int(32)
 
 

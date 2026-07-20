@@ -25,10 +25,10 @@ phases separated by a reboot:
 
 `flash` runs one phase per call and reports whether a reboot is pending, so the
 caller owns the reconnect. Which phase runs is decided by the `UpdateState` the
-radio reports in `UPDATE_SYNC_CFM` rather than tracked locally, which is also
-what makes an interrupted update resumable: a half-finished transfer reports
-`DATA_TRANSFER` again and `UPDATE_DATA_BYTES_REQ.n_bytes_skip` says where to
-pick up.
+radio reports in `UPDATE_SYNC_CFM` rather than tracked locally, so an update
+interrupted after the image was staged resumes at the right phase rather than
+sending it all again. An interrupted *transfer* is not resumable: the radio
+starts it over from the beginning.
 """
 
 from __future__ import annotations
@@ -182,7 +182,10 @@ async def _transfer(
             timeout=_CHUNK_TIMEOUT,
         )
 
-        # Non-zero only when the radio already holds part of the image.
+        # Always 0 in the captures, including across aborted transfers, which
+        # the radio restarts rather than resumes. Honoured in case some model
+        # does ask, but the relative reading is a guess with nothing to check
+        # it against.
         offset += req.n_bytes_skip
 
         chunk = image[offset:offset + req.n_bytes_requested]
