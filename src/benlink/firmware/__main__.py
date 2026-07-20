@@ -12,6 +12,7 @@ import hashlib
 import os
 import sys
 import tempfile
+import time
 
 if t.TYPE_CHECKING:
     from ..command import CommandConnection, DeviceInfo
@@ -45,17 +46,52 @@ def _out(message: str = "") -> None:
     print(message, file=sys.stderr)
 
 
+def _size(n: float) -> str:
+    if n >= 1e6:
+        return f"{n / 1e6:.1f}MB"
+    if n >= 1e3:
+        return f"{n / 1e3:.0f}kB"
+    return f"{n:.0f}B"
+
+
+def _duration(seconds: float) -> str:
+    total = int(seconds)
+    if total >= 3600:
+        return f"{total // 3600}h{(total % 3600) // 60:02d}m"
+    return f"{total // 60}:{total % 60:02d}"
+
+
 def _make_progress() -> t.Callable[[str, int, int], None]:
-    """Render concurrent downloads as one updating line."""
+    """Render concurrent transfers as one updating line.
+
+    Flashing over BLE runs for many minutes, so a bare percentage is not enough
+    to tell slow from stuck.
+    """
+    started: t.Dict[str, float] = {}
     state: t.Dict[str, t.Tuple[int, int]] = {}
+    width = 0
+
+    def render(label: str, done: int, total: int) -> str:
+        if not total:
+            return f"{label} {_size(done)}"
+        out = f"{label} {100 * done // total}% of {_size(total)}"
+        elapsed = time.monotonic() - started[label]
+        # Averaged rather than instantaneous: steadier, and the eta is what the
+        # reader is actually after. The first sample lands with barely any time
+        # on the clock, so hold off until the rate means something.
+        if elapsed > 0.5 and done:
+            rate = done / elapsed
+            out += f"  {_size(rate)}/s  eta {_duration((total - done) / rate)}"
+        return out
 
     def progress(label: str, done: int, total: int) -> None:
+        nonlocal width
+        started.setdefault(label, time.monotonic())
         state[label] = (done, total)
-        line = "  ".join(
-            f"{k} {100 * d // n}%" if n else f"{k} {d}B"
-            for k, (d, n) in state.items()
-        )
-        print(f"\r  {line}", end="", file=sys.stderr, flush=True)
+        line = "  ".join(render(k, d, n) for k, (d, n) in state.items())
+        # Pad to the widest line so far, or a shrinking eta leaves debris behind.
+        width = max(width, len(line))
+        print(f"\r  {line:<{width}}", end="", file=sys.stderr, flush=True)
 
     return progress
 
