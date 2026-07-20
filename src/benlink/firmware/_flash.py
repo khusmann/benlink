@@ -178,9 +178,7 @@ async def abort_update(conn: CommandConnection) -> None:
             conn, VmControlType.UPDATE_ABORT_REQ, VmControlUpdateAbortReq()
         )
         await _recv_vmu(inbox, VmuPacketType.UPDATE_ABORT_CFM)
-        await conn.send_protocol_message(
-            _message(p.ExtendedCommand.VM_DISCONNECT, VmDisconnectBody())
-        )
+        await _vm_disconnect(conn)
 
 
 #####################
@@ -280,9 +278,7 @@ async def _finalize(
         inbox, VmuPacketType.UPDATE_COMPLETE_IND, timeout=_COMPLETE_TIMEOUT
     )
 
-    await conn.send_protocol_message(
-        _message(p.ExtendedCommand.VM_DISCONNECT, VmDisconnectBody())
-    )
+    await _vm_disconnect(conn)
 
 
 async def _vm_connect(
@@ -294,6 +290,14 @@ async def _vm_connect(
     reply = await _recv_connect_reply(inbox)
     if reply.status != p.ReplyStatus.SUCCESS:
         raise FlashError(f"VM_CONNECT rejected: {reply.status.name}")
+
+
+async def _vm_disconnect(conn: CommandConnection) -> None:
+    """The reply is not waited for: by this point the radio may be committing or
+    rebooting, and there is nothing left to do with the answer either way."""
+    await conn.send_protocol_message(
+        _message(p.ExtendedCommand.VM_DISCONNECT, VmDisconnectBody())
+    )
 
 
 async def _sync(
