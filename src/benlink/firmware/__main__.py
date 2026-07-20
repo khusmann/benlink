@@ -543,7 +543,7 @@ def _parser() -> argparse.ArgumentParser:
     flash_cmd.set_defaults(run=_cmd_flash)
 
     abort_cmd = subparsers.add_parser(
-        "abort-update", help="discard an update the radio is partway through")
+        "abort", help="discard an update the radio is partway through")
     _add_radio_args(abort_cmd)
     abort_cmd.add_argument("--yes", "-y", action="store_true",
                            help="accept all prompts")

@@ -33,7 +33,7 @@ durable, `-y` to accept prompts.
 # The pieces
 
 Each step is also available alone, for archiving old releases or working away from
-the radio. Everything but `info` and `flash` avoids the Bluetooth stack.
+the radio. Everything but `info`, `flash` and `abort` avoids the Bluetooth stack.
 
 ```bash
 # which radio is this?
@@ -51,6 +51,12 @@ python -m benlink.firmware download-base --version original -o base.zip
 
 # combine them offline
 python -m benlink.firmware assemble --base base.zip --patch patch.bin -o fw.bin
+
+# put an image you already have onto the radio
+python -m benlink.firmware flash XX:XX:XX:XX:XX:XX --image fw.bin
+
+# clear an update the radio was left partway through
+python -m benlink.firmware abort XX:XX:XX:XX:XX:XX
 ```
 
 `--product` is a shorthand for the radios in `PRODUCTS`; `--product-id` works for
