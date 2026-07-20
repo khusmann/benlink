@@ -147,7 +147,7 @@ async def flash(
                 except (Exception, KeyboardInterrupt, asyncio.CancelledError):
                     # Ctrl+C and cancellation are not `Exception`, but a radio
                     # left mid-transfer still deserves to be told.
-                    await _abort(conn)
+                    await _abort_transfer(conn)
                     raise
                 await _request_reboot(conn)
                 return "REBOOT_PENDING"
@@ -324,7 +324,7 @@ async def _start(
     await _recv_vmu(inbox, VmuPacketType.UPDATE_START_CFM)
 
 
-async def _abort(conn: CommandConnection) -> None:
+async def _abort_transfer(conn: CommandConnection) -> None:
     """Best effort: the original failure is what the caller needs to see.
 
     Only `Exception` is swallowed, so a second Ctrl+C during the abort gets out
