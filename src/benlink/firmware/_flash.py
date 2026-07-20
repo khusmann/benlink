@@ -131,7 +131,9 @@ async def flash(
                     # delivered in that state, so ask whether the checksum
                     # finished rather than sending all of it again.
                     await _validate(conn, inbox)
-                except Exception:
+                except (Exception, KeyboardInterrupt, asyncio.CancelledError):
+                    # Ctrl+C and cancellation are not `Exception`, but a radio
+                    # left mid-transfer still deserves to be told.
                     await _abort(conn)
                     raise
                 await _request_reboot(conn)
@@ -290,7 +292,11 @@ async def _start(
 
 
 async def _abort(conn: CommandConnection) -> None:
-    """Best effort: the original failure is what the caller needs to see."""
+    """Best effort: the original failure is what the caller needs to see.
+
+    Only `Exception` is swallowed, so a second Ctrl+C during the abort gets out
+    rather than being absorbed by the cleanup.
+    """
     try:
         await _send_control(
             conn, VmControlType.UPDATE_ABORT_REQ, VmControlUpdateAbortReq()

@@ -48,6 +48,8 @@ class FakeRadio:
         skip_first: int = 0,
         error_after: int | None = None,
         preempt_sync: bool = False,
+        interrupt_after: int | None = None,
+        interrupt_abort_too: bool = False,
     ):
         self.state = state
         self.chunk = chunk
@@ -58,6 +60,8 @@ class FakeRadio:
         self.final_flags: t.List[bool] = []
         self.error_on_finalize = False
         self.preempt_sync = preempt_sync
+        self.interrupt_after = interrupt_after
+        self.interrupt_abort_too = interrupt_abort_too
         self.disconnected = False
         self.aborted = False
         self._callback: t.Any = None
@@ -78,6 +82,13 @@ class FakeRadio:
         raise AssertionError("flash should not use send_bytes")
 
     async def send(self, msg: p.Message) -> None:
+        if (self.interrupt_after is not None
+                and self.sent.count(VmControlType.UPDATE_DATA)
+                >= self.interrupt_after):
+            if not self.interrupt_abort_too:
+                # One interrupt only, so the abort that follows can land.
+                self.interrupt_after = None
+            raise KeyboardInterrupt
         self._handle(p.Message.from_bytes(msg.to_bytes()))
 
     # Radio behaviour
@@ -332,3 +343,23 @@ def test_reply_arriving_before_it_is_awaited_is_not_lost():
 
     assert _run(radio, b"unused") == "REBOOT_PENDING"
     assert radio.sent[-1] == VmControlType.UPDATE_TRANSFER_COMPLETE_RES
+
+
+def test_interrupt_mid_transfer_still_tells_the_radio():
+    """Ctrl+C is not an `Exception`, but the radio is left mid-transfer."""
+    radio = FakeRadio(interrupt_after=3)
+
+    with pytest.raises(KeyboardInterrupt):
+        _run(radio, b"x" * CHUNK * 100)
+
+    assert radio.aborted
+    assert radio.sent.count(VmControlType.UPDATE_DATA) == 3
+
+
+def test_second_interrupt_is_not_swallowed_by_the_abort():
+    radio = FakeRadio(interrupt_after=3, interrupt_abort_too=True)
+
+    with pytest.raises(KeyboardInterrupt):
+        _run(radio, b"x" * CHUNK * 100)
+
+    assert not radio.aborted
