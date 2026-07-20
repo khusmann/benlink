@@ -78,9 +78,9 @@ _COMPLETE_TIMEOUT = 180.0
 
 # The radio reboots on its own once it accepts UPDATE_TRANSFER_COMPLETE_RES, so
 # this byte is not "did the transfer succeed" despite the field name: 0 proceeds
-# with the reboot, 1 postpones it. All four successful updates in the captures
-# send 0; the one sending 1 is the app's "cancel the restart" button, after
-# which the radio sits in TRANSFER_COMPLETE until a later session sends 0.
+# with the reboot, 1 postpones it. All successful updates in my btsnoop
+# captures send 0; the one sending 1 is the app's "cancel the restart" button,
+# after which the radio sits in TRANSFER_COMPLETE until a later session sends 0.
 _REBOOT_NOW = False
 
 
