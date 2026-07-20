@@ -177,7 +177,7 @@ async def flash(
 async def abort_update(conn: CommandConnection) -> None:
     """Discard whatever update the radio is partway through.
 
-    Clears one left incomplete by a flash that died without aborting, or whose
+    For an update left behind by a flash that did not exit cleanly, or whose
     image is no longer to hand: `flash` will not finish an update for an image it
     wasn't given, so without this the radio stays stuck partway.
     """
