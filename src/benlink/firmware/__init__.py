@@ -1,4 +1,5 @@
-"""
+"""Finding, downloading, assembling and flashing Benshi radio firmware.
+
 # THIS CAN BREAK YOUR RADIO
 
 **Flashing firmware can leave your radio unusable, and nothing in this library can
