@@ -35,8 +35,9 @@ for functions that take keyword arguments to set these parameters.
 from __future__ import annotations
 import typing as t
 import asyncio
-from pydantic import BaseModel, ConfigDict
+import contextlib
 from . import protocol as p
+from .common import ImmutableBaseModel
 from .link import CommandLink, BleCommandLink, RfcommCommandLink
 from datetime import datetime
 
@@ -81,6 +82,36 @@ class CommandConnection:
 
     async def send_message(self, command: CommandMessage) -> None:
         await self._link.send(command_message_to_protocol(command))
+
+    async def send_protocol_message(self, msg: p.Message) -> None:
+        """Send a raw protocol message.
+
+        For messages with no `CommandMessage` equivalent. Not the same as
+        `send_bytes`: the Rfcomm link wraps what it sends in a `GaiaFrame`.
+        """
+        await self._link.send(msg)
+
+    @contextlib.asynccontextmanager
+    async def subscribe(
+        self,
+        match: t.Callable[[RadioMessage], bool] | None = None,
+    ) -> t.AsyncGenerator[asyncio.Queue[RadioMessage], None]:
+        """Collect matching messages into a queue while the context is held.
+
+        Enter this before sending whatever provokes the replies, so that a reply
+        arriving faster than the next `await` isn't dropped.
+        """
+        queue: asyncio.Queue[RadioMessage] = asyncio.Queue()
+
+        def handler(msg: RadioMessage) -> None:
+            if match is None or match(msg):
+                queue.put_nowait(msg)
+
+        remove_handler = self._add_message_handler(handler)
+        try:
+            yield queue
+        finally:
+            remove_handler()
 
     async def send_message_expect_reply(self, command: CommandMessage, expect: t.Type[RadioMessageT]) -> RadioMessageT | MessageReplyError:
         queue: asyncio.Queue[RadioMessageT |
@@ -239,13 +270,6 @@ class CommandConnection:
         traceback: t.Any,
     ) -> None:
         await self.disconnect()
-
-
-class ImmutableBaseModel(BaseModel):
-    """@private (A base class for immutable data objects)"""
-
-    model_config = ConfigDict(frozen=True)
-    """@private"""
 
 
 def command_message_to_protocol(m: CommandMessage) -> p.Message:

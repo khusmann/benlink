@@ -25,9 +25,18 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 
+[project.optional-dependencies]
+firmware = [
+    "bsdiff4 >=1.2.0",
+    "grpcio >=1.60.0",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/khusmann/benlink"
 "Bug Tracker" = "https://github.com/khusmann/benlink/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

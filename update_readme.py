@@ -25,7 +25,9 @@ if readme_start == -1:
     raise ValueError("No content section found in README.md.")
 
 readme_content_stripped = [
-    line[1:] if line.startswith("##") else line
+    # Backslashes are doubled because the content lands inside a docstring, where
+    # markdown escapes like \_ would otherwise be invalid escape sequences.
+    (line[1:] if line.startswith("##") else line).replace("\\", "\\\\")
     for line in readme_content[readme_start+1:]
 ]
 
@@ -36,6 +38,6 @@ updated_content = [
     *init_content[docstring_end:]
 ]
 
-init_path.write_text("\n".join(updated_content))
+init_path.write_text("\n".join(updated_content) + "\n")
 
 print(f"README content has been updated into module definition")

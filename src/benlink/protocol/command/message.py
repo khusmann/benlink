@@ -29,6 +29,14 @@ from .bss_settings import (
 )
 from .phone_status import SetPhoneStatusBody, SetPhoneStatusReplyBody
 from .status import GetHtStatusBody, GetHtStatusReplyBody
+from .vm import (
+    VmControlBody, VmControlReplyBody,
+    VmConnectBody, VmConnectReplyBody,
+    VmDisconnectBody, VmDisconnectReplyBody,
+)
+from .bt_notification import (
+    BtEventNotificationBody
+)
 from .position import GetPositionBody, GetPositionReplyBody
 
 
@@ -39,13 +47,13 @@ class CommandGroup(IntEnum):
 
 class ExtendedCommand(IntEnum):
     UNKNOWN = 0
+    VM_CONNECT = 1600
+    VM_DISCONNECT = 1601
+    VM_CONTROL = 1602
     GET_BT_SIGNAL = 769
-    UNKNOWN_01 = 1600
-    UNKNOWN_02 = 1601
-    UNKNOWN_03 = 1602
-    UNKNOWN_04 = 16385
-    UNKNOWN_05 = 16386
-    GET_DEV_STATE_VAR = 16387
+    REGISTER_BT_NOTIFICATION = 16385
+    CANCEL_BT_NOTIFICATION = 16386
+    BT_EVENT_NOTIFICATION = 16387
     DEV_REGISTRATION = 1825
 
     @classmethod
@@ -188,6 +196,18 @@ def body_disc(m: Message, n: int):
                     return bf_bytes(n // 8)
         case CommandGroup.EXTENDED:
             match m.command:
+                case ExtendedCommand.VM_CONTROL:
+                    out = VmControlReplyBody if m.is_reply else VmControlBody
+                case ExtendedCommand.VM_CONNECT:
+                    out = VmConnectReplyBody if m.is_reply else VmConnectBody
+                case ExtendedCommand.VM_DISCONNECT:
+                    out = VmDisconnectReplyBody if m.is_reply else VmDisconnectBody
+                case ExtendedCommand.BT_EVENT_NOTIFICATION:
+                    if m.is_reply:
+                        raise ValueError(
+                            "BtEventNotification cannot be a reply"
+                        )
+                    out = BtEventNotificationBody
                 case _:
                     return bf_bytes(n // 8)
 
@@ -221,6 +241,13 @@ MessageBody = t.Union[
     SetPhoneStatusReplyBody,
     GetHtStatusBody,
     GetHtStatusReplyBody,
+    VmControlBody,
+    VmControlReplyBody,
+    VmConnectBody,
+    VmConnectReplyBody,
+    VmDisconnectBody,
+    VmDisconnectReplyBody,
+    BtEventNotificationBody,
     GetPositionReplyBody,
     GetPositionBody,
 ]
