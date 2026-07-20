@@ -225,8 +225,9 @@ async def _request_reboot(conn: CommandConnection) -> None:
     """Release the staged image, which the radio reboots into on its own.
 
     Confirmed on both radios in the captures, the UV-Pro (260) and the GA-5WB
-    (259). One that stays put instead reports `TRANSFER_COMPLETE` and lands back
-    here.
+    (259). A radio that ignores this stays in `TRANSFER_COMPLETE`, and that state
+    dispatches straight back here, so calling `flash` again re-sends the same
+    message rather than making progress.
     """
     await _send_control(
         conn,
