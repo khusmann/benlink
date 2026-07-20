@@ -111,13 +111,24 @@ async def flash(
             ... reconnect ...
             await flash(conn, image)
 
-    Passing an `image` other than the one already staged is rejected by the radio
-    at `UPDATE_SYNC_REQ`, which compares the last four bytes of its md5.
+    Raises `FlashError` if the radio is partway through a *different* image, so
+    that finishing an update never commits something the caller didn't pass.
     """
     async with conn.subscribe(_is_vm_message) as inbox:
         await _vm_connect(conn, inbox)
 
-        state = (await _sync(conn, inbox, _md5_tail(image))).update_state
+        tail = _md5_tail(image)
+        cfm = await _sync(conn, inbox, tail)
+        if cfm.md5sum_tail != tail:
+            # UpdateError.SYNC_IS_DIFFERENT suggests the radio rejects this
+            # itself, but no capture shows it doing so, and committing the wrong
+            # image is not something to find out about the hard way.
+            raise FlashError(
+                f"radio is partway through a different image: it reports "
+                f"md5 ...{cfm.md5sum_tail.hex()}, this one is ...{tail.hex()}"
+            )
+
+        state = cfm.update_state
         await _start(conn, inbox)
 
         match state:

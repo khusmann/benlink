@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import typing as t
 
 import pytest
@@ -50,6 +51,7 @@ class FakeRadio:
         preempt_sync: bool = False,
         interrupt_after: int | None = None,
         interrupt_abort_too: bool = False,
+        staged_tail: bytes | None = None,
     ):
         self.state = state
         self.chunk = chunk
@@ -62,6 +64,7 @@ class FakeRadio:
         self.preempt_sync = preempt_sync
         self.interrupt_after = interrupt_after
         self.interrupt_abort_too = interrupt_abort_too
+        self.staged_tail = staged_tail
         self.disconnected = False
         self.aborted = False
         self._callback: t.Any = None
@@ -143,7 +146,8 @@ class FakeRadio:
             )
             if self.preempt_sync:
                 # Answers a question that has not been asked yet.
-                self._emit_sync_cfm(b"\x00\x00\x00\x00")
+                self._emit_sync_cfm(
+                    self.staged_tail or b"\x00\x00\x00\x00")
             return
 
         if msg.command == p.ExtendedCommand.VM_DISCONNECT:
@@ -165,7 +169,8 @@ class FakeRadio:
             case VmControlType.UPDATE_SYNC_REQ:
                 assert isinstance(body.msg, VmControlUpdateSyncReq)
                 if not self.preempt_sync:
-                    self._emit_sync_cfm(body.msg.md5sum_tail)
+                    self._emit_sync_cfm(
+                        self.staged_tail or body.msg.md5sum_tail)
             case VmControlType.UPDATE_START_REQ:
                 self._emit_vmu(
                     VmuPacketType.UPDATE_START_CFM,
@@ -339,9 +344,11 @@ def test_failure_after_staging_does_not_abort():
 def test_reply_arriving_before_it_is_awaited_is_not_lost():
     """The subscription is opened before the first send and held for the whole
     flash, so a radio that answers early is buffered rather than dropped."""
-    radio = FakeRadio(state=UpdateState.TRANSFER_COMPLETE, preempt_sync=True)
+    image = b"unused"
+    radio = FakeRadio(state=UpdateState.TRANSFER_COMPLETE, preempt_sync=True,
+                      staged_tail=hashlib.md5(image).digest()[-4:])
 
-    assert _run(radio, b"unused") == "REBOOT_PENDING"
+    assert _run(radio, image) == "REBOOT_PENDING"
     assert radio.sent[-1] == VmControlType.UPDATE_TRANSFER_COMPLETE_RES
 
 
@@ -363,3 +370,13 @@ def test_second_interrupt_is_not_swallowed_by_the_abort():
         _run(radio, b"x" * CHUNK * 100)
 
     assert not radio.aborted
+
+
+def test_refuses_to_finish_someone_elses_update():
+    """A radio holding a different image must not be committed by mistake."""
+    radio = FakeRadio(state=UpdateState.IN_PROGRESS, staged_tail=b"\xde\xad\xbe\xef")
+
+    with pytest.raises(FlashError, match="different image"):
+        _run(radio, b"unused")
+
+    assert VmControlType.UPDATE_IN_PROGRESS_RES not in radio.sent
