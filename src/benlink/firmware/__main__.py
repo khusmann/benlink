@@ -300,7 +300,7 @@ async def _cmd_update(args: argparse.Namespace) -> int:
         _write(path, bundle.data, args.force)
 
         _out()
-        if not _confirm("Flash to radio?", False, args.yes):
+        if not _confirm(f"Flash v{latest} to this radio?", False, args.yes):
             _out(f"The assembled image has been kept at {path}")
             return 0
 
@@ -374,7 +374,8 @@ async def _cmd_flash(args: argparse.Namespace) -> int:
         _print_device_info(await conn.get_device_info())
 
         _out()
-        if not _confirm("Flash this image to the radio?", False, args.yes):
+        question = f"Flash {os.path.basename(args.image)} to this radio?"
+        if not _confirm(question, False, args.yes):
             return 0
 
         _out("Do not power off the radio until this finishes.")
