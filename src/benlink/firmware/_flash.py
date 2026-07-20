@@ -175,7 +175,12 @@ async def flash(
 
 
 async def abort_update(conn: CommandConnection) -> None:
-    """Discard whatever update the radio is partway through."""
+    """Discard whatever update the radio is partway through.
+
+    Clears one left incomplete by a flash that died without aborting, or whose
+    image is no longer to hand: `flash` will not finish an update for an image it
+    wasn't given, so without this the radio stays stuck partway.
+    """
     async with conn.subscribe(_is_vm_message) as inbox:
         await _vm_connect(conn, inbox)
         await _send_control(
