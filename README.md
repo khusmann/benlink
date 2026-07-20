@@ -93,7 +93,7 @@ Benlink has already begun to inspire other projects! Here are some that I know
 of so far:
 
 - [HTCommander](https://github.com/Ylianst/HTCommander)
-- [flutter\_benlink](https://github.com/SarahRoseLives/flutter_benlink)
+- [flutter_benlink](https://github.com/SarahRoseLives/flutter_benlink)
 
 If you've found benlink's documentation of the Benshi protocol helpful, or use
 benlink in your own project, please let me know so I can add it to this list.
@@ -127,8 +127,8 @@ receive
 and sharp questions along the way
 
 [@repins267](https://github.com/repins267) for turning my scattered notes on the
-firmware protocol into a complete flashing proof of concept, working out the gRPC
-update check, and having the guts to do the first flash.
+firmware protocol into a complete proof of concept for flashing, working out the
+gRPC update check, and having the guts to do the first flash.
 
 ## Disclaimer
 
