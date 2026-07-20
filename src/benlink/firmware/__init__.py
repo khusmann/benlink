@@ -95,7 +95,7 @@ from ._fetch import (
     oss_patch_url,
     oss_update_info,
 )
-from ._flash import FlashError, FlashResult, flash
+from ._flash import FlashError, FlashResult, abort_update, flash
 
 __all__ = [
     "BASE_IMAGES",
@@ -106,6 +106,7 @@ __all__ = [
     "FlashResult",
     "ProgressCallback",
     "UpdateInfo",
+    "abort_update",
     "assemble",
     "check_update",
     "download",

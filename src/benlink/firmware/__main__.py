@@ -21,6 +21,7 @@ from . import (
     PRODUCTS,
     FirmwareInfo,
     UpdateInfo,
+    abort_update,
     assemble,
     check_update,
     download,
@@ -348,7 +349,27 @@ async def _commit_after_reboot(
     return 1
 
 
+async def _cmd_abort(args: argparse.Namespace) -> int:
+    _out("This discards whatever update the radio has in progress.")
+    if not _confirm("Abort it?", False, args.yes):
+        return 0
+
+    async with _radio(args) as conn:
+        _print_device_info(await conn.get_device_info())
+        await abort_update(conn)
+
+    _out()
+    _out("Aborted. The radio is still running its current firmware.")
+    return 0
+
+
 async def _cmd_flash(args: argparse.Namespace) -> int:
+    if args.abort:
+        return await _cmd_abort(args)
+
+    if not args.image:
+        raise RuntimeError("--image is required (or --abort to clear the radio)")
+
     with open(args.image, "rb") as f:
         image = f.read()
 
@@ -422,8 +443,10 @@ def _parser() -> argparse.ArgumentParser:
     flash_cmd = subparsers.add_parser(
         "flash", help="flash an already-assembled image to a radio")
     _add_radio_args(flash_cmd)
-    flash_cmd.add_argument("--image", required=True,
+    flash_cmd.add_argument("--image",
                            help="assembled firmware image to flash")
+    flash_cmd.add_argument("--abort", action="store_true",
+                           help="discard the radio's in-progress update instead")
     flash_cmd.add_argument("--expect-md5", metavar="MD5",
                            help="verify the image against a known md5 first")
     flash_cmd.add_argument("--yes", "-y", action="store_true",

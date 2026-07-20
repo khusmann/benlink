@@ -5,7 +5,7 @@ import typing as t
 import pytest
 
 from benlink.command import CommandConnection
-from benlink.firmware import flash
+from benlink.firmware import abort_update, flash
 from benlink.firmware._flash import FlashError, FlashResult
 import benlink.protocol as p
 from benlink.protocol.command.bt_notification import (
@@ -28,6 +28,7 @@ from benlink.protocol.command.vm import (
     VmuPacketType,
     UpdateStartCfmCode,
     VmControlBody,
+    VmControlUpdateAbortCfm,
     VmControlUpdateCompleteInd,
     VmControlUpdateTransferCompleteInd,
 )
@@ -211,6 +212,9 @@ class FakeRadio:
                     )
             case VmControlType.UPDATE_ABORT_REQ:
                 self.aborted = True
+                self._emit_vmu(
+                    VmuPacketType.UPDATE_ABORT_CFM, VmControlUpdateAbortCfm()
+                )
             case VmControlType.UPDATE_TRANSFER_COMPLETE_RES:
                 # Acked like every control message; the reboot is the answer.
                 pass
@@ -379,4 +383,20 @@ def test_refuses_to_finish_someone_elses_update():
     with pytest.raises(FlashError, match="different image"):
         _run(radio, b"unused")
 
+    assert VmControlType.UPDATE_IN_PROGRESS_RES not in radio.sent
+
+
+def test_abort_update_clears_a_stranded_radio():
+    """The way out when the image that produced a staged update is gone."""
+    radio = FakeRadio(state=UpdateState.IN_PROGRESS)
+
+    async def main() -> None:
+        conn = CommandConnection(radio)
+        await conn.connect()
+        await abort_update(conn)
+
+    asyncio.run(main())
+
+    assert radio.aborted
+    assert radio.disconnected
     assert VmControlType.UPDATE_IN_PROGRESS_RES not in radio.sent

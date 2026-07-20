@@ -125,7 +125,9 @@ async def flash(
             # image is not something to find out about the hard way.
             raise FlashError(
                 f"radio is partway through a different image: it reports "
-                f"md5 ...{cfm.md5sum_tail.hex()}, this one is ...{tail.hex()}"
+                f"md5 ...{cfm.md5sum_tail.hex()}, this one is ...{tail.hex()}. "
+                f"Flash the matching image to finish that update, or call "
+                f"abort_update to discard it"
             )
 
         state = cfm.update_state
@@ -166,6 +168,24 @@ async def flash(
                     "radio reports the COMMIT state, which benlink has never "
                     "observed and does not know how to answer"
                 )
+
+
+async def abort_update(conn: CommandConnection) -> None:
+    """Discard whatever update the radio is partway through.
+
+    The way out when an image has been staged but the file that produced it is
+    gone: `flash` refuses to finish an update it cannot identify, and without
+    this there would be nothing left to try.
+    """
+    async with conn.subscribe(_is_vm_message) as inbox:
+        await _vm_connect(conn, inbox)
+        await _send_control(
+            conn, VmControlType.UPDATE_ABORT_REQ, VmControlUpdateAbortReq()
+        )
+        await _recv_vmu(inbox, VmuPacketType.UPDATE_ABORT_CFM)
+        await conn.send_protocol_message(
+            _message(p.ExtendedCommand.VM_DISCONNECT, VmDisconnectBody())
+        )
 
 
 #####################
