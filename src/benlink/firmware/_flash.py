@@ -171,12 +171,7 @@ async def flash(
 
 
 async def abort_update(conn: CommandConnection) -> None:
-    """Discard whatever update the radio is partway through.
-
-    The way out when an image has been staged but the file that produced it is
-    gone: `flash` refuses to finish an update it cannot identify, and without
-    this there would be nothing left to try.
-    """
+    """Discard whatever update the radio is partway through."""
     async with conn.subscribe(_is_vm_message) as inbox:
         await _vm_connect(conn, inbox)
         await _send_control(

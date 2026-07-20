@@ -364,12 +364,6 @@ async def _cmd_abort(args: argparse.Namespace) -> int:
 
 
 async def _cmd_flash(args: argparse.Namespace) -> int:
-    if args.abort:
-        return await _cmd_abort(args)
-
-    if not args.image:
-        raise RuntimeError("--image is required (or --abort to clear the radio)")
-
     with open(args.image, "rb") as f:
         image = f.read()
 
@@ -443,15 +437,20 @@ def _parser() -> argparse.ArgumentParser:
     flash_cmd = subparsers.add_parser(
         "flash", help="flash an already-assembled image to a radio")
     _add_radio_args(flash_cmd)
-    flash_cmd.add_argument("--image",
+    flash_cmd.add_argument("--image", required=True,
                            help="assembled firmware image to flash")
-    flash_cmd.add_argument("--abort", action="store_true",
-                           help="discard the radio's in-progress update instead")
     flash_cmd.add_argument("--expect-md5", metavar="MD5",
                            help="verify the image against a known md5 first")
     flash_cmd.add_argument("--yes", "-y", action="store_true",
                            help="accept all prompts")
     flash_cmd.set_defaults(run=_cmd_flash)
+
+    abort_cmd = subparsers.add_parser(
+        "abort-update", help="discard an update the radio is partway through")
+    _add_radio_args(abort_cmd)
+    abort_cmd.add_argument("--yes", "-y", action="store_true",
+                           help="accept all prompts")
+    abort_cmd.set_defaults(run=_cmd_abort)
 
     info = subparsers.add_parser(
         "info", help="read product id and versions from a radio")
