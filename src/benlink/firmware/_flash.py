@@ -224,10 +224,12 @@ async def _validate(
 async def _request_reboot(conn: CommandConnection) -> None:
     """Release the staged image, which the radio reboots into on its own.
 
-    Confirmed on both radios in the captures, the UV-Pro (260) and the GA-5WB
-    (259). A radio that ignores this stays in `TRANSFER_COMPLETE`, and that state
+    A radio that ignores this stays in `TRANSFER_COMPLETE`, and that state
     dispatches straight back here, so calling `flash` again re-sends the same
     message rather than making progress.
+
+    Confirmed on the UV-Pro (260) and the GA-5WB (259), which takes the same
+    image as the VR-N76. Other models are untested.
     """
     await _send_control(
         conn,
