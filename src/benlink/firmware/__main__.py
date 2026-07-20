@@ -147,24 +147,41 @@ def _write(path: str, data: bytes, force: bool) -> None:
     print(path)
 
 
-@contextlib.contextmanager
-def _graceful_interrupt() -> t.Generator[None, None, None]:
-    """Say something the moment Ctrl+C lands.
+@contextlib.asynccontextmanager
+async def _graceful_interrupt() -> t.AsyncGenerator[None, None]:
+    """Turn Ctrl+C into a cancellation of the task doing the work.
 
-    `flash` tells the radio to abort on the way out, which takes a moment. With
-    no message the transfer just appears to hang after the keypress.
+    The default handler raises `KeyboardInterrupt` wherever the main thread
+    happens to be, which during a transfer is almost always inside the event
+    loop rather than inside the coroutine. `flash` then never sees it, and never
+    gets to tell the radio to abort. Cancelling the task delivers the interrupt
+    where the cleanup lives.
+
+    Restoring the default handler on the way in means a second Ctrl+C quits
+    outright rather than waiting for the abort to be sent.
     """
-    def handler(*_: t.Any) -> None:
+    loop = asyncio.get_running_loop()
+    task = asyncio.current_task()
+
+    def interrupt() -> None:
         _out()
         _out("Interrupted. Telling the radio to abort "
              "(press Ctrl+C again to quit without waiting)...")
-        raise KeyboardInterrupt
+        loop.remove_signal_handler(signal.SIGINT)
+        if task is not None:
+            task.cancel()
 
-    previous = signal.signal(signal.SIGINT, handler)
+    try:
+        loop.add_signal_handler(signal.SIGINT, interrupt)
+    except NotImplementedError:  # not available on Windows
+        yield
+        return
+
     try:
         yield
     finally:
-        signal.signal(signal.SIGINT, previous)
+        with contextlib.suppress(ValueError, RuntimeError):
+            loop.remove_signal_handler(signal.SIGINT)
 
 
 def _confirm(question: str, default_yes: bool, assume_yes: bool) -> bool:
@@ -374,9 +391,9 @@ async def _cmd_update(args: argparse.Namespace) -> int:
 
         _out("Do not power off the radio until this finishes.")
         try:
-            with _graceful_interrupt():
+            async with _graceful_interrupt():
                 result = await flash(conn, bundle.data, _make_progress())
-        except KeyboardInterrupt:
+        except asyncio.CancelledError:
             _out("Stopped. The radio was told to discard the transfer; "
                  "re-run to start over, as it does not resume.")
             _out(f"The assembled image has been kept at {path}")
@@ -454,9 +471,9 @@ async def _cmd_flash(args: argparse.Namespace) -> int:
 
         _out("Do not power off the radio until this finishes.")
         try:
-            with _graceful_interrupt():
+            async with _graceful_interrupt():
                 result = await flash(conn, image, _make_progress())
-        except KeyboardInterrupt:
+        except asyncio.CancelledError:
             _out("Stopped. The radio was told to discard the transfer; "
                  "re-run to start over, as it does not resume.")
             return 130
