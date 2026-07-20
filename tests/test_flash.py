@@ -67,6 +67,7 @@ class FakeRadio:
         self.interrupt_abort_too = interrupt_abort_too
         self.staged_tail = staged_tail
         self.disconnected = False
+        self.vmu_registered = False
         self.aborted = False
         self._callback: t.Any = None
         self._chunks_served = 0
@@ -107,6 +108,9 @@ class FakeRadio:
         self._callback(p.Message.from_bytes(out.to_bytes()))
 
     def _emit_vmu(self, packet_type: VmuPacketType, msg: t.Any) -> None:
+        if not self.vmu_registered:
+            # A real radio sends nothing until REGISTER_BT_NOTIFICATION.
+            return
         packet = VmuPacket(
             vmu_packet_type=packet_type,
             n_bytes_payload=len(msg.to_bytes()),
@@ -145,10 +149,19 @@ class FakeRadio:
                 VmConnectReplyBody(status=p.ReplyStatus.SUCCESS),
                 is_reply=True,
             )
+            return
+
+        if msg.command == p.ExtendedCommand.REGISTER_BT_NOTIFICATION:
+            assert msg.body == bytes([BtEventType.VMU_PACKET])
+            self.vmu_registered = True
             if self.preempt_sync:
                 # Answers a question that has not been asked yet.
                 self._emit_sync_cfm(
                     self.staged_tail or b"\x00\x00\x00\x00")
+            return
+
+        if msg.command == p.ExtendedCommand.CANCEL_BT_NOTIFICATION:
+            self.vmu_registered = False
             return
 
         if msg.command == p.ExtendedCommand.VM_DISCONNECT:

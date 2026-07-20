@@ -7,6 +7,7 @@ The transfer runs over the same command connection as everything else, in two
 phases separated by a reboot:
 
     VM_CONNECT
+    REGISTER_BT_NOTIFICATION (VMU_PACKET)
     UPDATE_SYNC_REQ          -> UPDATE_SYNC_CFM (DATA_TRANSFER)
     UPDATE_START_REQ         -> UPDATE_START_CFM
     UPDATE_START_DATA_REQ
@@ -18,9 +19,11 @@ phases separated by a reboot:
     [radio reboots, connection drops, reconnect]
 
     VM_CONNECT
+    REGISTER_BT_NOTIFICATION (VMU_PACKET)
     UPDATE_SYNC_REQ          -> UPDATE_SYNC_CFM (IN_PROGRESS)
     UPDATE_START_REQ         -> UPDATE_START_CFM
     UPDATE_IN_PROGRESS_RES   -> UPDATE_COMPLETE_IND
+    CANCEL_BT_NOTIFICATION (VMU_PACKET)
     VM_DISCONNECT
 
 `flash` runs one phase per call and reports whether a reboot is pending, so the
@@ -291,10 +294,22 @@ async def _vm_connect(
     if reply.status != p.ReplyStatus.SUCCESS:
         raise FlashError(f"VM_CONNECT rejected: {reply.status.name}")
 
+    # Every reply worth having arrives as a BT_EVENT_NOTIFICATION, and the radio
+    # sends none until asked. Without this, VM_CONNECT succeeds and then every
+    # wait for a VMU packet times out. The app does not wait for the reply.
+    await conn.send_protocol_message(_message(
+        p.ExtendedCommand.REGISTER_BT_NOTIFICATION,
+        bytes([BtEventType.VMU_PACKET]),
+    ))
+
 
 async def _vm_disconnect(conn: CommandConnection) -> None:
     """The reply is not waited for: by this point the radio may be committing or
     rebooting, and there is nothing left to do with the answer either way."""
+    await conn.send_protocol_message(_message(
+        p.ExtendedCommand.CANCEL_BT_NOTIFICATION,
+        bytes([BtEventType.VMU_PACKET]),
+    ))
     await conn.send_protocol_message(
         _message(p.ExtendedCommand.VM_DISCONNECT, VmDisconnectBody())
     )
