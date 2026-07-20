@@ -389,7 +389,8 @@ async def _cmd_update(args: argparse.Namespace) -> int:
             _out(f"The assembled image has been kept at {path}")
             return 0
 
-        _out("Do not power off the radio until this finishes.")
+        _out("Do not power off the radio until this finishes. "
+             "(Press Ctrl+C to abort safely.)")
         try:
             async with _graceful_interrupt():
                 result = await flash(conn, bundle.data, _make_progress())
@@ -469,7 +470,8 @@ async def _cmd_flash(args: argparse.Namespace) -> int:
         if not _confirm(question, False, args.yes):
             return 0
 
-        _out("Do not power off the radio until this finishes.")
+        _out("Do not power off the radio until this finishes. "
+             "(Press Ctrl+C to abort safely.)")
         try:
             async with _graceful_interrupt():
                 result = await flash(conn, image, _make_progress())

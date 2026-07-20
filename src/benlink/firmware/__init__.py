@@ -30,10 +30,8 @@ artifacts, this path cannot pair a patch with the wrong base.
 Add `--rfcomm CHANNEL` for RFCOMM instead of BLE, `--keep DIR` to write somewhere
 durable, `-y` to accept prompts.
 
-Ctrl+C stops a transfer and tells the radio to abort it, which costs you the
-whole thing: the radio starts the next attempt from the beginning rather than
-resuming. Press it twice to quit without waiting for the abort to be sent — see
-`abort` below for clearing up after that.
+Ctrl+C during a transfer is safe, but costs you the whole thing: the radio starts
+the next attempt from the beginning rather than resuming where it stopped.
 
 # The pieces
 
