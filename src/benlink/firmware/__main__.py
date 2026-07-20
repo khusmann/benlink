@@ -7,6 +7,7 @@ from __future__ import annotations
 import typing as t
 import argparse
 import asyncio
+import collections
 import contextlib
 import hashlib
 import os
@@ -39,6 +40,9 @@ _REBOOT_WAIT = 20.0
 
 _COMMIT_ATTEMPTS = 5
 
+_RATE_WINDOW = 30.0
+"""Seconds of history the transfer rate is averaged over."""
+
 
 #####################
 # Output
@@ -68,7 +72,7 @@ def _make_progress() -> t.Callable[[str, int, int], None]:
     Flashing over BLE runs for many minutes, so a bare percentage is not enough
     to tell slow from stuck.
     """
-    started: t.Dict[str, float] = {}
+    recent: t.Dict[str, t.Deque[t.Tuple[float, int]]] = {}
     state: t.Dict[str, t.Tuple[int, int]] = {}
     width = 0
 
@@ -76,18 +80,25 @@ def _make_progress() -> t.Callable[[str, int, int], None]:
         if not total:
             return f"{label} {_size(done)}"
         out = f"{label} {100 * done // total}% of {_size(total)}"
-        elapsed = time.monotonic() - started[label]
-        # Averaged rather than instantaneous: steadier, and the eta is what the
-        # reader is actually after. The first sample lands with barely any time
-        # on the clock, so hold off until the rate means something.
-        if elapsed > 0.5 and done:
-            rate = done / elapsed
+        # Rate over a trailing window, not since the start. Connection setup and
+        # BLE's opening connection interval are slow enough that a running
+        # average reads far below the rate actually being achieved, and the eta
+        # derived from it is wrong by minutes.
+        window = recent[label]
+        elapsed = window[-1][0] - window[0][0]
+        moved = done - window[0][1]
+        if elapsed > 1.0 and moved > 0:
+            rate = moved / elapsed
             out += f"  {_size(rate)}/s  eta {_duration((total - done) / rate)}"
         return out
 
     def progress(label: str, done: int, total: int) -> None:
         nonlocal width
-        started.setdefault(label, time.monotonic())
+        now = time.monotonic()
+        window = recent.setdefault(label, collections.deque(maxlen=512))
+        window.append((now, done))
+        while len(window) > 2 and now - window[0][0] > _RATE_WINDOW:
+            window.popleft()
         state[label] = (done, total)
         line = "  ".join(render(k, d, n) for k, (d, n) in state.items())
         # Pad to the widest line so far, or a shrinking eta leaves debris behind.
