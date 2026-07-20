@@ -19,7 +19,6 @@ if t.TYPE_CHECKING:
 from . import (
     BASE_IMAGES,
     PRODUCTS,
-    FirmwareBundle,
     FirmwareInfo,
     UpdateInfo,
     assemble,
@@ -306,7 +305,7 @@ async def _cmd_update(args: argparse.Namespace) -> int:
 
         _out("Do not power off the radio until this finishes.")
         try:
-            result = await flash(conn, bundle, _make_progress())
+            result = await flash(conn, bundle.data, _make_progress())
         except Exception as e:
             _out()
             _out(f"error: {e}")
@@ -319,11 +318,11 @@ async def _cmd_update(args: argparse.Namespace) -> int:
             return 0
 
     _out("  image staged, radio is rebooting")
-    return await _commit_after_reboot(args, bundle, path)
+    return await _commit_after_reboot(args, bundle.data, path)
 
 
 async def _commit_after_reboot(
-    args: argparse.Namespace, bundle: FirmwareBundle, path: str
+    args: argparse.Namespace, image: bytes, path: str
 ) -> int:
     """Reconnect to the rebooted radio and finish the update.
 
@@ -335,7 +334,7 @@ async def _commit_after_reboot(
         await asyncio.sleep(_REBOOT_WAIT)
         try:
             async with _radio(args) as conn:
-                if await flash(conn, bundle) == "COMPLETE":
+                if await flash(conn, image) == "COMPLETE":
                     _out()
                     _out("Firmware update complete.")
                     return 0
@@ -347,6 +346,37 @@ async def _commit_after_reboot(
     _out("The image is already staged, so re-running `update` will resume "
          f"from here. The assembled image has been kept at {path}")
     return 1
+
+
+async def _cmd_flash(args: argparse.Namespace) -> int:
+    with open(args.image, "rb") as f:
+        image = f.read()
+
+    _out(f"  image {args.image} ({len(image)} bytes)")
+    _print_verdict(image, args.expect_md5, "--expect-md5")
+
+    async with _radio(args) as conn:
+        _print_device_info(await conn.get_device_info())
+
+        _out()
+        if not _confirm("Flash this image to the radio?", False, args.yes):
+            return 0
+
+        _out("Do not power off the radio until this finishes.")
+        try:
+            result = await flash(conn, image, _make_progress())
+        except Exception as e:
+            _out()
+            _out(f"error: {e}")
+            return 1
+        _out()
+
+        if result == "COMPLETE":
+            _out("Firmware update complete.")
+            return 0
+
+    _out("  image staged, radio is rebooting")
+    return await _commit_after_reboot(args, image, args.image)
 
 
 #####################
@@ -388,6 +418,17 @@ def _parser() -> argparse.ArgumentParser:
                         help="write to DIR instead of a temporary directory")
     update.add_argument("--force", action="store_true")
     update.set_defaults(run=_cmd_update)
+
+    flash_cmd = subparsers.add_parser(
+        "flash", help="flash an already-assembled image to a radio")
+    _add_radio_args(flash_cmd)
+    flash_cmd.add_argument("--image", required=True,
+                           help="assembled firmware image to flash")
+    flash_cmd.add_argument("--expect-md5", metavar="MD5",
+                           help="verify the image against a known md5 first")
+    flash_cmd.add_argument("--yes", "-y", action="store_true",
+                           help="accept all prompts")
+    flash_cmd.set_defaults(run=_cmd_flash)
 
     info = subparsers.add_parser(
         "info", help="read product id and versions from a radio")

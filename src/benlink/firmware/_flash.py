@@ -33,6 +33,7 @@ pick up.
 
 from __future__ import annotations
 import asyncio
+import hashlib
 import typing as t
 
 from .. import protocol as p
@@ -63,7 +64,7 @@ from ..protocol.command.vm import (
     VmuPacketMessage,
     VmuPacketType,
 )
-from ._fetch import FirmwareBundle, ProgressCallback
+from ._fetch import ProgressCallback
 
 if t.TYPE_CHECKING:
     from ..command import (
@@ -95,7 +96,7 @@ will drop; reconnect and call `flash` again to finish.
 
 async def flash(
     conn: CommandConnection,
-    bundle: FirmwareBundle,
+    image: bytes,
     progress: ProgressCallback | None = None,
 ) -> FlashResult:
     """Deliver an assembled firmware image to a connected radio.
@@ -106,17 +107,17 @@ async def flash(
     Runs whichever phase of the update the radio says it is in, so a full update
     is two calls with a reconnect in between:
 
-        if await flash(conn, bundle) == "REBOOT_PENDING":
+        if await flash(conn, image) == "REBOOT_PENDING":
             ... reconnect ...
-            await flash(conn, bundle)
+            await flash(conn, image)
 
-    Passing a `bundle` other than the one already staged is rejected by the radio
-    at `UPDATE_SYNC_REQ`.
+    Passing an `image` other than the one already staged is rejected by the radio
+    at `UPDATE_SYNC_REQ`, which compares the last four bytes of its md5.
     """
     async with conn.subscribe(_is_vm_message) as inbox:
         await _vm_connect(conn, inbox)
 
-        state = (await _sync(conn, inbox, bundle.md5_tail)).update_state
+        state = (await _sync(conn, inbox, _md5_tail(image))).update_state
         await _start(conn, inbox)
 
         match state:
@@ -125,7 +126,7 @@ async def flash(
                 # radio owns it, and UPDATE_ABORT_REQ would throw it away.
                 try:
                     if state is UpdateState.DATA_TRANSFER:
-                        await _transfer(conn, inbox, bundle, progress)
+                        await _transfer(conn, inbox, image, progress)
                     # VALIDATION appears in no capture. The image is already
                     # delivered in that state, so ask whether the checksum
                     # finished rather than sending all of it again.
@@ -160,7 +161,7 @@ async def flash(
 async def _transfer(
     conn: CommandConnection,
     inbox: asyncio.Queue[RadioMessage],
-    bundle: FirmwareBundle,
+    image: bytes,
     progress: ProgressCallback | None,
 ) -> None:
     """Send the image, one device-requested chunk at a time."""
@@ -168,8 +169,7 @@ async def _transfer(
         conn, VmControlType.UPDATE_START_DATA_REQ, VmControlUpdateDataStartReq()
     )
 
-    data = bundle.data
-    total = len(data)
+    total = len(image)
     offset = 0
 
     while offset < total:
@@ -183,7 +183,7 @@ async def _transfer(
         # Non-zero only when the radio already holds part of the image.
         offset += req.n_bytes_skip
 
-        chunk = data[offset:offset + req.n_bytes_requested]
+        chunk = image[offset:offset + req.n_bytes_requested]
         if not chunk:
             raise FlashError(
                 f"radio asked for {req.n_bytes_requested} bytes at offset "
@@ -298,6 +298,12 @@ async def _abort(conn: CommandConnection) -> None:
 
 #####################
 # Transport
+
+def _md5_tail(image: bytes) -> bytes:
+    """Last 4 bytes of the md5 digest, which is how UPDATE_SYNC_REQ names an
+    image."""
+    return hashlib.md5(image).digest()[-4:]
+
 
 class FlashError(RuntimeError):
     """The radio rejected or abandoned the update."""

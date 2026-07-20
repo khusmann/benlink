@@ -4,7 +4,7 @@ import typing as t
 import pytest
 
 from benlink.command import CommandConnection
-from benlink.firmware import FirmwareBundle, FirmwareInfo, UpdateInfo, flash
+from benlink.firmware import flash
 from benlink.firmware._flash import FlashError, FlashResult
 import benlink.protocol as p
 from benlink.protocol.command.bt_notification import (
@@ -32,16 +32,6 @@ from benlink.protocol.command.vm import (
 )
 
 CHUNK = 145
-
-
-def _bundle(data: bytes) -> FirmwareBundle:
-    return FirmwareBundle(
-        data=data,
-        update_info=UpdateInfo(
-            firmware=FirmwareInfo(version=147, url="", md5=None),
-            base=FirmwareInfo(version=1, url="", md5=None),
-        ),
-    )
 
 
 class FakeRadio:
@@ -214,11 +204,11 @@ class FakeRadio:
                 )
 
 
-def _run(radio: FakeRadio, bundle: FirmwareBundle, **kwargs: t.Any) -> FlashResult:
+def _run(radio: FakeRadio, image: bytes, **kwargs: t.Any) -> FlashResult:
     async def main() -> FlashResult:
         conn = CommandConnection(radio)
         await conn.connect()
-        return await flash(conn, bundle, **kwargs)
+        return await flash(conn, image, **kwargs)
 
     return asyncio.run(main())
 
@@ -227,7 +217,7 @@ def test_transfer_phase_sends_whole_image():
     data = bytes(range(256)) * 5
     radio = FakeRadio()
 
-    result = _run(radio, _bundle(data))
+    result = _run(radio, data)
 
     assert result == "REBOOT_PENDING"
     assert bytes(radio.received) == data
@@ -237,7 +227,7 @@ def test_transfer_phase_sends_whole_image():
 def test_final_fragment_is_flagged_once_at_the_end():
     data = b"x" * (CHUNK * 3)
     radio = FakeRadio()
-    _run(radio, _bundle(data))
+    _run(radio, data)
 
     # The radio stops asking for more only because the last UPDATE_DATA said so,
     # and an image that divides evenly into chunks must still flag its last one.
@@ -248,7 +238,7 @@ def test_image_shorter_than_one_chunk():
     data = b"tiny"
     radio = FakeRadio()
 
-    assert _run(radio, _bundle(data)) == "REBOOT_PENDING"
+    assert _run(radio, data) == "REBOOT_PENDING"
     assert bytes(radio.received) == data
 
 
@@ -259,7 +249,7 @@ def test_progress_reports_reach_the_total():
     def record(label: str, done: int, total: int) -> None:
         seen.append((label, done, total))
 
-    _run(FakeRadio(), _bundle(data), progress=record)
+    _run(FakeRadio(), data, progress=record)
 
     assert [n for _, n, _ in seen] == [CHUNK, CHUNK * 2, len(data)]
     assert all(total == len(data) for _, _, total in seen)
@@ -269,7 +259,7 @@ def test_resume_honours_n_bytes_skip():
     data = bytes(range(256)) * 4
     radio = FakeRadio(skip_first=300)
 
-    _run(radio, _bundle(data))
+    _run(radio, data)
 
     # The radio already had the first 300 bytes, so they are never resent.
     assert bytes(radio.received) == data[300:]
@@ -278,7 +268,7 @@ def test_resume_honours_n_bytes_skip():
 def test_in_progress_state_finalizes_instead_of_transferring():
     radio = FakeRadio(state=UpdateState.IN_PROGRESS)
 
-    result = _run(radio, _bundle(b"unused"))
+    result = _run(radio, b"unused")
 
     assert result == "COMPLETE"
     assert VmControlType.UPDATE_DATA not in radio.sent
@@ -289,7 +279,7 @@ def test_in_progress_state_finalizes_instead_of_transferring():
 def test_transfer_complete_state_only_asks_for_the_reboot():
     radio = FakeRadio(state=UpdateState.TRANSFER_COMPLETE)
 
-    result = _run(radio, _bundle(b"unused"))
+    result = _run(radio, b"unused")
 
     assert result == "REBOOT_PENDING"
     assert VmControlType.UPDATE_DATA not in radio.sent
@@ -307,7 +297,7 @@ def test_reboot_request_asks_the_radio_to_restart_now():
         await original(msg)
 
     radio.send = record  # type: ignore[method-assign]
-    _run(radio, _bundle(b"unused"))
+    _run(radio, b"unused")
 
     final = sent[-1]
     assert isinstance(final.body, VmControlBody)
@@ -319,7 +309,7 @@ def test_update_error_is_raised_not_waited_out():
     radio = FakeRadio(error_after=CHUNK)
 
     with pytest.raises(FlashError, match="BATTERY_LOW"):
-        _run(radio, _bundle(b"z" * CHUNK * 10))
+        _run(radio, b"z" * CHUNK * 10)
 
     assert radio.aborted
 
@@ -330,7 +320,7 @@ def test_failure_after_staging_does_not_abort():
     radio.error_on_finalize = True
 
     with pytest.raises(FlashError):
-        _run(radio, _bundle(b"unused"))
+        _run(radio, b"unused")
 
     assert not radio.aborted
 
@@ -340,5 +330,5 @@ def test_reply_arriving_before_it_is_awaited_is_not_lost():
     flash, so a radio that answers early is buffered rather than dropped."""
     radio = FakeRadio(state=UpdateState.TRANSFER_COMPLETE, preempt_sync=True)
 
-    assert _run(radio, _bundle(b"unused")) == "REBOOT_PENDING"
+    assert _run(radio, b"unused") == "REBOOT_PENDING"
     assert radio.sent[-1] == VmControlType.UPDATE_TRANSFER_COMPLETE_RES
