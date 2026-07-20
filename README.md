@@ -94,6 +94,7 @@ of so far:
 
 - [HTCommander](https://github.com/Ylianst/HTCommander)
 - [flutter_benlink](https://github.com/SarahRoseLives/flutter_benlink)
+- [OpenHT](https://github.com/repins267/repins267-OpenHT)
 
 If you've found benlink's documentation of the Benshi protocol helpful, or use
 benlink in your own project, please let me know so I can add it to this list.
