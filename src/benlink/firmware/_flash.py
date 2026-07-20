@@ -78,6 +78,7 @@ _REPLY_TIMEOUT = 15.0
 _CHUNK_TIMEOUT = 60.0
 _VALIDATION_TIMEOUT = 180.0
 _COMPLETE_TIMEOUT = 180.0
+_ABORT_TIMEOUT = 5.0
 
 # The radio reboots on its own once it accepts UPDATE_TRANSFER_COMPLETE_RES, so
 # this byte is not "did the transfer succeed" despite the field name: 0 proceeds
@@ -150,7 +151,7 @@ async def flash(
                 except (Exception, KeyboardInterrupt, asyncio.CancelledError):
                     # Ctrl+C and cancellation are not `Exception`, but a radio
                     # left mid-transfer still deserves to be told.
-                    await _abort_transfer(conn)
+                    await _abort_transfer(conn, inbox)
                     raise
                 await _request_reboot(conn)
                 return "REBOOT_PENDING"
@@ -339,8 +340,14 @@ async def _start(
     await _recv_vmu(inbox, VmuPacketType.UPDATE_START_CFM)
 
 
-async def _abort_transfer(conn: CommandConnection) -> None:
+async def _abort_transfer(
+    conn: CommandConnection, inbox: asyncio.Queue[RadioMessage]
+) -> None:
     """Best effort: the original failure is what the caller needs to see.
+
+    Waits for `UPDATE_ABORT_CFM` so the radio has actually processed the abort
+    before the caller drops the link, but on a short leash — this runs while the
+    caller is already unwinding, often from Ctrl+C, and must not look hung.
 
     Only `Exception` is swallowed, so a second Ctrl+C during the abort gets out
     rather than being absorbed by the cleanup.
@@ -348,6 +355,9 @@ async def _abort_transfer(conn: CommandConnection) -> None:
     try:
         await _send_control(
             conn, VmControlType.UPDATE_ABORT_REQ, VmControlUpdateAbortReq()
+        )
+        await _recv_vmu(
+            inbox, VmuPacketType.UPDATE_ABORT_CFM, timeout=_ABORT_TIMEOUT
         )
     except Exception:
         pass

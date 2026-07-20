@@ -394,8 +394,8 @@ async def _cmd_update(args: argparse.Namespace) -> int:
             async with _graceful_interrupt():
                 result = await flash(conn, bundle.data, _make_progress())
         except asyncio.CancelledError:
-            _out("Stopped. The radio was told to discard the transfer; "
-                 "re-run to start over, as it does not resume.")
+            _out("Cancelled. Re-run to start over, as the transfer "
+                 "does not resume.")
             _out(f"The assembled image has been kept at {path}")
             return 130
         except Exception as e:
@@ -474,8 +474,8 @@ async def _cmd_flash(args: argparse.Namespace) -> int:
             async with _graceful_interrupt():
                 result = await flash(conn, image, _make_progress())
         except asyncio.CancelledError:
-            _out("Stopped. The radio was told to discard the transfer; "
-                 "re-run to start over, as it does not resume.")
+            _out("Cancelled. Re-run to start over, as the transfer "
+                 "does not resume.")
             return 130
         except Exception as e:
             _out()
