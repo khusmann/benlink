@@ -34,7 +34,6 @@ pick up.
 from __future__ import annotations
 import asyncio
 import typing as t
-from enum import Enum
 
 from .. import protocol as p
 from ..protocol.command.bt_notification import (
@@ -84,15 +83,14 @@ _COMPLETE_TIMEOUT = 180.0
 _REBOOT_NOW = False
 
 
-class FlashResult(Enum):
-    """What `flash` left the radio doing."""
+FlashResult = t.Literal["REBOOT_PENDING", "COMPLETE"]
+"""What `flash` left the radio doing.
 
-    REBOOT_PENDING = "reboot_pending"
-    """The image is staged. The radio is rebooting and the connection will drop;
-    reconnect and call `flash` again to finish."""
+`REBOOT_PENDING`: the image is staged, and the radio is rebooting. The connection
+will drop; reconnect and call `flash` again to finish.
 
-    COMPLETE = "complete"
-    """The update is committed and running."""
+`COMPLETE`: the update is committed and running.
+"""
 
 
 async def flash(
@@ -108,7 +106,7 @@ async def flash(
     Runs whichever phase of the update the radio says it is in, so a full update
     is two calls with a reconnect in between:
 
-        if await flash(conn, bundle) is FlashResult.REBOOT_PENDING:
+        if await flash(conn, bundle) == "REBOOT_PENDING":
             ... reconnect ...
             await flash(conn, bundle)
 
@@ -136,15 +134,15 @@ async def flash(
                     await _abort(conn)
                     raise
                 await _request_reboot(conn)
-                return FlashResult.REBOOT_PENDING
+                return "REBOOT_PENDING"
 
             case UpdateState.TRANSFER_COMPLETE:
                 await _request_reboot(conn)
-                return FlashResult.REBOOT_PENDING
+                return "REBOOT_PENDING"
 
             case UpdateState.IN_PROGRESS:
                 await _finalize(conn, inbox)
-                return FlashResult.COMPLETE
+                return "COMPLETE"
 
             case UpdateState.COMMIT:
                 # UPDATE_COMMIT_CFM exists, but no capture shows the app in this
@@ -301,7 +299,7 @@ async def _abort(conn: CommandConnection) -> None:
 #####################
 # Transport
 
-class FlashError(Exception):
+class FlashError(RuntimeError):
     """The radio rejected or abandoned the update."""
 
 

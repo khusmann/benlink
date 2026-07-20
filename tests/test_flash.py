@@ -229,7 +229,7 @@ def test_transfer_phase_sends_whole_image():
 
     result = _run(radio, _bundle(data))
 
-    assert result is FlashResult.REBOOT_PENDING
+    assert result == "REBOOT_PENDING"
     assert bytes(radio.received) == data
     assert radio.sent[-1] == VmControlType.UPDATE_TRANSFER_COMPLETE_RES
 
@@ -248,7 +248,7 @@ def test_image_shorter_than_one_chunk():
     data = b"tiny"
     radio = FakeRadio()
 
-    assert _run(radio, _bundle(data)) is FlashResult.REBOOT_PENDING
+    assert _run(radio, _bundle(data)) == "REBOOT_PENDING"
     assert bytes(radio.received) == data
 
 
@@ -280,7 +280,7 @@ def test_in_progress_state_finalizes_instead_of_transferring():
 
     result = _run(radio, _bundle(b"unused"))
 
-    assert result is FlashResult.COMPLETE
+    assert result == "COMPLETE"
     assert VmControlType.UPDATE_DATA not in radio.sent
     assert VmControlType.UPDATE_IN_PROGRESS_RES in radio.sent
     assert radio.disconnected
@@ -291,7 +291,7 @@ def test_transfer_complete_state_only_asks_for_the_reboot():
 
     result = _run(radio, _bundle(b"unused"))
 
-    assert result is FlashResult.REBOOT_PENDING
+    assert result == "REBOOT_PENDING"
     assert VmControlType.UPDATE_DATA not in radio.sent
     assert radio.sent[-1] == VmControlType.UPDATE_TRANSFER_COMPLETE_RES
 
@@ -340,5 +340,5 @@ def test_reply_arriving_before_it_is_awaited_is_not_lost():
     flash, so a radio that answers early is buffered rather than dropped."""
     radio = FakeRadio(state=UpdateState.TRANSFER_COMPLETE, preempt_sync=True)
 
-    assert _run(radio, _bundle(b"unused")) is FlashResult.REBOOT_PENDING
+    assert _run(radio, _bundle(b"unused")) == "REBOOT_PENDING"
     assert radio.sent[-1] == VmControlType.UPDATE_TRANSFER_COMPLETE_RES

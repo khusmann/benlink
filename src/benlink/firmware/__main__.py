@@ -21,7 +21,6 @@ from . import (
     PRODUCTS,
     FirmwareBundle,
     FirmwareInfo,
-    FlashResult,
     UpdateInfo,
     assemble,
     check_update,
@@ -315,7 +314,7 @@ async def _cmd_update(args: argparse.Namespace) -> int:
             return 1
         _out()
 
-        if result is FlashResult.COMPLETE:
+        if result == "COMPLETE":
             _out("Firmware update complete.")
             return 0
 
@@ -336,7 +335,7 @@ async def _commit_after_reboot(
         await asyncio.sleep(_REBOOT_WAIT)
         try:
             async with _radio(args) as conn:
-                if await flash(conn, bundle) is FlashResult.COMPLETE:
+                if await flash(conn, bundle) == "COMPLETE":
                     _out()
                     _out("Firmware update complete.")
                     return 0
