@@ -10,6 +10,7 @@ import asyncio
 import contextlib
 import hashlib
 import os
+import signal
 import sys
 import tempfile
 import time
@@ -133,6 +134,26 @@ def _write(path: str, data: bytes, force: bool) -> None:
     with open(path, "wb") as f:
         f.write(data)
     print(path)
+
+
+@contextlib.contextmanager
+def _graceful_interrupt() -> t.Generator[None, None, None]:
+    """Say something the moment Ctrl+C lands.
+
+    `flash` tells the radio to abort on the way out, which takes a moment. With
+    no message the transfer just appears to hang after the keypress.
+    """
+    def handler(*_: t.Any) -> None:
+        _out()
+        _out("Interrupted. Telling the radio to abort "
+             "(press Ctrl+C again to quit without waiting)...")
+        raise KeyboardInterrupt
+
+    previous = signal.signal(signal.SIGINT, handler)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGINT, previous)
 
 
 def _confirm(question: str, default_yes: bool, assume_yes: bool) -> bool:
@@ -342,7 +363,13 @@ async def _cmd_update(args: argparse.Namespace) -> int:
 
         _out("Do not power off the radio until this finishes.")
         try:
-            result = await flash(conn, bundle.data, _make_progress())
+            with _graceful_interrupt():
+                result = await flash(conn, bundle.data, _make_progress())
+        except KeyboardInterrupt:
+            _out("Stopped. The radio was told to discard the transfer; "
+                 "re-run to start over, as it does not resume.")
+            _out(f"The assembled image has been kept at {path}")
+            return 130
         except Exception as e:
             _out()
             _out(f"error: {e}")
@@ -416,7 +443,12 @@ async def _cmd_flash(args: argparse.Namespace) -> int:
 
         _out("Do not power off the radio until this finishes.")
         try:
-            result = await flash(conn, image, _make_progress())
+            with _graceful_interrupt():
+                result = await flash(conn, image, _make_progress())
+        except KeyboardInterrupt:
+            _out("Stopped. The radio was told to discard the transfer; "
+                 "re-run to start over, as it does not resume.")
+            return 130
         except Exception as e:
             _out()
             _out(f"error: {e}")
