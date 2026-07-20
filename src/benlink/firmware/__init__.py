@@ -97,24 +97,35 @@ from ._fetch import (
 )
 from ._flash import FlashError, FlashResult, abort_update, flash
 
+# Grouped by what you reach for, in the order you reach for it, rather than
+# alphabetically: pdoc lays the documentation page out in exactly this order.
 __all__ = [
-    "BASE_IMAGES",
+    # Which radios and base images exist
     "PRODUCTS",
-    "FirmwareBundle",
+    "BASE_IMAGES",
+
+    # What a release looks like
     "FirmwareInfo",
-    "FlashError",
-    "FlashResult",
-    "ProgressCallback",
     "UpdateInfo",
-    "abort_update",
-    "assemble",
+    "FirmwareBundle",
+    "ProgressCallback",
+
+    # Finding one
     "check_update",
-    "download",
-    "download_firmware",
-    "extract_base",
-    "fetch_firmware",
-    "flash",
-    "oss_base_url",
-    "oss_patch_url",
     "oss_update_info",
+    "oss_patch_url",
+    "oss_base_url",
+
+    # Downloading and assembling it
+    "fetch_firmware",
+    "download_firmware",
+    "download",
+    "extract_base",
+    "assemble",
+
+    # Putting it on the radio
+    "flash",
+    "abort_update",
+    "FlashResult",
+    "FlashError",
 ]
