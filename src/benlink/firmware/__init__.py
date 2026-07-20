@@ -30,7 +30,7 @@ artifacts, this path cannot pair a patch with the wrong base.
 Add `--rfcomm CHANNEL` for RFCOMM instead of BLE, `--keep DIR` to write somewhere
 durable, `-y` to accept prompts.
 
-Interrupted transfers restart rather than resume.
+Ctrl+C safely aborts a transfer; the next attempt restarts rather than resumes.
 
 # The pieces
 
