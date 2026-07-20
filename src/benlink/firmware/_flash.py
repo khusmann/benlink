@@ -1,5 +1,8 @@
 """Delivering an assembled firmware image to a radio.
 
+**This can break your radio, and nothing in this library can undo it.
+Use this at your own risk. I am not responsible for bricking your radio.**
+
 The transfer runs over the same command connection as everything else, in two
 phases separated by a reboot:
 
@@ -99,7 +102,8 @@ async def flash(
 ) -> FlashResult:
     """Deliver an assembled firmware image to a connected radio.
 
-    **This can break your radio, and nothing here can undo it.**
+    **This can break your radio, and nothing in this library can undo it.
+    Use this at your own risk. I am not responsible for bricking your radio.**
 
     Runs whichever phase of the update the radio says it is in, so a full update
     is two calls with a reconnect in between:
