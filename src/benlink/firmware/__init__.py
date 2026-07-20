@@ -55,7 +55,7 @@ python -m benlink.firmware assemble --base base.zip --patch patch.bin -o fw.bin
 # put an image you already have onto the radio
 python -m benlink.firmware flash XX:XX:XX:XX:XX:XX --image fw.bin
 
-# clear an update the radio was left partway through
+# clear an update the radio was left partway through (if you didn't exit cleanly)
 python -m benlink.firmware abort XX:XX:XX:XX:XX:XX
 ```
 
